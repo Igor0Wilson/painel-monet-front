@@ -1,27 +1,43 @@
 import React from 'react';
-import { FaSeedling, FaShieldAlt, FaTimes, FaUtensils } from 'react-icons/fa';
-import { formatCurrency } from '../../utils/formatters';
+import { FaCalendarAlt, FaSeedling, FaShieldAlt, FaTimes, FaUtensils } from 'react-icons/fa';
+import { formatCurrency, formatDateBr } from '../../utils/formatters';
 
 interface Props {
   isOpen: boolean;
   variant: 'emergency' | 'investment' | 'food';
   value: string;
+  creditDate?: string;
+  isRecurring?: boolean;
   maxLimit: number;
   usedAmount?: number;
   loading: boolean;
   onChangeValue: (val: string) => void;
+  onChangeCreditDate?: (date: string) => void;
+  onChangeIsRecurring?: (recurring: boolean) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
+}
+
+function getTodayIso(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 const AllocationModal: React.FC<Props> = ({
   isOpen,
   variant,
   value,
+  creditDate = getTodayIso(),
+  isRecurring = true,
   maxLimit,
   usedAmount = 0,
   loading,
   onChangeValue,
+  onChangeCreditDate,
+  onChangeIsRecurring,
   onClose,
   onSubmit,
 }) => {
@@ -29,6 +45,8 @@ const AllocationModal: React.FC<Props> = ({
 
   const isEmergency = variant === 'emergency';
   const isFood = variant === 'food';
+  const todayIso = getTodayIso();
+  const isFutureDate = Boolean(isFood && creditDate && creditDate > todayIso);
 
   const IconComp = isFood ? FaUtensils : isEmergency ? FaShieldAlt : FaSeedling;
   const headerBadgeClass = isFood
@@ -95,11 +113,70 @@ const AllocationModal: React.FC<Props> = ({
               placeholder="0,00"
             />
             {isFood ? (
-              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                As despesas de <strong>Alimentação</strong> e <strong>FastFood</strong> pagas com{' '}
-                <strong>VA</strong> ou <strong>VR</strong> descontam automaticamente deste saldo
-                {usedAmount > 0 ? ` (já utilizado: ${formatCurrency(usedAmount)})` : ''}.
-              </p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="exec-label flex items-center gap-1.5">
+                    {React.createElement(FaCalendarAlt as any, {
+                      className: 'text-[10px] text-slate-400',
+                    })}
+                    Data em que o VA / VR vai cair
+                  </label>
+                  <input
+                    type="date"
+                    value={creditDate}
+                    onChange={(e) => onChangeCreditDate?.(e.target.value)}
+                    className="exec-input"
+                    required
+                  />
+                </div>
+
+                <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => onChangeIsRecurring?.(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors ${
+                        isRecurring ? 'bg-amber-500' : 'bg-slate-200'
+                      }`}
+                    />
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                        isRecurring ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-700">
+                    Benefício fixo mensal (cai todo mês nesse dia)
+                  </span>
+                </label>
+
+                <div
+                  className={`rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed ${
+                    isFutureDate
+                      ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                      : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                  }`}
+                >
+                  {isFutureDate ? (
+                    <>
+                      <strong>Agendado para {formatDateBr(creditDate)}:</strong> o valor ficará como{' '}
+                      <strong>A cair</strong> e só será somado ao saldo lá em cima quando chegar o dia{' '}
+                      <strong>{formatDateBr(creditDate)}</strong> (igual ao salário).
+                    </>
+                  ) : (
+                    <>
+                      Como a data <strong>{formatDateBr(creditDate)}</strong> já chegou, o valor será
+                      contabilizado imediatamente no seu saldo de{' '}
+                      <strong>Vale Alimentação / Refeição</strong>
+                      {usedAmount > 0 ? ` (já utilizado: ${formatCurrency(usedAmount)})` : ''}.
+                    </>
+                  )}
+                </div>
+              </div>
             ) : (
               <p className="text-[11px] text-slate-400 mt-1.5">
                 {isEmergency

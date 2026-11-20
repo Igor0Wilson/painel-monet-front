@@ -9,7 +9,7 @@ import {
   FaUtensils,
 } from 'react-icons/fa';
 import { BalanceData } from '../../types/finance';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatDateBr } from '../../utils/formatters';
 
 interface Props {
   balance: BalanceData;
@@ -182,13 +182,24 @@ const KpiGrid: React.FC<Props> = ({
             <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
               {formatCurrency(balance.foodAllowance || 0)}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {isFamilyMode
-                ? `Seu saldo VA/VR: ${formatCurrency(balance.ownFoodAllowance || 0)} (Total: ${formatCurrency(balance.foodAllowanceTotal || 0)})`
-                : (balance.foodAllowanceUsed || 0) > 0
-                  ? `Total: ${formatCurrency(balance.foodAllowanceTotal || 0)} · Usado em VA/VR: ${formatCurrency(balance.foodAllowanceUsed || 0)}`
-                  : 'Saldo para compras em Alimentação e FastFood (VA / VR)'}
-            </p>
+            <div className="text-xs text-slate-400 mt-1 space-y-0.5">
+              {(balance.foodAllowanceScheduled || 0) > 0 && (
+                <p className="text-amber-700 font-semibold tabular-nums">
+                  A cair
+                  {balance.ownFoodAllowanceNextDate
+                    ? ` em ${formatDateBr(balance.ownFoodAllowanceNextDate).slice(0, 5)}`
+                    : ''}
+                  : {formatCurrency(balance.foodAllowanceScheduled || 0)}
+                </p>
+              )}
+              <p>
+                {isFamilyMode
+                  ? `Seu saldo VA/VR: ${formatCurrency(balance.ownFoodAllowance || 0)}`
+                  : (balance.foodAllowanceUsed || 0) > 0
+                    ? `Creditado: ${formatCurrency(balance.foodAllowanceTotal || 0)} · Usado: ${formatCurrency(balance.foodAllowanceUsed || 0)}`
+                    : 'Entra no saldo na data informada (VA / VR)'}
+              </p>
+            </div>
           </div>
 
           {onOpenFoodAllowanceModal && (

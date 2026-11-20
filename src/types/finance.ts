@@ -17,7 +17,12 @@ export interface MemberBreakdown {
   investments: number;
   foodAllowance?: number;
   foodAllowanceTotal?: number;
+  foodAllowanceConfigured?: number;
+  foodAllowanceScheduled?: number;
   foodAllowanceUsed?: number;
+  foodAllowanceDate?: string | null;
+  foodAllowanceRecurring?: boolean;
+  foodAllowanceNextDate?: string | null;
 }
 
 export interface BalanceData {
@@ -30,13 +35,19 @@ export interface BalanceData {
   investments: number;
   foodAllowance?: number;
   foodAllowanceTotal?: number;
+  foodAllowanceScheduled?: number;
   foodAllowanceUsed?: number;
   ownBalance: number;
   ownEmergencyFund: number;
   ownInvestments: number;
   ownFoodAllowance?: number;
   ownFoodAllowanceTotal?: number;
+  ownFoodAllowanceConfigured?: number;
+  ownFoodAllowanceScheduled?: number;
   ownFoodAllowanceUsed?: number;
+  ownFoodAllowanceDate?: string | null;
+  ownFoodAllowanceRecurring?: boolean;
+  ownFoodAllowanceNextDate?: string | null;
   memberBreakdown: MemberBreakdown[];
 }
 

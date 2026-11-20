@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import api from '../api';
+import api, { resolveApiBaseUrl } from '../api';
 import { getApiErrorStatus } from '../utils/errorHandler';
 
 interface UseFamilyRealtimeSyncOptions {
@@ -20,9 +20,7 @@ export function useFamilyRealtimeSync({
     if (!token) return;
 
     const controller = new AbortController();
-    const baseURL = (
-      process.env.REACT_APP_API_URL || 'http://localhost:3000'
-    ).replace(/\/+$/, '');
+    const baseURL = resolveApiBaseUrl();
 
     const checkSyncVersion = async () => {
       try {

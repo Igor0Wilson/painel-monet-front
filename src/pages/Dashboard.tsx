@@ -120,6 +120,14 @@ const Dashboard: React.FC = () => {
     null,
   );
   const [allocationInput, setAllocationInput] = useState('');
+  const [foodCreditDate, setFoodCreditDate] = useState<string>(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+  const [foodIsRecurring, setFoodIsRecurring] = useState<boolean>(true);
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
 
   const [categoryDetailState, setCategoryDetailState] = useState<{
@@ -253,11 +261,20 @@ const Dashboard: React.FC = () => {
   const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
     const currentVal =
       variant === 'food'
-        ? balance.ownFoodAllowanceTotal ?? balance.foodAllowanceTotal ?? 0
+        ? balance.ownFoodAllowanceConfigured ??
+          balance.ownFoodAllowanceTotal ??
+          balance.foodAllowanceTotal ??
+          0
         : variant === 'emergency'
           ? balance.ownEmergencyFund ?? balance.emergencyFund ?? 0
           : balance.ownInvestments ?? balance.investments ?? 0;
     setAllocationInput(String(currentVal));
+    if (variant === 'food') {
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      setFoodCreditDate(balance.ownFoodAllowanceDate || todayIso);
+      setFoodIsRecurring(balance.ownFoodAllowanceRecurring ?? true);
+    }
     setAllocationModal(variant);
   };
 
@@ -296,7 +313,14 @@ const Dashboard: React.FC = () => {
         : isEmergency
           ? '/balance/emergency-fund'
           : '/balance/investments';
-      await api.post(endpoint, { amount });
+      const payload = isFood
+        ? {
+            amount,
+            creditDate: foodCreditDate,
+            isRecurring: foodIsRecurring,
+          }
+        : { amount };
+      await api.post(endpoint, payload);
       toast.success(
         isFood
           ? 'Vale Alimentação / Refeição atualizado!'
@@ -780,10 +804,14 @@ const Dashboard: React.FC = () => {
         isOpen={allocationModal !== null}
         variant={allocationModal || 'emergency'}
         value={allocationInput}
+        creditDate={foodCreditDate}
+        isRecurring={foodIsRecurring}
         maxLimit={allocationMaxLimit}
         usedAmount={balance.ownFoodAllowanceUsed ?? balance.foodAllowanceUsed ?? 0}
         loading={isAllocationLoading}
         onChangeValue={setAllocationInput}
+        onChangeCreditDate={setFoodCreditDate}
+        onChangeIsRecurring={setFoodIsRecurring}
         onClose={() => setAllocationModal(null)}
         onSubmit={handleAllocationSubmit}
       />
