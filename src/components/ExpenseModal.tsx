@@ -20,8 +20,17 @@ import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import type { PaymentMethod } from './PayExpenseModal';
 import type { ExpenseItem } from '../types/finance';
-import { filterOfficialAccountTypes, isFoodCategory } from '../utils/categories';
+import {
+  filterOfficialAccountTypes,
+  isFoodCategory,
+  normalizeCategoryName,
+} from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
+import {
+  formatCurrencyInput,
+  formatNumberToCurrencyInput,
+  parseCurrencyInput,
+} from '../utils/formatters';
 
 interface AccountType {
   id: string;
@@ -33,17 +42,29 @@ const schema = yup
     name: yup.string().required('Descrição é obrigatória'),
     accountTypeId: yup.string().required('Selecione uma categoria'),
     value: yup
-      .number()
-      .typeError('Informe um valor numérico')
-      .positive('O valor deve ser positivo')
-      .required('Valor é obrigatório'),
+      .string()
+      .required('Valor é obrigatório')
+      .test(
+        'positive-currency',
+        'O valor deve ser positivo',
+        (val) => parseCurrencyInput(val) > 0,
+      ),
     dueDate: yup.string().required('Data é obrigatória'),
     isRecurring: yup.boolean(),
     isInstallment: yup.boolean(),
     installmentCount: yup.number().when('isInstallment', {
       is: true,
-      then: (s) => s.min(2, 'Mínimo de 2 parcelas').required('Informe o número de parcelas'),
-      otherwise: (s) => s.nullable().transform((v) => v || null),
+      then: (s) =>
+        s
+          .transform((v, orig) =>
+            orig === '' || orig === null || Number.isNaN(v) ? undefined : v,
+          )
+          .min(2, 'Mínimo de 2 parcelas')
+          .required('Informe o número de parcelas'),
+      otherwise: (s) =>
+        s
+          .nullable()
+          .transform((v, orig) => (orig === '' || Number.isNaN(v) ? null : v)),
     }),
     isPaid: yup.boolean(),
   })
@@ -56,6 +77,31 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   initialData?: Partial<ExpenseItem> | null;
+}
+
+const VALID_PAYMENT_METHODS: PaymentMethod[] = [
+  'dinheiro',
+  'pix',
+  'debito',
+  'credito',
+  'va',
+  'vr',
+];
+
+function normalizeDateInput(raw?: string | null): string {
+  if (!raw) return getTodayIso();
+  return String(raw).split('T')[0];
+}
+
+function resolveInitialPaymentMethod(initialData?: Partial<ExpenseItem> | null): PaymentMethod {
+  const method = initialData?.paymentMethod as PaymentMethod | undefined;
+  if (method && VALID_PAYMENT_METHODS.includes(method)) {
+    return method;
+  }
+  if (initialData?.isCreditCard) {
+    return 'credito';
+  }
+  return 'pix';
 }
 
 function getTodayIso(): string {
@@ -87,17 +133,20 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const [creditInstallments, setCreditInstallments] = useState<string>('1');
   const [firstInstallmentDate, setFirstInstallmentDate] = useState<string>(getNextMonthIso());
   const [creditError, setCreditError] = useState<string>('');
+  const [editIsCreditCard, setEditIsCreditCard] = useState<boolean>(false);
 
   const {
     register,
     handleSubmit,
     watch,
     reset,
+    setValue,
     control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: yupResolver(schema) as unknown as Resolver<FormData>,
     defaultValues: {
+      value: '',
       isRecurring: false,
       isInstallment: false,
       isPaid: false,
@@ -107,7 +156,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const isRecurring = watch('isRecurring');
   const isInstallment = watch('isInstallment');
   const isPaid = watch('isPaid');
-  const watchedValue = Number(watch('value')) || 0;
+  const watchedValue = parseCurrencyInput(watch('value'));
   const watchedInstallments = Number(watch('installmentCount')) || 0;
   const watchedAccountTypeId = watch('accountTypeId');
   const watchedName = watch('name');
@@ -134,46 +183,85 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
   useEffect(() => {
     if (isOpen) {
+      let active = true;
       api
         .get('/account-types')
         .then((response) => {
-          setAccountTypes(filterOfficialAccountTypes(response.data || []));
+          if (!active) return;
+          const officialTypes = filterOfficialAccountTypes(response.data || []);
+          setAccountTypes(officialTypes);
+
+          if (initialData) {
+            const exactMatch = officialTypes.find((t) => t.id === initialData.accountTypeId);
+            if (exactMatch) {
+              setValue('accountTypeId', exactMatch.id);
+            } else if (initialData.accountType?.name) {
+              const targetCategory = normalizeCategoryName(initialData.accountType.name);
+              const categoryMatch = officialTypes.find(
+                (t) => normalizeCategoryName(t.name) === targetCategory,
+              );
+              if (categoryMatch) {
+                setValue('accountTypeId', categoryMatch.id);
+              }
+            }
+          }
         })
         .catch((error: unknown) => {
           toast.error(extractApiErrorMessage(error, 'Erro ao carregar categorias'));
         });
 
       setCreditError('');
-      setPurchasePaymentMethod('pix');
-      setCreditInstallments('1');
-      setFirstInstallmentDate(getNextMonthIso());
 
       if (initialData) {
+        const normalizedDue = normalizeDateInput(initialData.dueDate);
+        const initialCredit = Boolean(
+          initialData.isCreditCard || initialData.paymentMethod === 'credito',
+        );
+        const initialMethod = resolveInitialPaymentMethod(initialData);
+        const initialInstallmentQty =
+          initialData.installmentCount && initialData.installmentCount >= 1
+            ? initialData.installmentCount
+            : 1;
+
         setIsOneTimePurchase(false);
+        setEditIsCreditCard(initialCredit);
+        setPurchasePaymentMethod(initialMethod);
+        setCreditInstallments(String(initialInstallmentQty));
+        setFirstInstallmentDate(normalizedDue || getNextMonthIso());
         reset({
-          name: initialData.name,
-          accountTypeId: initialData.accountTypeId,
-          value: initialData.value,
-          dueDate: initialData.dueDate,
-          isRecurring: initialData.isRecurring,
-          isInstallment: initialData.isInstallment,
+          name: initialData.name || '',
+          accountTypeId: initialData.accountTypeId || initialData.accountType?.id || '',
+          value: formatNumberToCurrencyInput(initialData.value),
+          dueDate: normalizedDue,
+          isRecurring: Boolean(initialData.isRecurring),
+          isInstallment: Boolean(initialData.isInstallment),
           installmentCount: initialData.installmentCount ?? undefined,
-          isPaid: initialData.isPaid,
+          isPaid: Boolean(initialData.isPaid),
         });
       } else {
         setIsOneTimePurchase(false);
+        setEditIsCreditCard(false);
+        setPurchasePaymentMethod('pix');
+        setCreditInstallments('1');
+        setFirstInstallmentDate(getNextMonthIso());
         reset({
           name: '',
-          value: undefined as unknown as number,
+          value: '',
           dueDate: getTodayIso(),
           isRecurring: false,
           isInstallment: false,
+          installmentCount: undefined,
           isPaid: false,
           accountTypeId: '',
         });
       }
+
+      return () => {
+        active = false;
+      };
     }
-  }, [isOpen, initialData, reset]);
+    return undefined;
+  }, [isOpen, initialData, reset, setValue]);
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -203,11 +291,31 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
     try {
       setLoading(true);
+      const parsedValue = Number(parseCurrencyInput(data.value).toFixed(2));
 
       if (initialData) {
-        const payload: Record<string, unknown> = { ...data };
-        if (!payload.isInstallment) delete payload.installmentCount;
-        if (payload.isRecurring) payload.isPaid = false;
+        const payload: Record<string, unknown> = {
+          name: data.name.trim(),
+          accountTypeId: data.accountTypeId,
+          value: parsedValue,
+          dueDate: data.dueDate,
+          isRecurring: Boolean(data.isRecurring),
+          isInstallment: Boolean(data.isInstallment),
+          isPaid: Boolean(data.isPaid),
+          isCreditCard: editIsCreditCard,
+        };
+        if (data.isInstallment && data.installmentCount) {
+          payload.installmentCount = Number(data.installmentCount);
+        }
+        if (payload.isRecurring) {
+          payload.isPaid = false;
+        }
+        if (data.isPaid && !isMarkingPaidOnEdit) {
+          payload.paymentMethod = purchasePaymentMethod;
+          if (purchasePaymentMethod === 'credito') {
+            payload.isCreditCard = true;
+          }
+        }
 
         if (isMarkingPaidOnEdit) {
           await api.patch(`/expenses/${initialData.id}`, {
@@ -239,7 +347,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           await api.post('/expenses', {
             name: data.name,
             accountTypeId: data.accountTypeId,
-            value: Number(data.value),
+            value: parsedValue,
             dueDate: firstInstallmentDate,
             isRecurring: false,
             isInstallment: parsedCount >= 2,
@@ -257,7 +365,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           await api.post('/expenses', {
             name: data.name,
             accountTypeId: data.accountTypeId,
-            value: Number(data.value),
+            value: parsedValue,
             dueDate: data.dueDate,
             isRecurring: false,
             isInstallment: false,
@@ -267,7 +375,10 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           toast.success('Pagamento registrado e debitado do saldo disponível!');
         }
       } else {
-        const payload: Record<string, unknown> = { ...data };
+        const payload: Record<string, unknown> = {
+          ...data,
+          value: parsedValue,
+        };
         if (!payload.isInstallment) {
           delete payload.installmentCount;
         } else {
@@ -436,14 +547,23 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
             <div>
               <label className="exec-label">Valor (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                {...register('value')}
-                className={`exec-input tabular-nums font-semibold ${
-                  errors.value ? 'exec-input-error' : ''
-                }`}
-                placeholder="0,00"
+              <Controller
+                name="value"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={field.value || ''}
+                    onChange={(e) =>
+                      field.onChange(formatCurrencyInput(e.target.value, field.value || ''))
+                    }
+                    className={`exec-input tabular-nums font-semibold ${
+                      errors.value ? 'exec-input-error' : ''
+                    }`}
+                    placeholder="0,00"
+                  />
+                )}
               />
               {errors.value && (
                 <p className="mt-1 text-xs text-rose-600 font-medium">{errors.value.message}</p>
@@ -650,6 +770,135 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Edição de Cartão de Crédito, Parcelamento e Forma de Pagamento recuperados */}
+          {initialData && !showPaymentFlow && !isRecurring && (
+            <div className="border-t border-slate-100 pt-4 space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {React.createElement(
+                      FaCreditCard as unknown as React.ComponentType<{ className?: string }>,
+                      { className: 'text-xs text-slate-700' },
+                    )}
+                    <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                      Cartão de Crédito e Pagamento
+                    </span>
+                  </div>
+                  {initialData.installmentNumber && initialData.installmentCount && (
+                    <span className="text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full tabular-nums">
+                      Parcela {initialData.installmentNumber}/{initialData.installmentCount}
+                    </span>
+                  )}
+                </div>
+
+                <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={editIsCreditCard}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setEditIsCreditCard(checked);
+                        if (isPaid) {
+                          setPurchasePaymentMethod(checked ? 'credito' : 'pix');
+                        }
+                      }}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors ${
+                        editIsCreditCard ? 'bg-slate-900' : 'bg-slate-200'
+                      }`}
+                    />
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                        editIsCreditCard ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-700">
+                    Despesa no Cartão de Crédito (vinculada à fatura)
+                  </span>
+                </label>
+
+                {isPaid && (
+                  <div>
+                    <label className="exec-label">Forma de pagamento registrada</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {paymentMethods.map((m) => {
+                        const isSelected = purchasePaymentMethod === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setPurchasePaymentMethod(m.id);
+                              if (m.id === 'credito') {
+                                setEditIsCreditCard(true);
+                              }
+                            }}
+                            className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all flex items-center gap-2 ${
+                              isSelected
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            {React.createElement(
+                              m.icon as unknown as React.ComponentType<{ className?: string }>,
+                              { className: 'text-[11px]' },
+                            )}
+                            <span className="truncate">{m.label.split(' ')[0]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <div className="relative">
+                    <input type="checkbox" {...register('isInstallment')} className="sr-only" />
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors ${
+                        isInstallment ? 'bg-slate-900' : 'bg-slate-200'
+                      }`}
+                    />
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
+                        isInstallment ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-700">
+                    Compra parcelada no cartão
+                  </span>
+                </label>
+
+                {isInstallment && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="exec-label">Quantidade de parcelas</label>
+                      <input
+                        type="number"
+                        min={2}
+                        {...register('installmentCount')}
+                        className={`exec-input tabular-nums ${
+                          errors.installmentCount ? 'exec-input-error' : ''
+                        }`}
+                        placeholder="Ex: 6"
+                      />
+                      {errors.installmentCount && (
+                        <p className="mt-1 text-xs text-rose-600 font-medium">
+                          {errors.installmentCount.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

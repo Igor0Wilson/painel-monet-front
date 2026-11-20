@@ -12,15 +12,41 @@ import Dashboard from './pages/Dashboard';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { signed } = useAuth();
-  return signed ? <>{children}</> : <Navigate to="/login" />;
+  return signed ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { signed } = useAuth();
+  return signed ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 };
 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route
+        path="/login"
+        element={
+          <PublicOnlyRoute>
+            <Login />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicOnlyRoute>
+            <Register />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicOnlyRoute>
+            <ForgotPassword />
+          </PublicOnlyRoute>
+        }
+      />
       <Route path="/auth/action" element={<AuthAction />} />
       <Route
         path="/dashboard"
@@ -30,7 +56,7 @@ const AppRoutes: React.FC = () => {
           </PrivateRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 };

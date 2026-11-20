@@ -35,7 +35,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "node scripts/run-tests.js",
+    "test:unit": "node scripts/run-tests.js --type=unit",
+    "test:component": "node scripts/run-tests.js --type=component",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

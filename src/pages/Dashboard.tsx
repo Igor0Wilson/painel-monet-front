@@ -49,7 +49,12 @@ import {
   requestDeviceNotificationPermission,
 } from '../utils/deviceNotifications';
 import { extractApiErrorMessage, getApiErrorStatus } from '../utils/errorHandler';
-import { formatMonthLabel, getCurrentMonthKey } from '../utils/formatters';
+import {
+  formatMonthLabel,
+  formatNumberToCurrencyInput,
+  getCurrentMonthKey,
+  parseCurrencyInput,
+} from '../utils/formatters';
 
 ChartJS.register(
   ArcElement,
@@ -70,12 +75,16 @@ const INITIAL_BALANCE: BalanceData = {
   totalExpenses: 0,
   emergencyFund: 0,
   investments: 0,
+  allocatedInvestments: 0,
+  externalInvestments: 0,
   foodAllowance: 0,
   foodAllowanceTotal: 0,
   foodAllowanceUsed: 0,
   ownBalance: 0,
   ownEmergencyFund: 0,
   ownInvestments: 0,
+  ownAllocatedInvestments: 0,
+  ownExternalInvestments: 0,
   ownFoodAllowance: 0,
   ownFoodAllowanceTotal: 0,
   ownFoodAllowanceUsed: 0,
@@ -132,6 +141,7 @@ const Dashboard: React.FC = () => {
     return `${yyyy}-${mm}-${dd}`;
   });
   const [foodIsRecurring, setFoodIsRecurring] = useState<boolean>(true);
+  const [investmentFromBalance, setInvestmentFromBalance] = useState<boolean>(false);
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
 
   const [categoryDetailState, setCategoryDetailState] = useState<{
@@ -241,6 +251,84 @@ const Dashboard: React.FC = () => {
     onUnauthorized: logout,
   });
 
+  const handleBackRequestRef = useRef<() => boolean>(() => false);
+  handleBackRequestRef.current = () => {
+    if (showLogoutConfirm) {
+      setShowLogoutConfirm(false);
+      return true;
+    }
+    if (deleteConfig) {
+      setDeleteConfig(null);
+      return true;
+    }
+    if (payingExpense) {
+      setPayingExpense(null);
+      return true;
+    }
+    if (payingInvoice) {
+      setPayingInvoice(null);
+      return true;
+    }
+    if (allocationModal !== null) {
+      setAllocationModal(null);
+      return true;
+    }
+    if (isExpenseModalOpen) {
+      setIsExpenseModalOpen(false);
+      setEditingItem(null);
+      return true;
+    }
+    if (isIncomeModalOpen) {
+      setIsIncomeModalOpen(false);
+      setEditingItem(null);
+      return true;
+    }
+    if (isUserModalOpen) {
+      setIsUserModalOpen(false);
+      return true;
+    }
+    if (isFamilyModalOpen) {
+      setIsFamilyModalOpen(false);
+      return true;
+    }
+    if (activeInviteModal) {
+      dismissedInviteIdsRef.current.add(activeInviteModal.id);
+      setActiveInviteModal(null);
+      return true;
+    }
+    if (categoryDetailState.isOpen) {
+      setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+      return true;
+    }
+    if (activeTab !== 'overview') {
+      setActiveTab('overview');
+      return true;
+    }
+    setShowLogoutConfirm(true);
+    return true;
+  };
+
+  useEffect(() => {
+    const currentState = window.history.state as { dashboardGuard?: boolean } | null;
+    if (!currentState?.dashboardGuard) {
+      window.history.pushState({ dashboardGuard: true }, '', window.location.href);
+    }
+
+    const handlePopState = () => {
+      window.history.pushState({ dashboardGuard: true }, '', window.location.href);
+      handleBackRequestRef.current();
+    };
+
+    const win = window as Window & { __PM_HANDLE_BACK__?: () => boolean };
+    win.__PM_HANDLE_BACK__ = () => handleBackRequestRef.current();
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      delete win.__PM_HANDLE_BACK__;
+    };
+  }, []);
+
   const handleScopeChange = (nextScope: PanelScope) => {
     setPanelScope(nextScope);
     setSelectedMemberFilter('all');
@@ -263,30 +351,45 @@ const Dashboard: React.FC = () => {
   };
 
   const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
-    const currentVal =
-      variant === 'food'
-        ? balance.ownFoodAllowanceConfigured ??
-          balance.ownFoodAllowanceTotal ??
-          balance.foodAllowanceTotal ??
-          0
-        : variant === 'emergency'
-          ? balance.ownEmergencyFund ?? balance.emergencyFund ?? 0
-          : balance.ownInvestments ?? balance.investments ?? 0;
-    setAllocationInput(String(currentVal));
-    if (variant === 'food') {
-      const now = new Date();
-      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      setFoodCreditDate(balance.ownFoodAllowanceDate || todayIso);
-      setFoodIsRecurring(balance.ownFoodAllowanceRecurring ?? true);
+    if (variant === 'investment') {
+      const ownExternal = Number(balance.ownExternalInvestments ?? 0);
+      const ownAllocated = Number(balance.ownAllocatedInvestments ?? 0);
+      const defaultFromBalance = ownAllocated > 0 && ownExternal === 0;
+      setInvestmentFromBalance(defaultFromBalance);
+      const initialInv = defaultFromBalance ? ownAllocated : ownExternal;
+      setAllocationInput(formatNumberToCurrencyInput(initialInv));
+    } else {
+      const currentVal =
+        variant === 'food'
+          ? balance.ownFoodAllowanceConfigured ??
+            balance.ownFoodAllowanceTotal ??
+            balance.foodAllowanceTotal ??
+            0
+          : balance.ownEmergencyFund ?? balance.emergencyFund ?? 0;
+      setAllocationInput(formatNumberToCurrencyInput(currentVal));
+      if (variant === 'food') {
+        const now = new Date();
+        const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        setFoodCreditDate(balance.ownFoodAllowanceDate || todayIso);
+        setFoodIsRecurring(balance.ownFoodAllowanceRecurring ?? true);
+      }
     }
     setAllocationModal(variant);
+  };
+
+  const handleInvestmentSourceChange = (fromBalance: boolean) => {
+    setInvestmentFromBalance(fromBalance);
+    const nextVal = fromBalance
+      ? Number(balance.ownAllocatedInvestments ?? 0)
+      : Number(balance.ownExternalInvestments ?? 0);
+    setAllocationInput(formatNumberToCurrencyInput(nextVal));
   };
 
   const handleAllocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!allocationModal) return;
 
-    const amount = parseFloat(allocationInput);
+    const amount = parseCurrencyInput(allocationInput);
     if (isNaN(amount) || amount < 0) {
       toast.error('Informe um valor válido');
       return;
@@ -294,17 +397,19 @@ const Dashboard: React.FC = () => {
 
     const isEmergency = allocationModal === 'emergency';
     const isFood = allocationModal === 'food';
+    const isInvestment = allocationModal === 'investment';
 
-    if (!isFood) {
-      const maxLimit =
-        Number(balance.ownBalance || 0) +
-        Number(isEmergency ? balance.ownEmergencyFund || 0 : balance.ownInvestments || 0);
+    if (isEmergency || (isInvestment && investmentFromBalance)) {
+      const currentBucket = isEmergency
+        ? Number(balance.ownEmergencyFund || 0)
+        : Number(balance.ownAllocatedInvestments ?? balance.ownInvestments ?? 0);
+      const maxLimit = Number(balance.ownBalance || 0) + currentBucket;
 
       if (amount > maxLimit + 0.001) {
         toast.error(
           isEmergency
             ? 'A reserva não pode exceder o seu saldo disponível'
-            : 'O valor investido não pode exceder o seu saldo disponível',
+            : 'O valor alocado do saldo não pode exceder o seu saldo disponível',
         );
         return;
       }
@@ -323,7 +428,12 @@ const Dashboard: React.FC = () => {
             creditDate: foodCreditDate,
             isRecurring: foodIsRecurring,
           }
-        : { amount };
+        : isInvestment
+          ? {
+              amount,
+              fromAvailableBalance: investmentFromBalance,
+            }
+          : { amount };
       await api.post(endpoint, payload);
       toast.success(
         isFood
@@ -423,12 +533,12 @@ const Dashboard: React.FC = () => {
   const pendingInvites = familyStatus?.pendingReceivedInvites || [];
 
   const allocationMaxLimit = allocationModal
-    ? Number(balance.ownBalance || 0) +
-      Number(
-        allocationModal === 'emergency'
-          ? balance.ownEmergencyFund || 0
-          : balance.ownInvestments || 0,
-      )
+    ? allocationModal === 'emergency'
+      ? Number(balance.ownBalance || 0) + Number(balance.ownEmergencyFund || 0)
+      : allocationModal === 'investment' && investmentFromBalance
+        ? Number(balance.ownBalance || 0) +
+          Number(balance.ownAllocatedInvestments ?? balance.ownInvestments ?? 0)
+        : 0
     : 0;
 
   return (
@@ -812,10 +922,14 @@ const Dashboard: React.FC = () => {
         isRecurring={foodIsRecurring}
         maxLimit={allocationMaxLimit}
         usedAmount={balance.ownFoodAllowanceUsed ?? balance.foodAllowanceUsed ?? 0}
+        investmentFromBalance={investmentFromBalance}
+        allocatedInvestments={balance.ownAllocatedInvestments ?? 0}
+        externalInvestments={balance.ownExternalInvestments ?? 0}
         loading={isAllocationLoading}
         onChangeValue={setAllocationInput}
         onChangeCreditDate={setFoodCreditDate}
         onChangeIsRecurring={setFoodIsRecurring}
+        onChangeInvestmentFromBalance={handleInvestmentSourceChange}
         onClose={() => setAllocationModal(null)}
         onSubmit={handleAllocationSubmit}
       />

@@ -11,6 +11,11 @@ import api from '../api';
 import { toast } from 'react-toastify';
 import type { IncomeItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
+import {
+  formatCurrencyInput,
+  formatNumberToCurrencyInput,
+  parseCurrencyInput,
+} from '../utils/formatters';
 
 interface Props {
   isOpen: boolean;
@@ -76,8 +81,10 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         {
           key: 'edit-entry',
           name: initialData.name || '',
-          value: String(initialData.value ?? ''),
-          incomeDate: initialData.incomeDate || getTodayIso(),
+          value: formatNumberToCurrencyInput(initialData.value),
+          incomeDate: initialData.incomeDate
+            ? String(initialData.incomeDate).split('T')[0]
+            : getTodayIso(),
           isRecurring: Boolean(initialData.isRecurring),
         },
       ]);
@@ -126,7 +133,13 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
 
   const updateEntry = (key: string, field: keyof IncomeEntry, value: string | boolean) => {
     setEntries((prev) =>
-      prev.map((item) => (item.key === key ? { ...item, [field]: value } : item)),
+      prev.map((item) => {
+        if (item.key !== key) return item;
+        if (field === 'value' && typeof value === 'string') {
+          return { ...item, value: formatCurrencyInput(value, item.value) };
+        }
+        return { ...item, [field]: value };
+      }),
     );
     setErrors((prev) => {
       if (!prev[key]?.[field as keyof EntryErrors]) return prev;
@@ -163,7 +176,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         entryErr.name = 'Informe a descrição da receita';
         isValid = false;
       }
-      const numericVal = parseFloat(entry.value);
+      const numericVal = parseCurrencyInput(entry.value);
       if (isNaN(numericVal) || numericVal <= 0) {
         entryErr.value = 'Informe um valor positivo';
         isValid = false;
@@ -182,7 +195,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
   };
 
   const totalCombined = entries.reduce((sum, item) => {
-    const val = parseFloat(item.value);
+    const val = parseCurrencyInput(item.value);
     return sum + (isNaN(val) || val < 0 ? 0 : val);
   }, 0);
 
@@ -199,7 +212,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         const entry = entries[0];
         await api.patch(`/income/${initialData.id}`, {
           name: entry.name.trim(),
-          value: Number(parseFloat(entry.value).toFixed(2)),
+          value: Number(parseCurrencyInput(entry.value).toFixed(2)),
           incomeDate: entry.incomeDate,
           isRecurring: entry.isRecurring,
         });
@@ -208,7 +221,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         for (const entry of entries) {
           await api.post('/income', {
             name: entry.name.trim(),
-            value: Number(parseFloat(entry.value).toFixed(2)),
+            value: Number(parseCurrencyInput(entry.value).toFixed(2)),
             incomeDate: entry.incomeDate,
             isRecurring: entry.isRecurring,
           });
@@ -380,9 +393,8 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                     <div>
                       <label className="exec-label">Valor líquido (R$)</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={entry.value}
                         onChange={(e) => updateEntry(entry.key, 'value', e.target.value)}
                         className={`exec-input tabular-nums font-semibold ${entryErr.value ? 'exec-input-error' : ''

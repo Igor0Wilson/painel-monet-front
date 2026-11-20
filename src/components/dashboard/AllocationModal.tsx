@@ -1,6 +1,10 @@
 import React from 'react';
 import { FaCalendarAlt, FaSeedling, FaShieldAlt, FaTimes, FaUtensils } from 'react-icons/fa';
-import { formatCurrency, formatDateBr } from '../../utils/formatters';
+import {
+  formatCurrency,
+  formatCurrencyInput,
+  formatDateBr,
+} from '../../utils/formatters';
 
 interface Props {
   isOpen: boolean;
@@ -10,10 +14,14 @@ interface Props {
   isRecurring?: boolean;
   maxLimit: number;
   usedAmount?: number;
+  investmentFromBalance?: boolean;
+  allocatedInvestments?: number;
+  externalInvestments?: number;
   loading: boolean;
   onChangeValue: (val: string) => void;
   onChangeCreditDate?: (date: string) => void;
   onChangeIsRecurring?: (recurring: boolean) => void;
+  onChangeInvestmentFromBalance?: (fromBalance: boolean) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -34,10 +42,14 @@ const AllocationModal: React.FC<Props> = ({
   isRecurring = true,
   maxLimit,
   usedAmount = 0,
+  investmentFromBalance = false,
+  allocatedInvestments = 0,
+  externalInvestments = 0,
   loading,
   onChangeValue,
   onChangeCreditDate,
   onChangeIsRecurring,
+  onChangeInvestmentFromBalance,
   onClose,
   onSubmit,
 }) => {
@@ -45,6 +57,7 @@ const AllocationModal: React.FC<Props> = ({
 
   const isEmergency = variant === 'emergency';
   const isFood = variant === 'food';
+  const isInvestment = variant === 'investment';
   const todayIso = getTodayIso();
   const isFutureDate = Boolean(isFood && creditDate && creditDate > todayIso);
 
@@ -59,13 +72,13 @@ const AllocationModal: React.FC<Props> = ({
     ? 'Vale Alimentação / Refeição (VA / VR)'
     : isEmergency
       ? 'Guardar na Reserva de Emergência'
-      : 'Guardar em Investimentos';
+      : 'Investimentos';
 
   const subtitleText = isFood
     ? 'Defina o valor total do seu benefício VA/VR (individual e somado na família)'
     : isEmergency
       ? 'Defina o valor total que deseja manter protegido'
-      : 'Defina o valor total alocado nos seus investimentos';
+      : 'Registre investimentos já existentes ou transfira do saldo do mês';
 
   return (
     <div className="exec-modal-overlay z-[60]">
@@ -94,21 +107,69 @@ const AllocationModal: React.FC<Props> = ({
         </div>
 
         <form onSubmit={onSubmit} className="p-6 space-y-5">
+          {isInvestment && (
+            <div className="space-y-2">
+              <label className="exec-label">Origem do registro</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onChangeInvestmentFromBalance?.(false)}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    !investmentFromBalance
+                      ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">Carteira já existente</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Sem limite e sem descontar do saldo do mês
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeInvestmentFromBalance?.(true)}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    investmentFromBalance
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">Alocar do saldo do mês</p>
+                  <p
+                    className={`text-[11px] mt-0.5 ${
+                      investmentFromBalance ? 'text-slate-300' : 'text-slate-500'
+                    }`}
+                  >
+                    Reserva parte do saldo disponível atual
+                  </p>
+                </button>
+              </div>
+              {(allocatedInvestments > 0 || externalInvestments > 0) && (
+                <p className="text-[11px] text-slate-500 pt-0.5">
+                  Total atual: <strong>{formatCurrency(allocatedInvestments + externalInvestments)}</strong>{' '}
+                  (Já existente: {formatCurrency(externalInvestments)} · Do saldo:{' '}
+                  {formatCurrency(allocatedInvestments)})
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="exec-label">
               {isFood
                 ? 'Valor total do seu Vale Alimentação / Refeição (R$)'
                 : isEmergency
                   ? 'Valor da reserva (R$)'
-                  : 'Valor investido (R$)'}
+                  : investmentFromBalance
+                    ? 'Valor investido a partir do saldo (R$)'
+                    : 'Valor da carteira já existente (R$)'}
             </label>
             <input
               autoFocus
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
               value={value}
-              onChange={(e) => onChangeValue(e.target.value)}
+              onChange={(e) => onChangeValue(formatCurrencyInput(e.target.value, value))}
               className="exec-input tabular-nums font-semibold"
               placeholder="0,00"
             />
@@ -177,11 +238,16 @@ const AllocationModal: React.FC<Props> = ({
                   )}
                 </div>
               </div>
+            ) : isInvestment && !investmentFromBalance ? (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50/70 border border-emerald-200/80 rounded-lg px-3 py-2 mt-2">
+                Modo ilimitado: você pode registrar qualquer saldo investido anteriormente sem
+                afetar seu saldo disponível do mês.
+              </p>
             ) : (
               <p className="text-[11px] text-slate-400 mt-1.5">
                 {isEmergency
                   ? 'Seu limite disponível para reserva:'
-                  : 'Seu limite disponível para investir:'}{' '}
+                  : 'Seu limite disponível para alocar do saldo:'}{' '}
                 <span className="font-semibold text-slate-600 tabular-nums">
                   {formatCurrency(maxLimit)}
                 </span>

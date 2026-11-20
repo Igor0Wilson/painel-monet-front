@@ -152,7 +152,12 @@ const KpiGrid: React.FC<Props> = ({
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
                 ? `Sua parte investida: ${formatCurrency(balance.ownInvestments || 0)}`
-                : 'Capital alocado para rentabilidade e metas'}
+                : (balance.externalInvestments || 0) > 0 &&
+                    (balance.allocatedInvestments || 0) > 0
+                  ? `Carteira anterior: ${formatCurrency(balance.externalInvestments || 0)} · Do saldo: ${formatCurrency(balance.allocatedInvestments || 0)}`
+                  : (balance.externalInvestments || 0) > 0
+                    ? 'Carteira já existente (sem limite do saldo mensal)'
+                    : 'Capital alocado para rentabilidade e metas'}
             </p>
           </div>
 

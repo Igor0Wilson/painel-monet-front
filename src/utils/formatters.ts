@@ -71,3 +71,115 @@ export function shiftMonthKey(monthKey: string, delta: number): string {
   const d = new Date(y, m - 1 + delta, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+
+export function formatCurrencyInput(
+  raw?: string | number | null,
+  prevFormatted = '',
+): string {
+  if (raw === null || raw === undefined) return '';
+  if (typeof raw === 'number') {
+    return formatNumberToCurrencyInput(raw);
+  }
+
+  const cleaned = String(raw).replace(/[^\d.,]/g, '');
+  if (!cleaned) return '';
+
+  let hasComma = cleaned.includes(',');
+  let intPart = cleaned;
+  let decPart = '';
+
+  if (hasComma) {
+    const commaIdx = cleaned.indexOf(',');
+    intPart = cleaned.slice(0, commaIdx);
+    decPart = cleaned.slice(commaIdx + 1);
+  } else {
+    const dotsNow = (cleaned.match(/\./g) || []).length;
+    const dotsPrev = (String(prevFormatted || '').match(/\./g) || []).length;
+
+    if (dotsNow > dotsPrev) {
+      const lastDotIdx = cleaned.lastIndexOf('.');
+      const afterLastDot = cleaned.slice(lastDotIdx + 1).replace(/\D/g, '');
+      const beforeLastDot = cleaned.slice(0, lastDotIdx).replace(/\D/g, '');
+      const looksLikeBrazilianThousandGroup =
+        dotsNow === 1 &&
+        !cleaned.endsWith('.') &&
+        beforeLastDot.length >= 1 &&
+        beforeLastDot.length <= 3 &&
+        afterLastDot.length === 3 &&
+        prevFormatted === '';
+
+      if (!looksLikeBrazilianThousandGroup) {
+        hasComma = true;
+        intPart = cleaned.slice(0, lastDotIdx);
+        decPart = cleaned.slice(lastDotIdx + 1);
+      }
+    } else if (dotsNow === 1 && prevFormatted === '' && !cleaned.endsWith('.')) {
+      const lastDotIdx = cleaned.lastIndexOf('.');
+      const beforeDot = cleaned.slice(0, lastDotIdx).replace(/\D/g, '');
+      const afterDot = cleaned.slice(lastDotIdx + 1).replace(/\D/g, '');
+      const looksLikeBrazilianThousandGroup =
+        beforeDot.length >= 1 && beforeDot.length <= 3 && afterDot.length === 3;
+      if (!looksLikeBrazilianThousandGroup) {
+        hasComma = true;
+        intPart = cleaned.slice(0, lastDotIdx);
+        decPart = cleaned.slice(lastDotIdx + 1);
+      }
+    }
+  }
+
+  const rawIntDigits = intPart.replace(/\D/g, '');
+  const intDigits = rawIntDigits.replace(/^0+(?=\d)/, '');
+
+  if (!intDigits && !hasComma) {
+    return '';
+  }
+
+  const intFormatted = (intDigits || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (!hasComma) {
+    return intFormatted;
+  }
+
+  const decDigits = decPart.replace(/\D/g, '').slice(0, 2);
+  return `${intFormatted},${decDigits}`;
+}
+
+export function formatNumberToCurrencyInput(val?: number | null): string {
+  if (val === null || val === undefined || isNaN(val)) return '';
+  const safeVal = Math.max(0, Number(val));
+  if (safeVal === 0) return '0';
+  if (Number.isInteger(safeVal)) {
+    return String(safeVal).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+  return safeVal.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function parseCurrencyInput(raw?: string | number | null): number {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : 0;
+  }
+  if (!raw) return 0;
+
+  const cleaned = String(raw).trim().replace(/[^\d.,]/g, '');
+  if (!cleaned) return 0;
+
+  let normalized = cleaned;
+  if (cleaned.includes(',')) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else {
+    const dots = (cleaned.match(/\./g) || []).length;
+    if (dots > 1) {
+      normalized = cleaned.replace(/\./g, '');
+    } else if (dots === 1) {
+      const [, afterDot = ''] = cleaned.split('.');
+      if (afterDot.length === 3) {
+        normalized = cleaned.replace(/\./g, '');
+      }
+    }
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}

@@ -83,7 +83,7 @@ const Login: React.FC = () => {
             ? 'Conta reativada com sucesso! Bem-vindo de volta.'
             : 'Acesso autorizado via Google.',
         );
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } catch (error: unknown) {
         const apiCode = getApiErrorCode(error);
         if (apiCode === 'ACCOUNT_DEACTIVATED') {
@@ -126,7 +126,7 @@ const Login: React.FC = () => {
           ? 'Conta reativada com sucesso! Bem-vindo de volta.'
           : 'Acesso autorizado.',
       );
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const apiCode = getApiErrorCode(error);
       if (apiCode === 'ACCOUNT_DEACTIVATED') {
@@ -181,7 +181,7 @@ const Login: React.FC = () => {
           ? 'Conta reativada com sucesso! Bem-vindo de volta.'
           : 'Acesso autorizado via Google.',
       );
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const apiCode = getApiErrorCode(error);
       if (apiCode === 'ACCOUNT_DEACTIVATED') {

@@ -2,13 +2,16 @@ import {
   buildWhatsAppUrl,
   formatCpfInput,
   formatCurrency,
+  formatCurrencyInput,
   formatDateBr,
   formatMonthLabel,
+  formatNumberToCurrencyInput,
   formatPhoneInput,
   maskCpf,
   onlyDigits,
+  parseCurrencyInput,
   shiftMonthKey,
-} from './formatters';
+} from '../../src/utils/formatters';
 
 describe('formatters', () => {
   it('strips non-digits cleanly', () => {
@@ -43,5 +46,18 @@ describe('formatters', () => {
     expect(shiftMonthKey('2026-12', 1)).toBe('2027-01');
     expect(shiftMonthKey('2026-01', -1)).toBe('2025-12');
     expect(formatMonthLabel('2026-11').toLowerCase()).toContain('2026');
+  });
+
+  it('formats monetary inputs with automatic thousand separators and parses back cleanly', () => {
+    expect(formatCurrencyInput('1500', '150')).toBe('1.500');
+    expect(formatCurrencyInput('1234567', '123456')).toBe('1.234.567');
+    expect(formatCurrencyInput('1.500,75', '1.500,7')).toBe('1.500,75');
+    expect(formatCurrencyInput('1.500.', '1.500')).toBe('1.500,');
+    expect(formatCurrencyInput('2500.75')).toBe('2.500,75');
+    expect(formatNumberToCurrencyInput(1500)).toBe('1.500');
+    expect(formatNumberToCurrencyInput(2500.5)).toBe('2.500,50');
+    expect(parseCurrencyInput('1.500,75')).toBe(1500.75);
+    expect(parseCurrencyInput('1.234.567')).toBe(1234567);
+    expect(parseCurrencyInput('2500.5')).toBe(2500.5);
   });
 });

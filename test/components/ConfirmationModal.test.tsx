@@ -1,9 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import ConfirmationModal from './components/ConfirmationModal';
+import ConfirmationModal from '../../src/components/ConfirmationModal';
 
-describe('App core components', () => {
-  it('renders ConfirmationModal cleanly when open', () => {
+describe('ConfirmationModal', () => {
+  it('renders title and message cleanly when open', () => {
     render(
       <ConfirmationModal
         isOpen={true}

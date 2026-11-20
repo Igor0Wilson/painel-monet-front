@@ -77,7 +77,7 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
       login(access_token, user);
       toast.success('Cadastro concluído com sua conta Google!');
       onClose();
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const code = getApiErrorCode(error);
       const message = extractApiErrorMessage(error, 'Erro ao concluir cadastro com Google');

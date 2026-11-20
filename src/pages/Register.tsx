@@ -87,7 +87,7 @@ const Register: React.FC = () => {
         const { access_token, user } = response.data;
         login(access_token, user);
         toast.success('Você já possui conta! Acesso liberado.');
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } catch (error: unknown) {
         await signOutFirebase();
         toast.error(extractApiErrorMessage(error, 'Erro ao continuar com Google'));
@@ -122,7 +122,7 @@ const Register: React.FC = () => {
       const { access_token, user } = response.data;
       login(access_token, user);
       toast.success('Conta criada com sucesso! Bem-vindo ao Painel Monet.');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const code = getApiErrorCode(error);
       const message = extractApiErrorMessage(error, 'Erro ao cadastrar usuário');
@@ -180,7 +180,7 @@ const Register: React.FC = () => {
       const { access_token, user } = response.data;
       login(access_token, user);
       toast.success('Você já possui conta! Acesso liberado.');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const apiCode = getApiErrorCode(error);
       if (apiCode === 'ACCOUNT_DEACTIVATED') {

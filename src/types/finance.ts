@@ -15,6 +15,8 @@ export interface MemberBreakdown {
   totalExpenses: number;
   emergencyFund: number;
   investments: number;
+  allocatedInvestments?: number;
+  externalInvestments?: number;
   foodAllowance?: number;
   foodAllowanceTotal?: number;
   foodAllowanceConfigured?: number;
@@ -33,6 +35,8 @@ export interface BalanceData {
   totalExpenses: number;
   emergencyFund: number;
   investments: number;
+  allocatedInvestments?: number;
+  externalInvestments?: number;
   foodAllowance?: number;
   foodAllowanceTotal?: number;
   foodAllowanceScheduled?: number;
@@ -40,6 +44,8 @@ export interface BalanceData {
   ownBalance: number;
   ownEmergencyFund: number;
   ownInvestments: number;
+  ownAllocatedInvestments?: number;
+  ownExternalInvestments?: number;
   ownFoodAllowance?: number;
   ownFoodAllowanceTotal?: number;
   ownFoodAllowanceConfigured?: number;
