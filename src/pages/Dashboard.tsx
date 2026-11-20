@@ -29,6 +29,8 @@ import CreditCardInvoicePanel from '../components/dashboard/CreditCardInvoicePan
 import ExpensesListSection from '../components/dashboard/ExpensesListSection';
 import FamilyMembersStrip from '../components/dashboard/FamilyMembersStrip';
 import IncomesListSection from '../components/dashboard/IncomesListSection';
+import InvestmentsListSection from '../components/dashboard/InvestmentsListSection';
+import InvestmentsModal from '../components/dashboard/InvestmentsModal';
 import KpiGrid from '../components/dashboard/KpiGrid';
 import MonthlyChartsSection from '../components/dashboard/MonthlyChartsSection';
 import Navbar from '../components/dashboard/Navbar';
@@ -42,6 +44,7 @@ import {
   ExpenseItem,
   FamilyStatusData,
   IncomeItem,
+  InvestmentItem,
   PanelScope,
 } from '../types/finance';
 import {
@@ -106,6 +109,7 @@ const Dashboard: React.FC = () => {
   const [balance, setBalance] = useState<BalanceData>(INITIAL_BALANCE);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [incomes, setIncomes] = useState<IncomeItem[]>([]);
+  const [investmentItems, setInvestmentItems] = useState<InvestmentItem[]>([]);
   const [chartData, setChartData] = useState<ChartDataResponse | null>(null);
   const [expenseFilter, setExpenseFilter] = useState<ExpenseFilter>('todas');
 
@@ -126,12 +130,14 @@ const Dashboard: React.FC = () => {
   const [payingInvoice, setPayingInvoice] = useState<CreditCardInvoiceGroup | null>(null);
   const [deleteConfig, setDeleteConfig] = useState<{
     id: string;
-    type: 'expense' | 'income';
+    type: 'expense' | 'income' | 'investment';
   } | null>(null);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [openInstallments, setOpenInstallments] = useState<string[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isInvestmentsModalOpen, setIsInvestmentsModalOpen] = useState(false);
+  const [editingInvestmentItem, setEditingInvestmentItem] = useState<InvestmentItem | null>(null);
 
   const [allocationModal, setAllocationModal] = useState<'emergency' | 'investment' | 'food' | null>(
     null,
@@ -196,10 +202,13 @@ const Dashboard: React.FC = () => {
       const monthToUse = overrideMonth || chartMonth;
 
       try {
-        const [balanceRes, expensesRes, incomesRes, chartsRes] = await Promise.all([
+        const [balanceRes, expensesRes, incomesRes, investmentsRes, chartsRes] = await Promise.all([
           api.get<BalanceData>('/balance', { params: { scope: scopeToUse } }),
           api.get<ExpenseItem[]>('/expenses', { params: { scope: scopeToUse } }),
           api.get<IncomeItem[]>('/income', { params: { scope: scopeToUse } }),
+          api.get<InvestmentItem[]>('/balance/investments/items', {
+            params: { scope: scopeToUse },
+          }),
           api.get<ChartDataResponse>('/balance/charts', {
             params: { scope: scopeToUse, month: monthToUse },
           }),
@@ -207,6 +216,7 @@ const Dashboard: React.FC = () => {
         setBalance(balanceRes.data);
         setExpenses(expensesRes.data);
         setIncomes(incomesRes.data);
+        setInvestmentItems(investmentsRes.data);
         setChartData(chartsRes.data);
       } catch (error: unknown) {
         const status = getApiErrorStatus(error);
@@ -277,6 +287,11 @@ const Dashboard: React.FC = () => {
       setAllocationModal(null);
       return true;
     }
+    if (isInvestmentsModalOpen) {
+      setIsInvestmentsModalOpen(false);
+      setEditingInvestmentItem(null);
+      return true;
+    }
     if (isExpenseModalOpen) {
       setIsExpenseModalOpen(false);
       setEditingItem(null);
@@ -342,7 +357,12 @@ const Dashboard: React.FC = () => {
     if (!deleteConfig) return;
     try {
       setIsDeleteLoading(true);
-      const endpoint = deleteConfig.type === 'expense' ? '/expenses' : '/income';
+      const endpoint =
+        deleteConfig.type === 'expense'
+          ? '/expenses'
+          : deleteConfig.type === 'investment'
+            ? '/balance/investments/items'
+            : '/income';
       await api.delete(`${endpoint}/${deleteConfig.id}`);
       toast.success('Registro removido com sucesso');
       setDeleteConfig(null);
@@ -524,6 +544,16 @@ const Dashboard: React.FC = () => {
     if (!isFamilyMode || selectedMemberFilter === 'all') return incomes;
     return incomes.filter((i) => i.ownerId === selectedMemberFilter);
   }, [incomes, isFamilyMode, selectedMemberFilter]);
+
+  const filteredInvestmentItems = useMemo(() => {
+    if (!isFamilyMode || selectedMemberFilter === 'all') return investmentItems;
+    return investmentItems.filter((it) => it.ownerId === selectedMemberFilter);
+  }, [investmentItems, isFamilyMode, selectedMemberFilter]);
+
+  const selectedMemberObj = useMemo(() => {
+    if (!isFamilyMode || selectedMemberFilter === 'all') return null;
+    return (balance.memberBreakdown || []).find((m) => m.userId === selectedMemberFilter) || null;
+  }, [balance.memberBreakdown, isFamilyMode, selectedMemberFilter]);
 
   const creditCardInvoices = useMemo<CreditCardInvoiceGroup[]>(() => {
     const map = new Map<string, ExpenseItem[]>();
@@ -727,6 +757,7 @@ const Dashboard: React.FC = () => {
             members={balance.memberBreakdown || []}
             selectedMemberId={selectedMemberFilter}
             onSelectMember={setSelectedMemberFilter}
+            onOpenPrivacySettings={() => setIsFamilyModalOpen(true)}
           />
         )}
 
@@ -778,7 +809,10 @@ const Dashboard: React.FC = () => {
               incomesCount={incomes.length}
               isFamilyMode={isFamilyMode}
               onOpenEmergencyModal={() => handleOpenAllocation('emergency')}
-              onOpenInvestmentModal={() => handleOpenAllocation('investment')}
+              onOpenInvestmentModal={() => {
+                setEditingInvestmentItem(null);
+                setIsInvestmentsModalOpen(true);
+              }}
               onOpenFoodAllowanceModal={() => handleOpenAllocation('food')}
             />
 
@@ -843,6 +877,21 @@ const Dashboard: React.FC = () => {
                 onDeleteIncome={(id) => setDeleteConfig({ id, type: 'income' })}
               />
             </div>
+
+            <InvestmentsListSection
+              items={filteredInvestmentItems}
+              isFamilyMode={isFamilyMode}
+              selectedMember={selectedMemberObj}
+              onAddInvestment={() => {
+                setEditingInvestmentItem(null);
+                setIsInvestmentsModalOpen(true);
+              }}
+              onEditInvestment={(item) => {
+                setEditingInvestmentItem(item);
+                setIsInvestmentsModalOpen(true);
+              }}
+              onDeleteInvestment={(id) => setDeleteConfig({ id, type: 'investment' })}
+            />
           </>
         )}
       </main>
@@ -978,6 +1027,20 @@ const Dashboard: React.FC = () => {
         onReclassifyToExternal={handleReclassifyToExternal}
         onClose={() => setAllocationModal(null)}
         onSubmit={handleAllocationSubmit}
+      />
+
+      <InvestmentsModal
+        isOpen={isInvestmentsModalOpen}
+        items={investmentItems}
+        ownAvailableBalance={balance.ownBalance ?? balance.balance ?? 0}
+        allocatedInvestments={balance.ownAllocatedInvestments ?? 0}
+        externalInvestments={balance.ownExternalInvestments ?? 0}
+        initialEditItem={editingInvestmentItem}
+        onClose={() => {
+          setIsInvestmentsModalOpen(false);
+          setEditingInvestmentItem(null);
+        }}
+        onRefresh={fetchData}
       />
     </div>
   );

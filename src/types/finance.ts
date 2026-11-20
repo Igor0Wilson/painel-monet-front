@@ -2,6 +2,33 @@ export type ExpenseFilter = 'todas' | 'pendente' | 'em_atraso' | 'pago';
 export type ActiveTab = 'overview' | 'history';
 export type PanelScope = 'individual' | 'family';
 export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
+export type InvestmentSource = 'external' | 'balance';
+
+export interface FamilyMemberPermissions {
+  viewBalance: boolean;
+  viewIncome: boolean;
+  viewExpenses: boolean;
+  viewInvestments: boolean;
+  viewEmergencyFund: boolean;
+  viewFoodAllowance: boolean;
+}
+
+export interface MemberPrivacyRule extends FamilyMemberPermissions {
+  targetUserId: string;
+}
+
+export interface InvestmentItem {
+  id: string;
+  name: string;
+  category: string;
+  amount: number;
+  investedDate: string;
+  source: InvestmentSource;
+  notes?: string | null;
+  ownerId?: string;
+  ownerName?: string;
+  isOwn?: boolean;
+}
 
 export interface MemberBreakdown {
   userId: string;
@@ -9,6 +36,7 @@ export interface MemberBreakdown {
   maskedCpf: string;
   phone?: string | null;
   isSelf: boolean;
+  permissions?: FamilyMemberPermissions;
   balance: number;
   totalIncome: number;
   scheduledIncome: number;
@@ -122,6 +150,7 @@ export interface FamilyMemberSummary {
   phone?: string | null;
   role: string;
   isSelf: boolean;
+  permissionsSharedWithMe?: FamilyMemberPermissions;
 }
 
 export interface PendingSentInvite {
@@ -148,6 +177,10 @@ export interface FamilyStatusData {
   hasGroup: boolean;
   group: { id: string; name: string } | null;
   members: FamilyMemberSummary[];
+  myPrivacy?: {
+    fullAccessAll: boolean;
+    rules: MemberPrivacyRule[];
+  };
   pendingReceivedInvites: PendingReceivedInvite[];
   pendingSentInvites: PendingSentInvite[];
 }

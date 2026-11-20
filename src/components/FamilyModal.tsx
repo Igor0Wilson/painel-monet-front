@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  FaTimes,
-  FaUsers,
-  FaUserPlus,
-  FaShieldAlt,
-  FaWhatsapp,
-  FaSignOutAlt,
+  FaCheckDouble,
   FaClock,
+  FaLock,
+  FaShieldAlt,
+  FaSignOutAlt,
+  FaTimes,
   FaTrash,
   FaUserEdit,
+  FaUserPlus,
+  FaUsers,
+  FaWhatsapp,
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
 import type {
+  FamilyMemberPermissions,
   FamilyMemberSummary,
   FamilyStatusData,
+  MemberPrivacyRule,
   PendingSentInvite,
 } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
@@ -28,6 +32,36 @@ interface Props {
   onOpenProfile: () => void;
 }
 
+const FULL_PERMISSIONS: FamilyMemberPermissions = {
+  viewBalance: true,
+  viewIncome: true,
+  viewExpenses: true,
+  viewInvestments: true,
+  viewEmergencyFund: true,
+  viewFoodAllowance: true,
+};
+
+const RESTRICTED_PERMISSIONS: FamilyMemberPermissions = {
+  viewBalance: false,
+  viewIncome: false,
+  viewExpenses: false,
+  viewInvestments: false,
+  viewEmergencyFund: false,
+  viewFoodAllowance: false,
+};
+
+const PERMISSION_FIELDS: Array<{
+  key: keyof FamilyMemberPermissions;
+  label: string;
+}> = [
+  { key: 'viewBalance', label: 'Painel Individual & Saldo Livre' },
+  { key: 'viewIncome', label: 'Renda, Salários & Receitas' },
+  { key: 'viewExpenses', label: 'Despesas, Cartão & Gráficos' },
+  { key: 'viewInvestments', label: 'Investimentos & Datas' },
+  { key: 'viewEmergencyFund', label: 'Reserva de Emergência' },
+  { key: 'viewFoodAllowance', label: 'Vale Alimentação / Refeição' },
+];
+
 const FamilyModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -38,11 +72,37 @@ const FamilyModal: React.FC<Props> = ({
   const [cpfInput, setCpfInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
+  const [fullAccessAll, setFullAccessAll] = useState(true);
+  const [rulesByMember, setRulesByMember] = useState<Record<string, FamilyMemberPermissions>>({});
+
+  useEffect(() => {
+    if (!isOpen || !familyStatus) return;
+    setFullAccessAll(familyStatus.myPrivacy?.fullAccessAll ?? true);
+    const nextMap: Record<string, FamilyMemberPermissions> = {};
+    const existingRules = familyStatus.myPrivacy?.rules || [];
+    for (const m of familyStatus.members || []) {
+      if (m.isSelf) continue;
+      const found = existingRules.find((r) => r.targetUserId === m.userId);
+      nextMap[m.userId] = found
+        ? {
+            viewBalance: Boolean(found.viewBalance),
+            viewIncome: Boolean(found.viewIncome),
+            viewExpenses: Boolean(found.viewExpenses),
+            viewInvestments: Boolean(found.viewInvestments),
+            viewEmergencyFund: Boolean(found.viewEmergencyFund),
+            viewFoodAllowance: Boolean(found.viewFoodAllowance),
+          }
+        : { ...FULL_PERMISSIONS };
+    }
+    setRulesByMember(nextMap);
+  }, [isOpen, familyStatus]);
 
   if (!isOpen) return null;
 
   const hasCpf = Boolean(familyStatus?.hasCpf);
   const members: FamilyMemberSummary[] = familyStatus?.members || [];
+  const otherMembers = members.filter((m) => !m.isSelf);
   const pendingSentInvites: PendingSentInvite[] = familyStatus?.pendingSentInvites || [];
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -90,9 +150,70 @@ const FamilyModal: React.FC<Props> = ({
     }
   };
 
+  const buildRulesPayload = (
+    targetMap: Record<string, FamilyMemberPermissions>,
+  ): MemberPrivacyRule[] =>
+    otherMembers.map((m) => ({
+      targetUserId: m.userId,
+      ...(targetMap[m.userId] || FULL_PERMISSIONS),
+    }));
+
+  const savePrivacy = async (
+    nextFullAccess: boolean,
+    nextMap: Record<string, FamilyMemberPermissions>,
+    successMsg = 'Permissões de privacidade atualizadas!',
+  ) => {
+    try {
+      setSavingPrivacy(true);
+      await api.patch('/family/privacy', {
+        fullAccessAll: nextFullAccess,
+        rules: buildRulesPayload(nextMap),
+      });
+      toast.success(successMsg);
+      onRefresh();
+    } catch (error: unknown) {
+      toast.error(extractApiErrorMessage(error, 'Erro ao atualizar permissões do Painel Família'));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  };
+
+  const handleToggleMemberPermission = (
+    memberId: string,
+    field: keyof FamilyMemberPermissions,
+  ) => {
+    setRulesByMember((prev) => {
+      const current = prev[memberId] || { ...FULL_PERMISSIONS };
+      return {
+        ...prev,
+        [memberId]: {
+          ...current,
+          [field]: !current[field],
+        },
+      };
+    });
+  };
+
+  const handlePresetMember = (memberId: string, full: boolean) => {
+    setRulesByMember((prev) => ({
+      ...prev,
+      [memberId]: full ? { ...FULL_PERMISSIONS } : { ...RESTRICTED_PERMISSIONS },
+    }));
+  };
+
+  const handleGrantFullAccessToAll = () => {
+    const allFullMap: Record<string, FamilyMemberPermissions> = {};
+    for (const m of otherMembers) {
+      allFullMap[m.userId] = { ...FULL_PERMISSIONS };
+    }
+    setFullAccessAll(true);
+    setRulesByMember(allFullMap);
+    savePrivacy(true, allFullMap, 'Acesso total liberado para todos no Painel Família!');
+  };
+
   return (
     <div className="exec-modal-overlay z-50">
-      <div className="exec-modal-container max-w-xl">
+      <div className="exec-modal-container max-w-2xl max-h-[92dvh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -115,7 +236,7 @@ const FamilyModal: React.FC<Props> = ({
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto">
           {/* Security notice */}
           <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 flex items-start gap-3">
             {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
@@ -206,6 +327,15 @@ const FamilyModal: React.FC<Props> = ({
                         <p className="text-xs text-slate-400 tabular-nums">
                           CPF: {member.maskedCpf}
                         </p>
+                        {!member.isSelf && member.permissionsSharedWithMe && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {Object.values(member.permissionsSharedWithMe).every(Boolean)
+                              ? 'Compartilha acesso total com você'
+                              : Object.values(member.permissionsSharedWithMe).some(Boolean)
+                                ? 'Compartilha acesso personalizado com você'
+                                : 'Ocultou todos os dados individuais para você'}
+                          </p>
+                        )}
                       </div>
 
                       {waUrl && !member.isSelf && (
@@ -222,6 +352,147 @@ const FamilyModal: React.FC<Props> = ({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Permissões e Controle de Privacidade no Painel Família */}
+          {otherMembers.length > 0 && (
+            <div className="space-y-3 border-t border-slate-100 pt-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    {React.createElement(
+                      FaLock as unknown as React.ComponentType<{ className?: string }>,
+                      { className: 'text-[11px] text-slate-600' },
+                    )}
+                    O que os participantes podem ver do seu painel
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Defina acesso total a todos ou personalize por membro o acesso a renda,
+                    investimentos, despesas, saldo e reservas.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={savingPrivacy}
+                  onClick={handleGrantFullAccessToAll}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 self-start sm:self-center flex-shrink-0"
+                >
+                  {React.createElement(
+                    FaCheckDouble as unknown as React.ComponentType<{ className?: string }>,
+                    { className: 'text-[11px]' },
+                  )}
+                  Acesso total a todos
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-900">
+                    Modo de compartilhamento do meu painel
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {fullAccessAll
+                      ? 'Acesso total ativo: todos no Painel Família veem todas as suas informações.'
+                      : 'Modo personalizado ativo: cada membro vê somente o que você marcar abaixo.'}
+                  </p>
+                </div>
+                <div className="inline-flex rounded-lg bg-white p-1 border border-slate-200 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setFullAccessAll(true)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      fullAccessAll ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFullAccessAll(false)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      !fullAccessAll ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Por usuário
+                  </button>
+                </div>
+              </div>
+
+              {!fullAccessAll && (
+                <div className="space-y-3">
+                  {otherMembers.map((member) => {
+                    const rule = rulesByMember[member.userId] || FULL_PERMISSIONS;
+                    return (
+                      <div
+                        key={`perm-${member.userId}`}
+                        className="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-900">
+                              O que <span className="underline">{member.name}</span> pode ver
+                            </p>
+                            <p className="text-[11px] text-slate-400">CPF: {member.maskedCpf}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handlePresetMember(member.userId, true)}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors"
+                            >
+                              Liberar tudo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePresetMember(member.userId, false)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+                            >
+                              Ocultar tudo
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {PERMISSION_FIELDS.map((field) => {
+                            const checked = rule[field.key];
+                            return (
+                              <label
+                                key={field.key}
+                                className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 cursor-pointer select-none"
+                              >
+                                <span className="text-xs font-medium text-slate-700">
+                                  {field.label}
+                                </span>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    handleToggleMemberPermission(member.userId, field.key)
+                                  }
+                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={savingPrivacy}
+                  onClick={() => savePrivacy(fullAccessAll, rulesByMember)}
+                  className="exec-btn-primary text-xs"
+                >
+                  {savingPrivacy ? 'Salvando...' : 'Salvar permissões de acesso'}
+                </button>
               </div>
             </div>
           )}
