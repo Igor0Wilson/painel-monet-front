@@ -4,9 +4,11 @@ import {
   confirmPasswordReset,
   createUserWithEmailAndPassword,
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
   verifyPasswordResetCode,
@@ -96,19 +98,62 @@ export async function registerWithEmailFirebase(
   };
 }
 
+function createRedirectStartedError(): Error {
+  return Object.assign(new Error('auth/redirect-started'), {
+    code: 'auth/redirect-started',
+  });
+}
+
 export async function signInWithGooglePopup(): Promise<FirebaseAuthResult> {
   const auth = getFirebaseAuth();
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  const credential = await signInWithPopup(auth, provider);
-  const idToken = await credential.user.getIdToken(true);
+  const isNativeWebView =
+    typeof window !== 'undefined' &&
+    Boolean((window as unknown as { ReactNativeWebView?: unknown }).ReactNativeWebView);
 
-  return {
-    idToken,
-    email: credential.user.email || '',
-    displayName: credential.user.displayName || '',
-  };
+  if (isNativeWebView) {
+    await signInWithRedirect(auth, provider);
+    throw createRedirectStartedError();
+  }
+
+  try {
+    const credential = await signInWithPopup(auth, provider);
+    const idToken = await credential.user.getIdToken(true);
+
+    return {
+      idToken,
+      email: credential.user.email || '',
+      displayName: credential.user.displayName || '',
+    };
+  } catch (error: unknown) {
+    const code = (error as { code?: string })?.code;
+    if (
+      code === 'auth/popup-blocked' ||
+      code === 'auth/operation-not-supported-in-this-environment'
+    ) {
+      await signInWithRedirect(auth, provider);
+      throw createRedirectStartedError();
+    }
+    throw error;
+  }
+}
+
+export async function consumeGoogleRedirectResult(): Promise<FirebaseAuthResult | null> {
+  try {
+    const auth = getFirebaseAuth();
+    const credential = await getRedirectResult(auth);
+    if (!credential || !credential.user) return null;
+    const idToken = await credential.user.getIdToken(true);
+    return {
+      idToken,
+      email: credential.user.email || '',
+      displayName: credential.user.displayName || '',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function signOutFirebase(): Promise<void> {
@@ -144,6 +189,7 @@ export function translateFirebaseAuthError(
   switch (code) {
     case 'auth/popup-closed-by-user':
     case 'auth/cancelled-popup-request':
+    case 'auth/redirect-started':
       return '';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':

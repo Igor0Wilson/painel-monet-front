@@ -129,14 +129,35 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     try {
       setDownloadingBackup(true);
       const response = await api.get('/users/me/export');
-      const jsonBlob = new Blob([JSON.stringify(response.data, null, 2)], {
+      const formattedJson = JSON.stringify(response.data, null, 2);
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      const filename = `painel-monet-backup-${dateStamp}.json`;
+
+      const rnWebView = (
+        window as unknown as {
+          ReactNativeWebView?: { postMessage: (msg: string) => void };
+        }
+      ).ReactNativeWebView;
+
+      if (rnWebView && typeof rnWebView.postMessage === 'function') {
+        rnWebView.postMessage(
+          JSON.stringify({
+            type: 'DOWNLOAD_BACKUP',
+            filename,
+            content: formattedJson,
+          }),
+        );
+        toast.success('Backup enviado para compartilhamento no aplicativo!');
+        return;
+      }
+
+      const jsonBlob = new Blob([formattedJson], {
         type: 'application/json;charset=utf-8',
       });
       const url = URL.createObjectURL(jsonBlob);
       const link = document.createElement('a');
-      const dateStamp = new Date().toISOString().slice(0, 10);
       link.href = url;
-      link.download = `painel-monet-backup-${dateStamp}.json`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

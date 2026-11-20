@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
+  consumeGoogleRedirectResult,
   registerWithEmailFirebase,
   signInWithGooglePopup,
   signOutFirebase,
@@ -63,6 +64,41 @@ const Register: React.FC = () => {
 
   const cpfValue = watch('cpf') || '';
   const phoneValue = watch('phone') || '';
+
+  useEffect(() => {
+    let active = true;
+    consumeGoogleRedirectResult().then(async (redirectResult) => {
+      if (!active || !redirectResult) return;
+      try {
+        setGoogleLoading(true);
+        const response = await api.post('/auth/firebase-login', {
+          idToken: redirectResult.idToken,
+        });
+        if (response.data?.requiresProfileCompletion) {
+          setGooglePending({
+            completionToken: response.data.completionToken,
+            email: response.data.googleProfile?.email || redirectResult.email,
+            name: response.data.googleProfile?.name || redirectResult.displayName,
+            cpf: response.data.googleProfile?.cpf || '',
+            phone: response.data.googleProfile?.phone || '',
+          });
+          return;
+        }
+        const { access_token, user } = response.data;
+        login(access_token, user);
+        toast.success('Você já possui conta! Acesso liberado.');
+        navigate('/dashboard');
+      } catch (error: unknown) {
+        await signOutFirebase();
+        toast.error(extractApiErrorMessage(error, 'Erro ao continuar com Google'));
+      } finally {
+        if (active) setGoogleLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [login, navigate]);
 
   const onSubmit = async (data: FormData) => {
     setCpfRedirectBanner(null);

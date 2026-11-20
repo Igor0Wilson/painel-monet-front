@@ -24,6 +24,29 @@ export function useFamilyRealtimeSync({
       process.env.REACT_APP_API_URL || 'http://localhost:3000'
     ).replace(/\/+$/, '');
 
+    const checkSyncVersion = async () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+      try {
+        const res = await api.get('/family/sync');
+        const nextVersion = res.data?.version || '';
+        if (
+          lastSyncVersionRef.current &&
+          nextVersion &&
+          nextVersion !== lastSyncVersionRef.current
+        ) {
+          onFamilyChange();
+          onDataChange();
+        }
+        lastSyncVersionRef.current = nextVersion;
+      } catch (error: unknown) {
+        if (getApiErrorStatus(error) === 401) {
+          onUnauthorized?.();
+        }
+      }
+    };
+
     const connectSse = async () => {
       try {
         const response = await fetch(`${baseURL}/family/stream`, {
@@ -63,29 +86,20 @@ export function useFamilyRealtimeSync({
 
     connectSse();
 
-    const interval = setInterval(async () => {
-      try {
-        const res = await api.get('/family/sync');
-        const nextVersion = res.data?.version || '';
-        if (
-          lastSyncVersionRef.current &&
-          nextVersion &&
-          nextVersion !== lastSyncVersionRef.current
-        ) {
-          onFamilyChange();
-          onDataChange();
-        }
-        lastSyncVersionRef.current = nextVersion;
-      } catch (error: unknown) {
-        if (getApiErrorStatus(error) === 401) {
-          onUnauthorized?.();
-        }
+    const interval = setInterval(checkSyncVersion, 8000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkSyncVersion();
       }
-    }, 4500);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       controller.abort();
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [onDataChange, onFamilyChange, onUnauthorized]);
 }

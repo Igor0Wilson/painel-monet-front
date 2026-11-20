@@ -16,6 +16,7 @@ import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import {
+  consumeGoogleRedirectResult,
   signInWithEmailFirebase,
   signInWithGooglePopup,
   signOutFirebase,
@@ -55,6 +56,51 @@ const Login: React.FC = () => {
       toast.success('Senha redefinida pelo Firebase! Faça login com sua nova senha.');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    let active = true;
+    consumeGoogleRedirectResult().then(async (redirectResult) => {
+      if (!active || !redirectResult) return;
+      try {
+        setGoogleLoading(true);
+        const response = await api.post('/auth/firebase-login', {
+          idToken: redirectResult.idToken,
+        });
+        if (response.data?.requiresProfileCompletion) {
+          setGooglePending({
+            completionToken: response.data.completionToken,
+            email: response.data.googleProfile?.email || redirectResult.email,
+            name: response.data.googleProfile?.name || redirectResult.displayName,
+            cpf: response.data.googleProfile?.cpf || '',
+            phone: response.data.googleProfile?.phone || '',
+          });
+          return;
+        }
+        const { access_token, user, reactivated } = response.data;
+        login(access_token, user);
+        toast.success(
+          reactivated
+            ? 'Conta reativada com sucesso! Bem-vindo de volta.'
+            : 'Acesso autorizado via Google.',
+        );
+        navigate('/dashboard');
+      } catch (error: unknown) {
+        const apiCode = getApiErrorCode(error);
+        if (apiCode === 'ACCOUNT_DEACTIVATED') {
+          await signOutFirebase();
+          setDeactivatedEmail(redirectResult.email);
+          return;
+        }
+        await signOutFirebase();
+        toast.error(extractApiErrorMessage(error, 'Erro ao autenticar com Google'));
+      } finally {
+        if (active) setGoogleLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [login, navigate]);
 
   const {
     register,
