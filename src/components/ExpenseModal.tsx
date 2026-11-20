@@ -106,6 +106,11 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const watchedValue = Number(watch('value')) || 0;
   const watchedInstallments = Number(watch('installmentCount')) || 0;
 
+  const isMarkingPaidOnEdit = Boolean(initialData && !initialData.isPaid && !isRecurring && isPaid);
+  const showPaymentFlow =
+    (!initialData && (isOneTimePurchase || (!isRecurring && Boolean(isPaid)))) ||
+    isMarkingPaidOnEdit;
+
   useEffect(() => {
     if (isOpen) {
       api
@@ -161,7 +166,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const onSubmit = async (data: any) => {
     setCreditError('');
 
-    if (!initialData && isOneTimePurchase) {
+    if (showPaymentFlow) {
       if (purchasePaymentMethod === 'credito') {
         const parsedCount = parseInt(creditInstallments, 10);
         if (isNaN(parsedCount) || parsedCount < 1 || parsedCount > 60) {
@@ -183,9 +188,27 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         if (!payload.isInstallment) delete payload.installmentCount;
         if (payload.isRecurring) payload.isPaid = false;
 
-        await api.patch(`/expenses/${initialData.id}`, payload);
-        toast.success('Despesa atualizada com sucesso!');
-      } else if (isOneTimePurchase) {
+        if (isMarkingPaidOnEdit) {
+          await api.patch(`/expenses/${initialData.id}`, {
+            ...payload,
+            isPaid: false,
+          });
+          const payPayload: any = { paymentMethod: purchasePaymentMethod };
+          if (purchasePaymentMethod === 'credito') {
+            payPayload.installments = parseInt(creditInstallments, 10);
+            payPayload.firstInstallmentDate = firstInstallmentDate;
+          }
+          await api.patch(`/expenses/${initialData.id}/pay`, payPayload);
+          toast.success(
+            purchasePaymentMethod === 'credito'
+              ? 'Despesa liquidada no Cartão de Crédito!'
+              : 'Despesa liquidada e debitada do saldo disponível!',
+          );
+        } else {
+          await api.patch(`/expenses/${initialData.id}`, payload);
+          toast.success('Despesa atualizada com sucesso!');
+        }
+      } else if (showPaymentFlow) {
         if (purchasePaymentMethod === 'credito') {
           const parsedCount = parseInt(creditInstallments, 10);
           await api.post('/expenses', {
@@ -202,8 +225,8 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           });
           toast.success(
             parsedCount > 1
-              ? `Compra no crédito lançada em ${parsedCount}x na fatura do cartão!`
-              : 'Compra no crédito (1x) adicionada à fatura do cartão!',
+              ? `Lançado no crédito em ${parsedCount}x na fatura do cartão!`
+              : 'Lançado no crédito (1x) na fatura do cartão!',
           );
         } else {
           await api.post('/expenses', {
@@ -216,7 +239,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             isPaid: true,
             paymentMethod: purchasePaymentMethod,
           });
-          toast.success('Compra pontual registrada e debitada do saldo!');
+          toast.success('Pagamento registrado e debitado do saldo disponível!');
         }
       } else {
         const payload = { ...data };
@@ -386,10 +409,14 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
               )}
             </div>
 
-            {(!isOneTimePurchase || purchasePaymentMethod !== 'credito') && (
+            {(!showPaymentFlow || purchasePaymentMethod !== 'credito') && (
               <div className={isOneTimePurchase ? 'md:col-span-2' : ''}>
                 <label className="exec-label">
-                  {isOneTimePurchase ? 'Data da compra' : 'Data de vencimento'}
+                  {isOneTimePurchase
+                    ? 'Data da compra'
+                    : showPaymentFlow
+                      ? 'Data do pagamento / vencimento'
+                      : 'Data de vencimento'}
                 </label>
                 <input
                   type="date"
@@ -444,11 +471,11 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             )}
           </div>
 
-          {/* Fluxo de Forma de Pagamento para Compra Pontual */}
-          {!initialData && isOneTimePurchase && (
+          {/* Fluxo de Forma de Pagamento (idêntico ao Liquidar Despesa) */}
+          {showPaymentFlow && (
             <div className="space-y-4 border-t border-slate-100 pt-4">
               <div>
-                <label className="exec-label">Como você pagou esta compra?</label>
+                <label className="exec-label">Forma de pagamento</label>
                 <div className="grid grid-cols-2 gap-2.5">
                   {paymentMethods.map((m) => {
                     const isSelected = purchasePaymentMethod === m.id;
@@ -496,7 +523,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                       className: 'text-xs text-slate-700',
                     })}
                     <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                      Detalhes da Fatura / Parcelamento
+                      Parcelamento no Cartão de Crédito
                     </h4>
                   </div>
 
@@ -525,7 +552,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                       value={creditInstallments}
                       onChange={(e) => setCreditInstallments(e.target.value)}
                       className="exec-input tabular-nums font-semibold"
-                      placeholder="Ex: 3"
+                      placeholder="Número de parcelas (ex: 3)"
                     />
                   </div>
 
@@ -547,7 +574,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                   {watchedValue > 0 && (
                     <div className="rounded-xl bg-white border border-slate-200 px-4 py-3 space-y-1">
                       <p className="text-xs font-semibold text-slate-900">
-                        Lançamento na Fatura:{' '}
+                        Nova conta no Cartão de Crédito:{' '}
                         <span className="tabular-nums text-emerald-700">
                           {validCreditCount}x de {formatCurrency(watchedValue / validCreditCount)}
                         </span>
@@ -567,16 +594,17 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
               ) : (
                 <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/70 px-4 py-3">
                   <p className="text-xs text-emerald-900 leading-relaxed">
-                    A compra será registrada como <strong>paga ({purchasePaymentMethod})</strong> e
-                    debitada imediatamente do seu <strong>Patrimônio Disponível</strong>.
+                    O valor{watchedValue > 0 ? ` de ${formatCurrency(watchedValue)}` : ''} será
+                    registrado como <strong>pago ({purchasePaymentMethod})</strong> e debitado
+                    imediatamente do seu <strong>Patrimônio Disponível</strong>.
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Parcelamento no modo Conta/Despesa normal */}
-          {!isOneTimePurchase && !isRecurring && !initialData && (
+          {/* Parcelamento no modo Conta/Despesa normal (quando ainda não liquidada) */}
+          {!showPaymentFlow && !isOneTimePurchase && !isRecurring && !initialData && (
             <div className="border-t border-slate-100 pt-4 space-y-3">
               <label className="inline-flex items-center gap-3 cursor-pointer select-none">
                 <div className="relative">
@@ -638,12 +666,12 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             <button type="submit" disabled={loading} className="exec-btn-primary">
               {loading
                 ? 'Processando...'
-                : initialData
-                  ? 'Salvar alterações'
-                  : isOneTimePurchase
-                    ? purchasePaymentMethod === 'credito'
-                      ? `Lançar no Crédito (${validCreditCount}x)`
-                      : 'Registrar compra paga'
+                : showPaymentFlow
+                  ? purchasePaymentMethod === 'credito'
+                    ? `Confirmar Crédito (${validCreditCount}x)`
+                    : 'Confirmar Pagamento'
+                  : initialData
+                    ? 'Salvar alterações'
                     : 'Confirmar despesa'}
             </button>
           </div>
