@@ -6,11 +6,11 @@ import {
   FaChevronUp,
   FaCreditCard,
   FaEdit,
-  FaTag,
   FaTrash,
   FaUser,
 } from 'react-icons/fa';
 import { ExpenseFilter, ExpenseItem } from '../../types/finance';
+import { getCategoryMeta } from '../../utils/categories';
 import { formatCurrency, formatDateBr } from '../../utils/formatters';
 import StatusBadge from './StatusBadge';
 
@@ -148,14 +148,19 @@ const ExpensesListSection: React.FC<Props> = ({
                         })}
                         {formatDateBr(expense.dueDate)}
                       </span>
-                      {expense.accountType?.name && (
-                        <span className="inline-flex items-center gap-1.5">
-                          {React.createElement(FaTag as any, {
-                            className: 'text-[10px] text-slate-400',
-                          })}
-                          {expense.accountType.name}
-                        </span>
-                      )}
+                      {(() => {
+                        const catMeta = getCategoryMeta(expense.accountType?.name);
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${catMeta.bgClass} ${catMeta.textClass} ${catMeta.borderClass}`}
+                          >
+                            {React.createElement(catMeta.icon as any, {
+                              className: 'text-[10px]',
+                            })}
+                            {catMeta.name}
+                          </span>
+                        );
+                      })()}
                       {expense.isRecurring && (
                         <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
                           Fixa mensal

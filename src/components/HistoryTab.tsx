@@ -9,10 +9,14 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaCreditCard,
-  FaTag,
+  FaExternalLinkAlt,
   FaUser,
 } from 'react-icons/fa';
 import { ChartDataResponse, ExpenseItem, IncomeItem } from '../types/finance';
+import {
+  computeRealtimeCategoriesForMonth,
+  getCategoryMeta,
+} from '../utils/categories';
 import {
   buildDoughnutChartData,
   buildLineChartData,
@@ -34,6 +38,7 @@ interface Props {
   expenses: ExpenseItem[];
   incomes: IncomeItem[];
   isFamilyMode: boolean;
+  onOpenCategoryDetail: (categoryName?: string | null) => void;
 }
 
 const HistoryTab: React.FC<Props> = ({
@@ -43,14 +48,19 @@ const HistoryTab: React.FC<Props> = ({
   expenses,
   incomes,
   isFamilyMode,
+  onOpenCategoryDetail,
 }) => {
   const availableMonths: string[] = chartData?.availableMonths || [selectedMonth];
 
-  const monthExpenses = useMemo(() => {
-    return expenses
-      .filter((e) => e.dueDate && String(e.dueDate).startsWith(selectedMonth))
-      .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
-  }, [expenses, selectedMonth]);
+  const { activeCategories, monthExpenses } = useMemo(
+    () =>
+      computeRealtimeCategoriesForMonth(
+        expenses,
+        selectedMonth,
+        chartData?.expensesByCategory,
+      ),
+    [expenses, selectedMonth, chartData?.expensesByCategory],
+  );
 
   const monthIncomes = useMemo(() => {
     const [selYear, selMonth] = selectedMonth.split('-').map(Number);
@@ -69,12 +79,31 @@ const HistoryTab: React.FC<Props> = ({
     });
   }, [incomes, selectedMonth]);
 
-  const hasCategoryData = (chartData?.expensesByCategory?.length || 0) > 0;
-  const doughnutData = buildDoughnutChartData(chartData?.expensesByCategory);
+  const hasCategoryData = activeCategories.length > 0;
+  const doughnutData = useMemo(
+    () => buildDoughnutChartData(activeCategories),
+    [activeCategories],
+  );
   const lineData = buildLineChartData(
     chartData?.monthlyHistory,
     'Receitas Acumuladas',
     'Despesas Pagas Acumuladas',
+  );
+
+  const interactiveDoughnutOptions = useMemo(
+    () => ({
+      ...EXECUTIVE_DOUGHNUT_OPTIONS,
+      onClick: (_event: any, elements: any[]) => {
+        if (elements && elements.length > 0) {
+          const clickedIndex = elements[0].index;
+          const cat = activeCategories[clickedIndex];
+          onOpenCategoryDetail(cat?.name || null);
+        } else {
+          onOpenCategoryDetail(null);
+        }
+      },
+    }),
+    [activeCategories, onOpenCategoryDetail],
   );
 
   const summary = chartData?.monthSummary || {
@@ -96,29 +125,29 @@ const HistoryTab: React.FC<Props> = ({
           </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 flex-nowrap w-full lg:w-auto">
           <button
             type="button"
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
-            className="exec-btn-secondary px-3 py-2 text-xs gap-1.5"
+            className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
             {React.createElement(FaChevronLeft as any, { className: 'text-[10px]' })}
-            Anterior
+            <span>Anterior</span>
           </button>
 
           <input
             type="month"
             value={selectedMonth}
             onChange={(e) => e.target.value && onSelectMonth(e.target.value)}
-            className="exec-input w-auto py-2 text-xs font-semibold"
+            className="exec-input flex-1 min-w-0 sm:w-auto px-2.5 sm:px-3 py-2 text-xs font-semibold text-center"
           />
 
           <button
             type="button"
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
-            className="exec-btn-secondary px-3 py-2 text-xs gap-1.5"
+            className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
-            Próximo
+            <span>Próximo</span>
             {React.createElement(FaChevronRight as any, { className: 'text-[10px]' })}
           </button>
         </div>
@@ -196,27 +225,68 @@ const HistoryTab: React.FC<Props> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-5 exec-card p-6">
-          <div className="flex items-center justify-between mb-5">
+        <div className="lg:col-span-5 exec-card p-6 flex flex-col">
+          <div className="flex items-center justify-between gap-2 mb-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">
                 Despesas por Categoria ({formatMonthLabel(selectedMonth)})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Somente despesas pagas no mês</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Toque no gráfico para ver cada gasto por item e data
+              </p>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-600 flex items-center justify-center">
-              {React.createElement(FaChartPie as any, { className: 'text-xs' })}
-            </div>
+            <button
+              type="button"
+              onClick={() => onOpenCategoryDetail(null)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-colors flex-shrink-0"
+              title="Abrir tela detalhada de gastos por categoria"
+            >
+              {React.createElement(FaChartPie as any, { className: 'text-[10px]' })}
+              <span>Detalhar</span>
+              {React.createElement(FaExternalLinkAlt as any, { className: 'text-[9px]' })}
+            </button>
           </div>
-          <div className="h-56 flex items-center justify-center">
+          <div
+            onClick={() => {
+              if (!hasCategoryData) onOpenCategoryDetail(null);
+            }}
+            className="h-52 flex items-center justify-center cursor-pointer"
+          >
             {hasCategoryData ? (
-              <Doughnut data={doughnutData} options={EXECUTIVE_DOUGHNUT_OPTIONS} />
+              <Doughnut data={doughnutData} options={interactiveDoughnutOptions} />
             ) : (
               <p className="text-xs text-slate-400 text-center px-4">
-                Nenhuma despesa liquidada registrada em {formatMonthLabel(selectedMonth)}.
+                Nenhum gasto registrado em {formatMonthLabel(selectedMonth)}.
               </p>
             )}
           </div>
+
+          {hasCategoryData && (
+            <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+              {activeCategories.map((cat) => (
+                <button
+                  key={cat.name}
+                  type="button"
+                  onClick={() => onOpenCategoryDetail(cat.name)}
+                  className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200/80 hover:border-slate-300 hover:bg-slate-50 transition-all text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
+                    >
+                      {React.createElement(cat.meta.icon as any, { className: 'text-[10px]' })}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-800 truncate">
+                      {cat.name}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-900 tabular-nums flex-shrink-0">
+                    {formatCurrency(cat.value)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-7 exec-card p-6">
@@ -292,14 +362,19 @@ const HistoryTab: React.FC<Props> = ({
                         })}
                         {formatDateBr(exp.dueDate)}
                       </span>
-                      {exp.accountType?.name && (
-                        <span className="inline-flex items-center gap-1">
-                          {React.createElement(FaTag as any, {
-                            className: 'text-[10px] text-slate-400',
-                          })}
-                          {exp.accountType.name}
-                        </span>
-                      )}
+                      {(() => {
+                        const catMeta = getCategoryMeta(exp.accountType?.name);
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${catMeta.bgClass} ${catMeta.textClass} ${catMeta.borderClass}`}
+                          >
+                            {React.createElement(catMeta.icon as any, {
+                              className: 'text-[10px]',
+                            })}
+                            {catMeta.name}
+                          </span>
+                        );
+                      })()}
                       {exp.isCreditCard && (
                         <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
                           {React.createElement(FaCreditCard as any, { className: 'text-[10px]' })}

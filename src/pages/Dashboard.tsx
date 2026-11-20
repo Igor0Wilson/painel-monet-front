@@ -24,6 +24,7 @@ import PayCreditCardModal, { CreditCardInvoiceGroup } from '../components/PayCre
 import PayExpenseModal from '../components/PayExpenseModal';
 import UserEditModal from '../components/UserEditModal';
 import AllocationModal from '../components/dashboard/AllocationModal';
+import CategoryDetailsView from '../components/dashboard/CategoryDetailsView';
 import CreditCardInvoicePanel from '../components/dashboard/CreditCardInvoicePanel';
 import ExpensesListSection from '../components/dashboard/ExpensesListSection';
 import FamilyMembersStrip from '../components/dashboard/FamilyMembersStrip';
@@ -43,6 +44,10 @@ import {
   IncomeItem,
   PanelScope,
 } from '../types/finance';
+import {
+  notifyFamilyInviteOnDevice,
+  requestDeviceNotificationPermission,
+} from '../utils/deviceNotifications';
 import { extractApiErrorMessage, getApiErrorStatus } from '../utils/errorHandler';
 import { formatMonthLabel, getCurrentMonthKey } from '../utils/formatters';
 
@@ -109,8 +114,22 @@ const Dashboard: React.FC = () => {
   const [allocationInput, setAllocationInput] = useState('');
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
 
+  const [categoryDetailState, setCategoryDetailState] = useState<{
+    isOpen: boolean;
+    month: string;
+    initialCategory: string | null;
+  }>({
+    isOpen: false,
+    month: getCurrentMonthKey(),
+    initialCategory: null,
+  });
+
   const currentMonthKey = useMemo(() => getCurrentMonthKey(), []);
-  const chartMonth = activeTab === 'history' ? selectedHistoryMonth : currentMonthKey;
+  const chartMonth = categoryDetailState.isOpen
+    ? categoryDetailState.month
+    : activeTab === 'history'
+      ? selectedHistoryMonth
+      : currentMonthKey;
   const isFamilyMode = panelScope === 'family';
 
   const fetchFamilyStatus = useCallback(async () => {
@@ -124,6 +143,9 @@ const Dashboard: React.FC = () => {
       }
 
       const firstPending = status.pendingReceivedInvites?.[0];
+      if (firstPending) {
+        notifyFamilyInviteOnDevice(firstPending).catch(() => undefined);
+      }
       if (firstPending && !dismissedInviteIdsRef.current.has(firstPending.id)) {
         setActiveInviteModal((curr) => curr || firstPending);
       }
@@ -190,6 +212,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchFamilyStatus();
+    requestDeviceNotificationPermission().catch(() => undefined);
   }, [fetchFamilyStatus]);
 
   useFamilyRealtimeSync({
@@ -431,9 +454,12 @@ const Dashboard: React.FC = () => {
             <div className="inline-flex items-center rounded-xl bg-white p-1 border border-slate-200 shadow-sm">
               <button
                 type="button"
-                onClick={() => setActiveTab('overview')}
+                onClick={() => {
+                  setActiveTab('overview');
+                  setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'overview'
+                  activeTab === 'overview' && !categoryDetailState.isOpen
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
@@ -443,9 +469,12 @@ const Dashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('history')}
+                onClick={() => {
+                  setActiveTab('history');
+                  setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'history'
+                  activeTab === 'history' && !categoryDetailState.isOpen
                     ? 'bg-slate-900 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
@@ -456,17 +485,17 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2.5 w-full lg:w-auto">
             <button
               type="button"
               onClick={() => {
                 setEditingItem(null);
                 setIsIncomeModalOpen(true);
               }}
-              className="exec-btn-secondary flex-1 sm:flex-none gap-2"
+              className="exec-btn-secondary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
               {React.createElement(FaPlus as any, { className: 'text-xs text-emerald-600' })}
-              <span>Adicionar Salário / Receita</span>
+              <span>Nova Receita</span>
             </button>
             <button
               type="button"
@@ -474,7 +503,7 @@ const Dashboard: React.FC = () => {
                 setEditingItem(null);
                 setIsExpenseModalOpen(true);
               }}
-              className="exec-btn-primary flex-1 sm:flex-none gap-2"
+              className="exec-btn-primary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
               {React.createElement(FaPlus as any, { className: 'text-xs' })}
               <span>Nova Despesa</span>
@@ -490,14 +519,46 @@ const Dashboard: React.FC = () => {
           />
         )}
 
-        {activeTab === 'history' ? (
+        {categoryDetailState.isOpen ? (
+          <CategoryDetailsView
+            selectedMonth={categoryDetailState.month}
+            initialCategory={categoryDetailState.initialCategory}
+            expenses={
+              isFamilyMode && selectedMemberFilter !== 'all'
+                ? expenses.filter((e) => e.ownerId === selectedMemberFilter)
+                : expenses
+            }
+            isFamilyMode={isFamilyMode}
+            onSelectMonth={(nextMonth) =>
+              setCategoryDetailState((prev) => ({ ...prev, month: nextMonth }))
+            }
+            onBack={() =>
+              setCategoryDetailState((prev) => ({
+                ...prev,
+                isOpen: false,
+                initialCategory: null,
+              }))
+            }
+          />
+        ) : activeTab === 'history' ? (
           <HistoryTab
             selectedMonth={selectedHistoryMonth}
             onSelectMonth={setSelectedHistoryMonth}
             chartData={chartData}
-            expenses={filteredExpenses}
+            expenses={
+              isFamilyMode && selectedMemberFilter !== 'all'
+                ? expenses.filter((e) => e.ownerId === selectedMemberFilter)
+                : expenses
+            }
             incomes={filteredIncomes}
             isFamilyMode={isFamilyMode}
+            onOpenCategoryDetail={(catName) =>
+              setCategoryDetailState({
+                isOpen: true,
+                month: selectedHistoryMonth,
+                initialCategory: catName || null,
+              })
+            }
           />
         ) : (
           <>
@@ -509,7 +570,23 @@ const Dashboard: React.FC = () => {
               onOpenInvestmentModal={() => handleOpenAllocation('investment')}
             />
 
-            <MonthlyChartsSection periodLabel={currentPeriodLabel} chartData={chartData} />
+            <MonthlyChartsSection
+              periodLabel={currentPeriodLabel}
+              monthKey={currentMonthKey}
+              expenses={
+                isFamilyMode && selectedMemberFilter !== 'all'
+                  ? expenses.filter((e) => e.ownerId === selectedMemberFilter)
+                  : expenses
+              }
+              chartData={chartData}
+              onOpenCategoryDetail={(catName) =>
+                setCategoryDetailState({
+                  isOpen: true,
+                  month: currentMonthKey,
+                  initialCategory: catName || null,
+                })
+              }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               <div className="lg:col-span-8 space-y-6">

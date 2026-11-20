@@ -16,6 +16,7 @@ import api from '../api';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import type { PaymentMethod } from './PayExpenseModal';
+import { filterOfficialAccountTypes } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 interface AccountType {
@@ -110,7 +111,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
       api
         .get('/account-types')
         .then((response) => {
-          setAccountTypes(response.data);
+          setAccountTypes(filterOfficialAccountTypes(response.data || []));
         })
         .catch((error: unknown) => {
           toast.error(extractApiErrorMessage(error, 'Erro ao carregar categorias'));

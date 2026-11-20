@@ -25,9 +25,6 @@ export function useFamilyRealtimeSync({
     ).replace(/\/+$/, '');
 
     const checkSyncVersion = async () => {
-      if (typeof document !== 'undefined' && document.hidden) {
-        return;
-      }
       try {
         const res = await api.get('/family/sync');
         const nextVersion = res.data?.version || '';

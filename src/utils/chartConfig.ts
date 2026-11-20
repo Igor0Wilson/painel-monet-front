@@ -1,14 +1,13 @@
+import { getCategoryMeta } from './categories';
 import { formatCurrency } from './formatters';
 
 export const EXECUTIVE_CHART_PALETTE = [
-  '#0f172a',
-  '#0d9488',
-  '#334155',
-  '#0284c7',
-  '#64748b',
-  '#14b8a6',
-  '#94a3b8',
-  '#cbd5e1',
+  '#2563eb',
+  '#7c3aed',
+  '#ec4899',
+  '#10b981',
+  '#f59e0b',
+  '#06b6d4',
 ];
 
 export const EXECUTIVE_LINE_OPTIONS: any = {
@@ -85,15 +84,23 @@ export const EXECUTIVE_DOUGHNUT_OPTIONS: any = {
   },
 };
 
-export function buildDoughnutChartData(categories: { name: string; value: number }[] = []) {
+export function buildDoughnutChartData(
+  categories: { name: string; value: number; color?: string }[] = [],
+) {
   return {
     labels: categories.map((c) => c.name),
     datasets: [
       {
         data: categories.map((c) => c.value),
-        backgroundColor: EXECUTIVE_CHART_PALETTE,
+        backgroundColor: categories.map(
+          (c, idx) =>
+            c.color ||
+            getCategoryMeta(c.name)?.color ||
+            EXECUTIVE_CHART_PALETTE[idx % EXECUTIVE_CHART_PALETTE.length],
+        ),
         borderColor: '#ffffff',
         borderWidth: 2,
+        hoverOffset: 6,
       },
     ],
   };

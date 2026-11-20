@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown, FaCheck } from 'react-icons/fa';
+import { getCategoryMeta } from '../utils/categories';
 
 interface Option {
   id: string;
@@ -27,6 +28,7 @@ const CustomSelect: React.FC<Props> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.id === value);
+  const selectedMeta = selectedOption ? getCategoryMeta(selectedOption.name) : null;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -49,9 +51,18 @@ const CustomSelect: React.FC<Props> = ({
           error ? 'exec-input-error' : ''
         }`}
       >
-        <span className={`truncate ${selectedOption ? 'text-slate-900 font-medium' : 'text-slate-400'}`}>
-          {selectedOption ? selectedOption.name : placeholder}
-        </span>
+        {selectedOption && selectedMeta ? (
+          <span className="flex items-center gap-2.5 min-w-0">
+            <span
+              className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMeta.iconBgClass}`}
+            >
+              {React.createElement(selectedMeta.icon as any, { className: 'text-xs' })}
+            </span>
+            <span className="truncate text-slate-900 font-semibold">{selectedMeta.name}</span>
+          </span>
+        ) : (
+          <span className="truncate text-slate-400">{placeholder}</span>
+        )}
         {React.createElement(FaChevronDown as any, {
           className: `text-slate-400 text-xs ml-2 flex-shrink-0 transition-transform duration-200 ${
             isOpen ? 'rotate-180 text-slate-700' : ''
@@ -61,7 +72,7 @@ const CustomSelect: React.FC<Props> = ({
 
       {isOpen && (
         <div className="absolute z-[100] w-full mt-1.5 bg-white rounded-xl shadow-executive-lg border border-slate-200 overflow-hidden">
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto py-1">
             {options.length === 0 ? (
               <div className="px-3.5 py-2.5 text-xs text-slate-400">
                 Nenhuma categoria disponível
@@ -69,6 +80,7 @@ const CustomSelect: React.FC<Props> = ({
             ) : (
               options.map((option) => {
                 const isSelected = value === option.id;
+                const meta = getCategoryMeta(option.name);
                 return (
                   <button
                     type="button"
@@ -83,7 +95,14 @@ const CustomSelect: React.FC<Props> = ({
                       setIsOpen(false);
                     }}
                   >
-                    <span className="truncate">{option.name}</span>
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${meta.iconBgClass}`}
+                      >
+                        {React.createElement(meta.icon as any, { className: 'text-xs' })}
+                      </span>
+                      <span className="truncate">{meta.name}</span>
+                    </span>
                     {isSelected &&
                       React.createElement(FaCheck as any, {
                         className: 'text-xs text-slate-900 flex-shrink-0 ml-2',
