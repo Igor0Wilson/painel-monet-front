@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaDownload, FaMobileAlt, FaTimes } from 'react-icons/fa';
+import { FaDownload, FaMobileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -11,21 +11,29 @@ interface InstallAppBannerProps {
   compact?: boolean;
 }
 
-const STORAGE_INSTALLED_KEY = 'pm_app_installed';
+function checkIsRunningInsideApp(): boolean {
+  if (typeof window === 'undefined') return false;
 
-function checkIsInstalledOrDismissed(): boolean {
-  if (typeof window === 'undefined') return true;
   try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('app') === '1' || params.get('standalone') === '1') {
-      localStorage.setItem(STORAGE_INSTALLED_KEY, '1');
-      return true;
-    }
-    if (localStorage.getItem(STORAGE_INSTALLED_KEY) === '1') {
-      return true;
-    }
+    localStorage.removeItem('pm_app_installed');
+    sessionStorage.removeItem('pm_app_installed');
   } catch {
     // Ignore storage errors
+  }
+
+  const win = window as unknown as {
+    __PM_RUNNING_IN_APP__?: boolean;
+    ReactNativeWebView?: unknown;
+  };
+
+  if (win.__PM_RUNNING_IN_APP__) {
+    return true;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('app') === '1' || params.get('standalone') === '1') {
+    win.__PM_RUNNING_IN_APP__ = true;
+    return true;
   }
 
   return (
@@ -35,20 +43,18 @@ function checkIsInstalledOrDismissed(): boolean {
         (window.matchMedia('(display-mode: standalone)').matches ||
           window.matchMedia('(display-mode: fullscreen)').matches),
     ) ||
-    Boolean((window as unknown as { ReactNativeWebView?: unknown }).ReactNativeWebView)
+    Boolean(win.ReactNativeWebView)
   );
 }
 
 const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isHidden, setIsHidden] = useState<boolean>(() => checkIsInstalledOrDismissed());
+  const [isInsideApp, setIsInsideApp] = useState<boolean>(() => checkIsRunningInsideApp());
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    if (checkIsInstalledOrDismissed()) {
-      setIsHidden(true);
-    }
+    setIsInsideApp(checkIsRunningInsideApp());
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -56,12 +62,6 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
     };
 
     const handleAppInstalled = () => {
-      try {
-        localStorage.setItem(STORAGE_INSTALLED_KEY, '1');
-      } catch {
-        // Ignore
-      }
-      setIsHidden(true);
       setDeferredPrompt(null);
     };
 
@@ -74,29 +74,18 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
     };
   }, []);
 
-  if (isHidden) return null;
-
-  const markInstalledAndHide = () => {
-    try {
-      localStorage.setItem(STORAGE_INSTALLED_KEY, '1');
-    } catch {
-      // Ignore
-    }
-    setIsHidden(true);
-  };
+  if (isInsideApp) return null;
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const choice = await deferredPrompt.userChoice;
       if (choice.outcome === 'accepted') {
-        markInstalledAndHide();
         setDeferredPrompt(null);
       }
       return;
     }
 
-    markInstalledAndHide();
     toast.info(
       'Toque em "Permitir" e depois confirme em Ajustes -> Perfil Baixado -> Instalar.',
       { autoClose: 7000 },
@@ -135,25 +124,14 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button
-          type="button"
-          onClick={handleInstallClick}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors"
-        >
-          {React.createElement(FaDownload as any, { className: 'text-xs' })}
-          Instalar
-        </button>
-        <button
-          type="button"
-          onClick={markInstalledAndHide}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-          aria-label="Ocultar aviso de instalação"
-          title="Já instalei / Ocultar"
-        >
-          {React.createElement(FaTimes as any, { className: 'text-xs' })}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleInstallClick}
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors flex-shrink-0"
+      >
+        {React.createElement(FaDownload as any, { className: 'text-xs' })}
+        Instalar
+      </button>
     </div>
   );
 };
