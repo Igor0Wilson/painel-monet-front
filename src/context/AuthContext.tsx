@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { signOutFirebase } from '../services/firebaseAuth';
 
 interface User {
   id: string;
@@ -36,16 +37,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = (token: string, user: User) => {
-    setUser(user);
+  const login = (token: string, nextUser: User) => {
+    setUser(nextUser);
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(nextUser));
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    signOutFirebase().catch(() => undefined);
   };
 
   const updateUser = (updatedUser: User) => {
@@ -61,4 +63,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => useContext(AuthContext);
-

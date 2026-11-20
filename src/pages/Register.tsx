@@ -7,7 +7,12 @@ import { FaLandmark, FaShieldAlt, FaCheckCircle, FaExclamationTriangle } from 'r
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { signInWithGooglePopup } from '../services/firebaseAuth';
+import {
+  registerWithEmailFirebase,
+  signInWithGooglePopup,
+  signOutFirebase,
+  translateFirebaseAuthError,
+} from '../services/firebaseAuth';
 import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import GoogleCompleteProfileModal, {
   GooglePendingProfile,
@@ -65,20 +70,29 @@ const Register: React.FC = () => {
 
     try {
       setLoading(true);
-      await api.post('/users', {
+      const fbResult = await registerWithEmailFirebase(
+        data.email.trim(),
+        data.password,
+        data.name.trim(),
+      );
+
+      const response = await api.post('/auth/firebase-register', {
+        idToken: fbResult.idToken,
         name: data.name.trim(),
-        email: data.email.trim(),
-        password: data.password,
         cpf: cpfDigits,
         phone: onlyDigits(data.phone),
       });
-      toast.success('Conta criada com sucesso! Faça login para começar.');
-      navigate('/login');
+
+      const { access_token, user } = response.data;
+      login(access_token, user);
+      toast.success('Conta criada com sucesso! Bem-vindo ao Painel Monet.');
+      navigate('/dashboard');
     } catch (error: unknown) {
       const code = getApiErrorCode(error);
       const message = extractApiErrorMessage(error, 'Erro ao cadastrar usuário');
 
       if (code === 'CPF_ALREADY_EXISTS' || message.toLowerCase().includes('cpf já está')) {
+        await signOutFirebase();
         setCpfRedirectBanner(
           'Este CPF já está cadastrado em outra conta. Redirecionando para recuperação de senha...',
         );
@@ -94,6 +108,14 @@ const Register: React.FC = () => {
         return;
       }
 
+      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao cadastrar usuário');
+      if (firebaseMsg === '') return;
+      if (firebaseMsg) {
+        toast.error(firebaseMsg);
+        return;
+      }
+
+      await signOutFirebase();
       toast.error(message);
     } finally {
       setLoading(false);
@@ -104,7 +126,7 @@ const Register: React.FC = () => {
     try {
       setGoogleLoading(true);
       const googleResult = await signInWithGooglePopup();
-      const response = await api.post('/auth/google', {
+      const response = await api.post('/auth/firebase-login', {
         idToken: googleResult.idToken,
       });
 
@@ -124,10 +146,24 @@ const Register: React.FC = () => {
       toast.success('Você já possui conta! Acesso liberado.');
       navigate('/dashboard');
     } catch (error: unknown) {
-      const code = (error as { code?: string })?.code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      const apiCode = getApiErrorCode(error);
+      if (apiCode === 'ACCOUNT_DEACTIVATED') {
+        await signOutFirebase();
+        toast.warning(
+          'Esta conta está desativada. Redirecionando para reativação por e-mail...',
+        );
+        navigate('/forgot-password', { state: { reason: 'reactivate' } });
         return;
       }
+
+      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao continuar com Google');
+      if (firebaseMsg === '') return;
+      if (firebaseMsg) {
+        toast.error(firebaseMsg);
+        return;
+      }
+
+      await signOutFirebase();
       toast.error(extractApiErrorMessage(error, 'Erro ao continuar com Google'));
     } finally {
       setGoogleLoading(false);
@@ -178,7 +214,7 @@ const Register: React.FC = () => {
               {React.createElement(FaShieldAlt as any, {
                 className: 'text-emerald-400 text-sm flex-shrink-0',
               })}
-              <span>Reserva de emergência e investimentos protegidos do saldo disponível</span>
+              <span>Autenticação protegida pelo Firebase com recuperação gratuita por e-mail</span>
             </div>
           </div>
         </div>

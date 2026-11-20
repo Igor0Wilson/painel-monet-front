@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   FaArrowLeft,
   FaCheckCircle,
+  FaEnvelopeOpenText,
   FaExclamationTriangle,
   FaKey,
   FaLandmark,
@@ -15,21 +16,17 @@ import { formatCpfInput, onlyDigits } from '../utils/formatters';
 
 interface ForgotPasswordLocationState {
   identifier?: string;
-  reason?: string;
+  reason?: 'cpf_exists' | 'reactivate';
 }
 
 const ForgotPassword: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const state = (location.state as ForgotPasswordLocationState | null) || {};
 
-  const [step, setStep] = useState<'request' | 'reset'>('request');
   const [identifier, setIdentifier] = useState<string>(state.identifier || '');
+  const [sent, setSent] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
-  const [devCode, setDevCode] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isDeactivated, setIsDeactivated] = useState(state.reason === 'reactivate');
   const [loading, setLoading] = useState(false);
 
   const handleIdentifierChange = (raw: string) => {
@@ -40,7 +37,7 @@ const ForgotPassword: React.FC = () => {
     }
   };
 
-  const handleRequestCode = async (e: React.FormEvent) => {
+  const handleSendFirebaseEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = identifier.trim();
     if (!trimmed) {
@@ -56,65 +53,31 @@ const ForgotPassword: React.FC = () => {
 
       const response = await api.post('/auth/forgot-password', {
         identifier: payloadIdentifier,
+        mode: state.reason === 'reactivate' ? 'reactivate' : 'reset',
       });
 
       setMaskedEmail(response.data?.maskedEmail || null);
-      setDevCode(response.data?.devCode || null);
+      if (typeof response.data?.isDeactivated === 'boolean') {
+        setIsDeactivated(response.data.isDeactivated);
+      }
+      setSent(true);
       toast.success(
         response.data?.message ||
-          'Se a conta existir, enviamos um código de recuperação.',
+          'E-mail oficial do Firebase enviado! Verifique sua caixa de entrada.',
       );
-      setStep('reset');
     } catch (error: unknown) {
       toast.error(
-        extractApiErrorMessage(error, 'Erro ao solicitar recuperação de senha'),
+        extractApiErrorMessage(
+          error,
+          'Não foi possível enviar o e-mail de recuperação/reativação.',
+        ),
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanCode = onlyDigits(code);
-    if (cleanCode.length !== 6) {
-      toast.error('Informe o código de 6 dígitos enviado para seu e-mail.');
-      return;
-    }
-    if (newPassword.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas não conferem.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const trimmed = identifier.trim();
-      const payloadIdentifier = trimmed.includes('@')
-        ? trimmed.toLowerCase()
-        : onlyDigits(trimmed);
-
-      const response = await api.post('/auth/reset-password', {
-        identifier: payloadIdentifier,
-        code: cleanCode,
-        newPassword,
-      });
-
-      toast.success(
-        response.data?.message || 'Senha redefinida com sucesso!',
-      );
-      navigate('/login');
-    } catch (error: unknown) {
-      toast.error(
-        extractApiErrorMessage(error, 'Não foi possível redefinir a senha'),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isReactivateFlow = state.reason === 'reactivate' || isDeactivated;
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -143,17 +106,20 @@ const ForgotPassword: React.FC = () => {
 
         <div className="relative z-10 max-w-md space-y-5">
           <h1 className="text-3xl font-semibold tracking-tight leading-tight text-white">
-            Recuperação segura de acesso vinculada ao seu CPF e e-mail.
+            {isReactivateFlow
+              ? 'Reative sua conta definindo uma nova senha pelo e-mail oficial do Firebase.'
+              : 'Recuperação segura de senha via e-mail oficial do Firebase.'}
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Como cada CPF é uma chave única no sistema, você pode recuperar sua conta
-            com segurança usando um código temporário de 6 dígitos.
+            Como cada CPF é uma chave única protegida no banco, você pode informar seu
+            CPF ou e-mail e receber o link oficial do Google/Firebase para redefinir sua senha
+            e liberar o acesso.
           </p>
           <div className="flex items-center gap-3 text-xs text-slate-300 pt-2">
             <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
               {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
             </span>
-            Código temporário válido por 15 minutos com proteção contra tentativas
+            Disparo oficial Google Firebase com link seguro de uso único
           </div>
         </div>
 
@@ -176,19 +142,21 @@ const ForgotPassword: React.FC = () => {
 
           <div className="mb-6">
             <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-              {React.createElement(FaKey as any, { className: 'text-base' })}
+              {React.createElement((sent ? FaEnvelopeOpenText : FaKey) as any, {
+                className: 'text-base',
+              })}
             </div>
             <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
-              Recuperar senha
+              {isReactivateFlow ? 'Reativar conta / Nova senha' : 'Recuperar senha'}
             </h2>
             <p className="mt-1.5 text-sm text-slate-500">
-              {step === 'request'
-                ? 'Informe o CPF ou e-mail da sua conta para receber o código de recuperação.'
-                : 'Digite o código de 6 dígitos e escolha sua nova senha.'}
+              {sent
+                ? 'Siga as instruções enviadas para o seu e-mail cadastrado.'
+                : 'Informe o CPF ou e-mail da sua conta para receber o link oficial do Firebase.'}
             </p>
           </div>
 
-          {state.reason === 'cpf_exists' && (
+          {state.reason === 'cpf_exists' && !sent && (
             <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
               {React.createElement(FaExclamationTriangle as any, {
                 className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
@@ -196,16 +164,32 @@ const ForgotPassword: React.FC = () => {
               <div className="text-xs text-amber-900 leading-relaxed">
                 <p className="font-semibold">CPF já cadastrado no sistema</p>
                 <p className="mt-0.5">
-                  Cada CPF é uma chave única e não pode ser duplicado. Solicite abaixo o código
-                  para recuperar o acesso à sua conta existente.
+                  Cada CPF é uma chave única e não pode ser duplicado. Solicite abaixo o e-mail
+                  do Firebase para redefinir a senha da sua conta existente.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {state.reason === 'reactivate' && !sent && (
+            <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+              {React.createElement(FaExclamationTriangle as any, {
+                className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+              })}
+              <div className="text-xs text-amber-900 leading-relaxed">
+                <p className="font-semibold">Reativação de conta desativada</p>
+                <p className="mt-0.5">
+                  Enviaremos um e-mail oficial do Firebase com o botão/link para definir sua
+                  nova senha. Assim que você salvar a nova senha e fizer login, sua conta será
+                  reativada automaticamente com todos os dados preservados.
                 </p>
               </div>
             </div>
           )}
 
           <div className="exec-card p-6 sm:p-8">
-            {step === 'request' ? (
-              <form className="space-y-5" onSubmit={handleRequestCode}>
+            {!sent ? (
+              <form className="space-y-5" onSubmit={handleSendFirebaseEmail}>
                 <div>
                   <label htmlFor="identifier" className="exec-label">
                     CPF ou E-mail cadastrado
@@ -226,97 +210,49 @@ const ForgotPassword: React.FC = () => {
                   disabled={loading}
                   className="exec-btn-primary w-full py-3"
                 >
-                  {loading ? 'Enviando código...' : 'Enviar código de recuperação'}
+                  {loading
+                    ? 'Disparando e-mail...'
+                    : isReactivateFlow
+                      ? 'Enviar e-mail de reativação'
+                      : 'Enviar e-mail de recuperação'}
                 </button>
               </form>
             ) : (
-              <form className="space-y-4" onSubmit={handleResetPassword}>
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
+              <div className="space-y-5">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3 text-xs text-emerald-950">
                   {React.createElement(FaCheckCircle as any, {
-                    className: 'text-emerald-600 text-sm mt-0.5 flex-shrink-0',
+                    className: 'text-emerald-600 text-base mt-0.5 flex-shrink-0',
                   })}
-                  <div>
-                    <p className="font-semibold">Solicitação registrada</p>
-                    <p className="mt-0.5">
+                  <div className="space-y-1.5 leading-relaxed">
+                    <p className="font-semibold">E-mail enviado pelo Firebase!</p>
+                    <p>
                       {maskedEmail
-                        ? `Enviamos o código de 6 dígitos para ${maskedEmail}.`
-                        : 'Verifique a caixa de entrada do e-mail vinculado à sua conta.'}
+                        ? `Disparamos o link oficial para ${maskedEmail} (verifique também a caixa de Spam/Promoções).`
+                        : 'Se a conta existir, disparamos o link oficial para o e-mail vinculado.'}
+                    </p>
+                    <p>
+                      {isReactivateFlow
+                        ? '1. Abra o e-mail e clique no link para definir sua nova senha.\n2. Volte para a tela de login e entre com a nova senha — sua conta será reativada automaticamente!'
+                        : 'Abra o e-mail, clique no link para definir sua nova senha e depois volte para fazer login.'}
                     </p>
                   </div>
                 </div>
 
-                {devCode && (
-                  <div className="rounded-xl bg-slate-100 border border-slate-300 p-3 text-xs text-slate-800">
-                    <span className="font-semibold">Ambiente local (dev):</span> código gerado{' '}
-                    <strong className="font-mono text-sm tracking-widest">{devCode}</strong>
-                  </div>
-                )}
-
-                <div>
-                  <label htmlFor="recovery-code" className="exec-label">
-                    Código de 6 dígitos
-                  </label>
-                  <input
-                    id="recovery-code"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    required
-                    value={code}
-                    onChange={(e) => setCode(onlyDigits(e.target.value).slice(0, 6))}
-                    className="exec-input font-mono text-center tracking-[0.4em] text-base"
-                    placeholder="000000"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="new-password" className="exec-label">
-                    Nova senha
-                  </label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="exec-input"
-                    placeholder="Mínimo 6 caracteres"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="confirm-new-password" className="exec-label">
-                    Confirmar nova senha
-                  </label>
-                  <input
-                    id="confirm-new-password"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="exec-input"
-                    placeholder="Repita a nova senha"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="exec-btn-primary w-full py-3"
+                <Link
+                  to="/login"
+                  className="exec-btn-primary w-full py-3 inline-flex items-center justify-center"
                 >
-                  {loading ? 'Redefinindo...' : 'Redefinir senha'}
-                </button>
+                  Ir para a tela de login
+                </Link>
 
                 <button
                   type="button"
-                  onClick={() => setStep('request')}
-                  className="w-full text-xs font-semibold text-slate-500 hover:text-slate-800 pt-1"
+                  onClick={() => setSent(false)}
+                  className="w-full text-xs font-semibold text-slate-500 hover:text-slate-800"
                 >
-                  Reenviar código ou trocar CPF/e-mail
+                  Enviar novamente ou informar outro CPF/e-mail
                 </button>
-              </form>
+              </div>
             )}
           </div>
         </div>

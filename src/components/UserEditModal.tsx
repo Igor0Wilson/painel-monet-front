@@ -12,7 +12,10 @@ import {
   FaUser,
   FaWhatsapp,
   FaShieldAlt,
+  FaDownload,
+  FaExclamationTriangle,
 } from 'react-icons/fa';
+import AccountDangerModal from './AccountDangerModal';
 import {
   buildWhatsAppUrl,
   formatCpfInput,
@@ -59,6 +62,8 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [downloadingBackup, setDownloadingBackup] = useState(false);
+  const [dangerModalOpen, setDangerModalOpen] = useState(false);
 
   const {
     register,
@@ -117,6 +122,30 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       toast.error(extractApiErrorMessage(error, 'Erro ao atualizar perfil'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    try {
+      setDownloadingBackup(true);
+      const response = await api.get('/users/me/export');
+      const jsonBlob = new Blob([JSON.stringify(response.data, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(jsonBlob);
+      const link = document.createElement('a');
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `painel-monet-backup-${dateStamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Backup dos seus dados baixado com sucesso!');
+    } catch (error: unknown) {
+      toast.error(extractApiErrorMessage(error, 'Erro ao exportar dados'));
+    } finally {
+      setDownloadingBackup(false);
     }
   };
 
@@ -286,8 +315,36 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
               {loading ? 'Salvando...' : 'Salvar alterações'}
             </button>
           </div>
+
+          <div className="pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <button
+              type="button"
+              onClick={handleDownloadBackup}
+              disabled={downloadingBackup}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
+            >
+              {React.createElement(FaDownload as any, { className: 'text-xs' })}
+              {downloadingBackup ? 'Gerando backup...' : 'Baixar meus dados (.json)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setDangerModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-colors"
+            >
+              {React.createElement(FaExclamationTriangle as any, { className: 'text-xs' })}
+              Desativar / Excluir conta
+            </button>
+          </div>
         </form>
       </div>
+
+      <AccountDangerModal
+        isOpen={dangerModalOpen}
+        onClose={() => setDangerModalOpen(false)}
+        onDownloadBackup={handleDownloadBackup}
+        downloading={downloadingBackup}
+      />
     </div>
   );
 };

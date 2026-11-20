@@ -1,18 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { useNavigate, Link } from 'react-router-dom';
-import { FaLandmark, FaEye, FaEyeSlash, FaShieldAlt, FaChartLine, FaLayerGroup } from 'react-icons/fa';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import {
+  FaLandmark,
+  FaEye,
+  FaEyeSlash,
+  FaShieldAlt,
+  FaChartLine,
+  FaLayerGroup,
+  FaExclamationTriangle,
+} from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { signInWithGooglePopup } from '../services/firebaseAuth';
+import {
+  signInWithEmailFirebase,
+  signInWithGooglePopup,
+  signOutFirebase,
+  translateFirebaseAuthError,
+} from '../services/firebaseAuth';
 import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import GoogleCompleteProfileModal, {
   GooglePendingProfile,
 } from '../components/auth/GoogleCompleteProfileModal';
-import { extractApiErrorMessage } from '../utils/errorHandler';
+import { extractApiErrorMessage, getApiErrorCode } from '../utils/errorHandler';
 
 const schema = yup
   .object({
@@ -28,8 +41,20 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googlePending, setGooglePending] = useState<GooglePendingProfile | null>(null);
+  const [deactivatedEmail, setDeactivatedEmail] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('reactivated') === '1') {
+      toast.success(
+        'Nova senha definida! Faça login agora com seu e-mail e nova senha para reativar sua conta.',
+      );
+    } else if (searchParams.get('passwordReset') === '1') {
+      toast.success('Senha redefinida pelo Firebase! Faça login com sua nova senha.');
+    }
+  }, [searchParams]);
 
   const {
     register,
@@ -40,14 +65,41 @@ const Login: React.FC = () => {
   });
 
   const onSubmit = async (data: FormData) => {
+    setDeactivatedEmail(null);
     try {
       setLoading(true);
-      const response = await api.post('/auth/login', data);
-      const { access_token, user } = response.data;
+      const fbResult = await signInWithEmailFirebase(data.email, data.password);
+      const response = await api.post('/auth/firebase-login', {
+        idToken: fbResult.idToken,
+      });
+
+      const { access_token, user, reactivated } = response.data;
       login(access_token, user);
-      toast.success('Acesso autorizado.');
+      toast.success(
+        reactivated
+          ? 'Conta reativada com sucesso! Bem-vindo de volta.'
+          : 'Acesso autorizado.',
+      );
       navigate('/dashboard');
     } catch (error: unknown) {
+      const apiCode = getApiErrorCode(error);
+      if (apiCode === 'ACCOUNT_DEACTIVATED') {
+        await signOutFirebase();
+        setDeactivatedEmail(data.email.trim().toLowerCase());
+        toast.warning(
+          'Sua conta está desativada. Reative pelo e-mail de redefinição de senha.',
+        );
+        return;
+      }
+
+      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao realizar login');
+      if (firebaseMsg === '') return;
+      if (firebaseMsg) {
+        toast.error(firebaseMsg);
+        return;
+      }
+
+      await signOutFirebase();
       toast.error(extractApiErrorMessage(error, 'Erro ao realizar login'));
     } finally {
       setLoading(false);
@@ -55,10 +107,13 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
+    setDeactivatedEmail(null);
+    let googleEmail = '';
     try {
       setGoogleLoading(true);
       const googleResult = await signInWithGooglePopup();
-      const response = await api.post('/auth/google', {
+      googleEmail = googleResult.email;
+      const response = await api.post('/auth/firebase-login', {
         idToken: googleResult.idToken,
       });
 
@@ -73,15 +128,33 @@ const Login: React.FC = () => {
         return;
       }
 
-      const { access_token, user } = response.data;
+      const { access_token, user, reactivated } = response.data;
       login(access_token, user);
-      toast.success('Acesso autorizado via Google.');
+      toast.success(
+        reactivated
+          ? 'Conta reativada com sucesso! Bem-vindo de volta.'
+          : 'Acesso autorizado via Google.',
+      );
       navigate('/dashboard');
     } catch (error: unknown) {
-      const code = (error as { code?: string })?.code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      const apiCode = getApiErrorCode(error);
+      if (apiCode === 'ACCOUNT_DEACTIVATED') {
+        await signOutFirebase();
+        setDeactivatedEmail(googleEmail);
+        toast.warning(
+          'Sua conta está desativada. Solicite o e-mail de reativação para voltar a acessar.',
+        );
         return;
       }
+
+      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao entrar com Google');
+      if (firebaseMsg === '') return;
+      if (firebaseMsg) {
+        toast.error(firebaseMsg);
+        return;
+      }
+
+      await signOutFirebase();
       toast.error(extractApiErrorMessage(error, 'Erro ao entrar com Google'));
     } finally {
       setGoogleLoading(false);
@@ -137,7 +210,7 @@ const Login: React.FC = () => {
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                 {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
               </span>
-              Dados isolados por usuário com CPF único e autenticação segura
+              Autenticação Firebase + CPF único validado no banco de dados
             </div>
           </div>
         </div>
@@ -161,11 +234,37 @@ const Login: React.FC = () => {
               Acessar painel
             </h2>
             <p className="mt-1.5 text-sm text-slate-500">
-              Insira suas credenciais ou entre com sua conta Gmail.
+              Entre com sua conta Gmail ou e-mail e senha cadastrados.
             </p>
           </div>
 
           <div className="exec-card p-6 sm:p-8">
+            {deactivatedEmail && (
+              <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+                {React.createElement(FaExclamationTriangle as any, {
+                  className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+                })}
+                <div className="text-xs text-amber-900 leading-relaxed">
+                  <p className="font-semibold">Sua conta está desativada</p>
+                  <p className="mt-0.5">
+                    Para reativar, enviaremos um e-mail oficial do Firebase para você definir uma
+                    nova senha e liberar o acesso.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/forgot-password', {
+                        state: { identifier: deactivatedEmail, reason: 'reactivate' },
+                      })
+                    }
+                    className="mt-2 inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
+                  >
+                    Enviar e-mail de reativação
+                  </button>
+                </div>
+              </div>
+            )}
+
             <GoogleSignInButton
               onClick={handleGoogleLogin}
               loading={googleLoading}
@@ -210,7 +309,7 @@ const Login: React.FC = () => {
                     to="/forgot-password"
                     className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:underline underline-offset-4 mb-1.5"
                   >
-                    Esqueci minha senha
+                    Esqueci senha / Reativar conta
                   </Link>
                 </div>
                 <div className="relative">
