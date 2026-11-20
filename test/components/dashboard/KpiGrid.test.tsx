@@ -91,4 +91,25 @@ describe('KpiGrid', () => {
     expect(screen.getByText(/Carteira anterior:/)).toBeInTheDocument();
     expect(screen.getByText(/Do saldo:/)).toBeInTheDocument();
   });
+
+  it('displays total patrimony and corrective guidance when monthly allocations cause negative available balance', () => {
+    render(
+      <KpiGrid
+        balance={{
+          ...mockBalance,
+          balance: -500,
+          emergencyFund: 500,
+          investments: 1000,
+          ownAllocatedInvestments: 1000,
+        }}
+        incomesCount={1}
+        isFamilyMode={false}
+        onOpenEmergencyModal={jest.fn()}
+        onOpenInvestmentModal={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Patrimônio total/)).toBeInTheDocument();
+    expect(screen.getByText(/Parte do saldo foi retida em guardado do mês/)).toBeInTheDocument();
+  });
 });

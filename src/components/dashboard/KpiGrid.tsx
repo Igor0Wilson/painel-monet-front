@@ -29,6 +29,11 @@ const KpiGrid: React.FC<Props> = ({
   onOpenFoodAllowanceModal,
 }) => {
   const netFlow = balance.totalIncome - balance.totalExpenses;
+  const totalPatrimony = Number(
+    ((balance.balance || 0) + (balance.emergencyFund || 0) + (balance.investments || 0)).toFixed(2),
+  );
+  const hasMonthlyAllocatedSavings =
+    (balance.ownAllocatedInvestments || 0) > 0 || (balance.ownAllocatedEmergencyFund || 0) > 0;
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -47,8 +52,16 @@ const KpiGrid: React.FC<Props> = ({
             {formatCurrency(balance.balance)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
-            Saldo livre após despesas pagas, reserva e investimentos
+            {(balance.emergencyFund || 0) > 0 || (balance.investments || 0) > 0
+              ? `Patrimônio total (livre + guardado): ${formatCurrency(totalPatrimony)}`
+              : 'Saldo livre para gastar após despesas pagas e reservas do mês'}
           </p>
+          {balance.balance < 0 && hasMonthlyAllocatedSavings && (
+            <p className="text-[11px] text-amber-300 mt-1.5 leading-snug">
+              Parte do saldo foi retida em guardado do mês. Resgate ou reclassifique para carteira
+              já existente em Reserva / Investimentos.
+            </p>
+          )}
         </div>
 
         <div className="exec-card p-6">
@@ -121,7 +134,12 @@ const KpiGrid: React.FC<Props> = ({
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
                 ? `Sua parte alocada: ${formatCurrency(balance.ownEmergencyFund || 0)}`
-                : 'Proteção patrimonial separada do saldo livre'}
+                : (balance.externalEmergencyFund || 0) > 0 &&
+                    (balance.allocatedEmergencyFund || 0) > 0
+                  ? `Reserva anterior: ${formatCurrency(balance.externalEmergencyFund || 0)} · Do saldo: ${formatCurrency(balance.allocatedEmergencyFund || 0)}`
+                  : (balance.externalEmergencyFund || 0) > 0
+                    ? 'Reserva já existente (sem limite do saldo mensal)'
+                    : 'Proteção patrimonial separada do saldo livre'}
             </p>
           </div>
 

@@ -74,6 +74,8 @@ const INITIAL_BALANCE: BalanceData = {
   scheduledIncome: 0,
   totalExpenses: 0,
   emergencyFund: 0,
+  allocatedEmergencyFund: 0,
+  externalEmergencyFund: 0,
   investments: 0,
   allocatedInvestments: 0,
   externalInvestments: 0,
@@ -82,6 +84,8 @@ const INITIAL_BALANCE: BalanceData = {
   foodAllowanceUsed: 0,
   ownBalance: 0,
   ownEmergencyFund: 0,
+  ownAllocatedEmergencyFund: 0,
+  ownExternalEmergencyFund: 0,
   ownInvestments: 0,
   ownAllocatedInvestments: 0,
   ownExternalInvestments: 0,
@@ -141,7 +145,7 @@ const Dashboard: React.FC = () => {
     return `${yyyy}-${mm}-${dd}`;
   });
   const [foodIsRecurring, setFoodIsRecurring] = useState<boolean>(true);
-  const [investmentFromBalance, setInvestmentFromBalance] = useState<boolean>(false);
+  const [savingsFromBalance, setSavingsFromBalance] = useState<boolean>(false);
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
 
   const [categoryDetailState, setCategoryDetailState] = useState<{
@@ -351,38 +355,74 @@ const Dashboard: React.FC = () => {
   };
 
   const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
-    if (variant === 'investment') {
-      const ownExternal = Number(balance.ownExternalInvestments ?? 0);
-      const ownAllocated = Number(balance.ownAllocatedInvestments ?? 0);
+    if (variant === 'investment' || variant === 'emergency') {
+      const ownExternal =
+        variant === 'emergency'
+          ? Number(balance.ownExternalEmergencyFund ?? 0)
+          : Number(balance.ownExternalInvestments ?? 0);
+      const ownAllocated =
+        variant === 'emergency'
+          ? Number(balance.ownAllocatedEmergencyFund ?? balance.ownEmergencyFund ?? 0)
+          : Number(balance.ownAllocatedInvestments ?? 0);
       const defaultFromBalance = ownAllocated > 0 && ownExternal === 0;
-      setInvestmentFromBalance(defaultFromBalance);
-      const initialInv = defaultFromBalance ? ownAllocated : ownExternal;
-      setAllocationInput(formatNumberToCurrencyInput(initialInv));
+      setSavingsFromBalance(defaultFromBalance);
+      const initialVal = defaultFromBalance ? ownAllocated : ownExternal;
+      setAllocationInput(formatNumberToCurrencyInput(initialVal));
     } else {
       const currentVal =
-        variant === 'food'
-          ? balance.ownFoodAllowanceConfigured ??
-            balance.ownFoodAllowanceTotal ??
-            balance.foodAllowanceTotal ??
-            0
-          : balance.ownEmergencyFund ?? balance.emergencyFund ?? 0;
+        balance.ownFoodAllowanceConfigured ??
+        balance.ownFoodAllowanceTotal ??
+        balance.foodAllowanceTotal ??
+        0;
       setAllocationInput(formatNumberToCurrencyInput(currentVal));
-      if (variant === 'food') {
-        const now = new Date();
-        const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        setFoodCreditDate(balance.ownFoodAllowanceDate || todayIso);
-        setFoodIsRecurring(balance.ownFoodAllowanceRecurring ?? true);
-      }
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      setFoodCreditDate(balance.ownFoodAllowanceDate || todayIso);
+      setFoodIsRecurring(balance.ownFoodAllowanceRecurring ?? true);
     }
     setAllocationModal(variant);
   };
 
-  const handleInvestmentSourceChange = (fromBalance: boolean) => {
-    setInvestmentFromBalance(fromBalance);
-    const nextVal = fromBalance
-      ? Number(balance.ownAllocatedInvestments ?? 0)
-      : Number(balance.ownExternalInvestments ?? 0);
+  const handleSavingsSourceChange = (fromBalance: boolean) => {
+    setSavingsFromBalance(fromBalance);
+    const nextVal =
+      allocationModal === 'emergency'
+        ? fromBalance
+          ? Number(balance.ownAllocatedEmergencyFund ?? balance.ownEmergencyFund ?? 0)
+          : Number(balance.ownExternalEmergencyFund ?? 0)
+        : fromBalance
+          ? Number(balance.ownAllocatedInvestments ?? 0)
+          : Number(balance.ownExternalInvestments ?? 0);
     setAllocationInput(formatNumberToCurrencyInput(nextVal));
+  };
+
+  const handleReclassifyToExternal = async () => {
+    if (!allocationModal || allocationModal === 'food') return;
+    const isEmergency = allocationModal === 'emergency';
+    try {
+      setIsAllocationLoading(true);
+      const endpoint = isEmergency ? '/balance/emergency-fund' : '/balance/investments';
+      await api.post(endpoint, {
+        amount: 0,
+        reclassifyAllocatedToExternal: true,
+      });
+      toast.success(
+        isEmergency
+          ? 'Reserva movida para já existente e saldo disponível liberado!'
+          : 'Investimentos movidos para carteira já existente e saldo disponível liberado!',
+      );
+      setAllocationModal(null);
+      fetchData();
+    } catch (error: unknown) {
+      toast.error(
+        extractApiErrorMessage(
+          error,
+          isEmergency ? 'Erro ao reclassificar reserva' : 'Erro ao reclassificar investimentos',
+        ),
+      );
+    } finally {
+      setIsAllocationLoading(false);
+    }
   };
 
   const handleAllocationSubmit = async (e: React.FormEvent) => {
@@ -399,16 +439,16 @@ const Dashboard: React.FC = () => {
     const isFood = allocationModal === 'food';
     const isInvestment = allocationModal === 'investment';
 
-    if (isEmergency || (isInvestment && investmentFromBalance)) {
+    if ((isEmergency || isInvestment) && savingsFromBalance) {
       const currentBucket = isEmergency
-        ? Number(balance.ownEmergencyFund || 0)
-        : Number(balance.ownAllocatedInvestments ?? balance.ownInvestments ?? 0);
+        ? Number(balance.ownAllocatedEmergencyFund ?? balance.ownEmergencyFund ?? 0)
+        : Number(balance.ownAllocatedInvestments ?? 0);
       const maxLimit = Number(balance.ownBalance || 0) + currentBucket;
 
-      if (amount > maxLimit + 0.001) {
+      if (amount > currentBucket + 0.001 && amount > maxLimit + 0.001) {
         toast.error(
           isEmergency
-            ? 'A reserva não pode exceder o seu saldo disponível'
+            ? 'A reserva alocada do mês não pode exceder o seu saldo disponível'
             : 'O valor alocado do saldo não pode exceder o seu saldo disponível',
         );
         return;
@@ -428,12 +468,10 @@ const Dashboard: React.FC = () => {
             creditDate: foodCreditDate,
             isRecurring: foodIsRecurring,
           }
-        : isInvestment
-          ? {
-              amount,
-              fromAvailableBalance: investmentFromBalance,
-            }
-          : { amount };
+        : {
+            amount,
+            fromAvailableBalance: savingsFromBalance,
+          };
       await api.post(endpoint, payload);
       toast.success(
         isFood
@@ -532,14 +570,20 @@ const Dashboard: React.FC = () => {
 
   const pendingInvites = familyStatus?.pendingReceivedInvites || [];
 
-  const allocationMaxLimit = allocationModal
-    ? allocationModal === 'emergency'
-      ? Number(balance.ownBalance || 0) + Number(balance.ownEmergencyFund || 0)
-      : allocationModal === 'investment' && investmentFromBalance
-        ? Number(balance.ownBalance || 0) +
-          Number(balance.ownAllocatedInvestments ?? balance.ownInvestments ?? 0)
-        : 0
-    : 0;
+  const allocatedSavingsForModal =
+    allocationModal === 'emergency'
+      ? Number(balance.ownAllocatedEmergencyFund ?? balance.ownEmergencyFund ?? 0)
+      : Number(balance.ownAllocatedInvestments ?? 0);
+
+  const externalSavingsForModal =
+    allocationModal === 'emergency'
+      ? Number(balance.ownExternalEmergencyFund ?? 0)
+      : Number(balance.ownExternalInvestments ?? 0);
+
+  const allocationMaxLimit =
+    allocationModal && allocationModal !== 'food' && savingsFromBalance
+      ? Number(balance.ownBalance || 0) + allocatedSavingsForModal
+      : 0;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -922,14 +966,16 @@ const Dashboard: React.FC = () => {
         isRecurring={foodIsRecurring}
         maxLimit={allocationMaxLimit}
         usedAmount={balance.ownFoodAllowanceUsed ?? balance.foodAllowanceUsed ?? 0}
-        investmentFromBalance={investmentFromBalance}
-        allocatedInvestments={balance.ownAllocatedInvestments ?? 0}
-        externalInvestments={balance.ownExternalInvestments ?? 0}
+        ownAvailableBalance={balance.ownBalance ?? balance.balance ?? 0}
+        savingsFromBalance={savingsFromBalance}
+        allocatedSavings={allocatedSavingsForModal}
+        externalSavings={externalSavingsForModal}
         loading={isAllocationLoading}
         onChangeValue={setAllocationInput}
         onChangeCreditDate={setFoodCreditDate}
         onChangeIsRecurring={setFoodIsRecurring}
-        onChangeInvestmentFromBalance={handleInvestmentSourceChange}
+        onChangeSavingsFromBalance={handleSavingsSourceChange}
+        onReclassifyToExternal={handleReclassifyToExternal}
         onClose={() => setAllocationModal(null)}
         onSubmit={handleAllocationSubmit}
       />
