@@ -4,7 +4,6 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
-  FaLandmark,
   FaEye,
   FaEyeSlash,
   FaShieldAlt,
@@ -222,11 +221,13 @@ const Login: React.FC = () => {
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white text-slate-950 flex items-center justify-center shadow-sm">
-            {React.createElement(FaLandmark as any, { className: 'text-base' })}
-          </div>
+          <img
+            src="/logo192.png?v=4"
+            alt="Finanças"
+            className="w-10 h-10 rounded-xl shadow-sm object-cover"
+          />
           <div>
-            <p className="text-sm font-semibold tracking-tight text-white">Controle Financeiro</p>
+            <p className="text-sm font-semibold tracking-tight text-white">Finanças</p>
             <p className="text-[11px] text-slate-400">Executive Wealth Suite</p>
           </div>
         </div>
@@ -270,11 +271,13 @@ const Login: React.FC = () => {
       <div className="w-full min-w-0 flex-1 flex flex-col justify-center items-center px-5 py-8 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-md min-w-0">
           <div className="lg:hidden flex items-center gap-2.5 mb-6">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
-              {React.createElement(FaLandmark as any, { className: 'text-sm' })}
-            </div>
+            <img
+              src="/logo192.png?v=4"
+              alt="Finanças"
+              className="w-9 h-9 rounded-xl flex-shrink-0 object-cover shadow-sm"
+            />
             <span className="text-base font-semibold text-slate-900 truncate">
-              Controle Financeiro
+              Finanças
             </span>
           </div>
 

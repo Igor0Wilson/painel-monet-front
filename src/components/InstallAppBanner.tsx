@@ -122,7 +122,7 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
     <div className="mt-4 rounded-2xl bg-slate-900 text-white p-3.5 sm:p-4 flex items-center justify-between gap-2.5 shadow-sm">
       <div className="flex items-center gap-3 min-w-0">
         <img
-          src="/logo192.png?v=3"
+          src="/logo192.png?v=4"
           alt="Finanças"
           className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex-shrink-0"
         />

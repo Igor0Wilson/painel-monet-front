@@ -6,7 +6,6 @@ import {
   FaEnvelopeOpenText,
   FaExclamationTriangle,
   FaKey,
-  FaLandmark,
   FaShieldAlt,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -93,12 +92,14 @@ const ForgotPassword: React.FC = () => {
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white text-slate-950 flex items-center justify-center shadow-sm">
-            {React.createElement(FaLandmark as any, { className: 'text-base' })}
-          </div>
+          <img
+            src="/logo192.png?v=4"
+            alt="Finanças"
+            className="w-10 h-10 rounded-xl shadow-sm object-cover"
+          />
           <div>
             <p className="text-sm font-semibold tracking-tight text-white">
-              Controle Financeiro
+              Finanças
             </p>
             <p className="text-[11px] text-slate-400">Executive Wealth Suite</p>
           </div>

@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  FaLandmark,
   FaSignOutAlt,
   FaUser,
   FaUsers,
@@ -37,12 +36,14 @@ const Navbar: React.FC<Props> = ({
     <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-sm flex-shrink-0">
-            {React.createElement(FaLandmark as any, { className: 'text-sm' })}
-          </div>
+          <img
+            src="/logo192.png?v=4"
+            alt="Finanças"
+            className="w-9 h-9 rounded-xl shadow-sm flex-shrink-0 object-cover"
+          />
           <div className="leading-tight truncate">
             <span className="text-sm sm:text-base font-semibold text-slate-900 tracking-tight block truncate">
-              Controle Financeiro
+              Finanças
             </span>
             <span className="text-[11px] text-slate-400 hidden sm:block">
               {isFamilyMode ? 'Painel Família Unificado' : 'Gestão Patrimonial'}
