@@ -12,9 +12,9 @@ import { toast } from 'react-toastify';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 export interface CreditCardInvoiceGroup {
-  month: string; 
-  label: string; 
-  shortLabel: string; 
+  month: string;
+  label: string;
+  shortLabel: string;
   total: number;
   items: any[];
 }
@@ -57,8 +57,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
         paymentMethod,
       });
       toast.success(
-        `Fatura de ${invoice.shortLabel} quitada! ${res.data.paidCount} ${
-          res.data.paidCount === 1 ? 'lançamento liquidado' : 'lançamentos liquidados'
+        `Fatura de ${invoice.shortLabel} quitada! ${res.data.paidCount} ${res.data.paidCount === 1 ? 'lançamento liquidado' : 'lançamentos liquidados'
         }.`,
       );
       onSuccess();
@@ -148,11 +147,10 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id)}
-                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                      isSelected
+                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${isSelected
                         ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {React.createElement(m.icon as any, { className: 'text-sm' })}
                     <span className="text-xs font-semibold">{m.label}</span>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'painel-monet-shell-v1';
+const CACHE_NAME = 'financas-shell-v3';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.png', '/logo192.png', '/logo512.png'];
 
 self.addEventListener('install', (event) => {
