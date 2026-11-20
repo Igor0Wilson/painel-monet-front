@@ -1,6 +1,7 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
+  confirmPasswordReset,
   createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
@@ -8,6 +9,7 @@ import {
   signInWithPopup,
   signOut,
   updateProfile,
+  verifyPasswordResetCode,
 } from 'firebase/auth';
 
 let cachedApp: FirebaseApp | null = null;
@@ -119,6 +121,19 @@ export async function signOutFirebase(): Promise<void> {
   }
 }
 
+export async function verifyFirebaseResetCode(oobCode: string): Promise<string> {
+  const auth = getFirebaseAuth();
+  return verifyPasswordResetCode(auth, oobCode);
+}
+
+export async function confirmFirebasePasswordReset(
+  oobCode: string,
+  newPassword: string,
+): Promise<void> {
+  const auth = getFirebaseAuth();
+  await confirmPasswordReset(auth, oobCode, newPassword);
+}
+
 export function translateFirebaseAuthError(
   error: unknown,
   fallback: string,
@@ -146,6 +161,10 @@ export function translateFirebaseAuthError(
       return 'Esta conta está desativada.';
     case 'auth/operation-not-allowed':
       return 'Provedor de autenticação não habilitado no Firebase Console.';
+    case 'auth/expired-action-code':
+      return 'Este link expirou. Solicite um novo e-mail de recuperação/reativação.';
+    case 'auth/invalid-action-code':
+      return 'Este link é inválido ou já foi utilizado. Solicite um novo e-mail.';
     default:
       return fallback;
   }

@@ -1,0 +1,315 @@
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  FaArrowLeft,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaEye,
+  FaEyeSlash,
+  FaKey,
+  FaLandmark,
+  FaShieldAlt,
+} from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import {
+  confirmFirebasePasswordReset,
+  translateFirebaseAuthError,
+  verifyFirebaseResetCode,
+} from '../services/firebaseAuth';
+
+const AuthAction: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const mode = searchParams.get('mode') || 'resetPassword';
+  const oobCode = searchParams.get('oobCode') || '';
+  const intent = searchParams.get('intent') === 'reactivate' ? 'reactivate' : 'reset';
+
+  const [verifying, setVerifying] = useState(true);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [invalidReason, setInvalidReason] = useState<string | null>(null);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [completed, setCompleted] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const validateCode = async () => {
+      if (mode !== 'resetPassword' || !oobCode) {
+        if (active) {
+          setInvalidReason('Link de ação inválido ou incompleto.');
+          setVerifying(false);
+        }
+        return;
+      }
+
+      try {
+        const email = await verifyFirebaseResetCode(oobCode);
+        if (active) {
+          setVerifiedEmail(email);
+          setInvalidReason(null);
+        }
+      } catch (error: unknown) {
+        if (active) {
+          const msg =
+            translateFirebaseAuthError(
+              error,
+              'Este link expirou ou já foi utilizado. Solicite um novo e-mail.',
+            ) || 'Este link expirou ou já foi utilizado.';
+          setInvalidReason(msg);
+        }
+      } finally {
+        if (active) setVerifying(false);
+      }
+    };
+
+    validateCode();
+    return () => {
+      active = false;
+    };
+  }, [mode, oobCode]);
+
+  const handleConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error('A nova senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('As senhas não conferem.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await confirmFirebasePasswordReset(oobCode, newPassword);
+      setCompleted(true);
+      toast.success(
+        intent === 'reactivate'
+          ? 'Nova senha salva! Faça login para concluir a reativação da sua conta.'
+          : 'Senha redefinida com sucesso! Faça login com sua nova senha.',
+      );
+      setTimeout(() => {
+        navigate(intent === 'reactivate' ? '/login?reactivated=1' : '/login?passwordReset=1');
+      }, 2200);
+    } catch (error: unknown) {
+      const msg =
+        translateFirebaseAuthError(error, 'Não foi possível salvar a nova senha.') ||
+        'Não foi possível salvar a nova senha.';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isReactivate = intent === 'reactivate';
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex">
+      <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 1px 1px, #ffffff 1px, transparent 0)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white text-slate-950 flex items-center justify-center shadow-sm">
+            {React.createElement(FaLandmark as any, { className: 'text-base' })}
+          </div>
+          <div>
+            <p className="text-sm font-semibold tracking-tight text-white">Painel Monet</p>
+            <p className="text-[11px] text-slate-400">Executive Wealth Suite</p>
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-md space-y-5">
+          <h1 className="text-3xl font-semibold tracking-tight leading-tight text-white">
+            {isReactivate
+              ? 'Defina sua nova senha para reativar seu painel com segurança.'
+              : 'Escolha uma nova senha segura para acessar sua conta.'}
+          </h1>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Sua solicitação foi validada diretamente com os servidores de segurança do
+            Firebase Authentication.
+          </p>
+          <div className="flex items-center gap-3 text-xs text-slate-300 pt-2">
+            <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
+              {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
+            </span>
+            Link criptografado de uso único com proteção contra reutilização
+          </div>
+        </div>
+
+        <p className="relative z-10 text-xs text-slate-500">
+          &copy; {new Date().getFullYear()} Painel Monet. Todos os direitos reservados.
+        </p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16">
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-6">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              {React.createElement(FaArrowLeft as any, { className: 'text-[10px]' })}
+              Ir para o login
+            </Link>
+          </div>
+
+          <div className="mb-6">
+            <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
+              {React.createElement(FaKey as any, { className: 'text-base' })}
+            </div>
+            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
+              {isReactivate ? 'Reativar conta e criar nova senha' : 'Definir nova senha'}
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-500">
+              {verifying
+                ? 'Validando seu link de segurança...'
+                : completed
+                  ? 'Tudo pronto! Redirecionando para o login...'
+                  : 'Crie uma nova senha forte para acessar o Painel Monet.'}
+            </p>
+          </div>
+
+          <div className="exec-card p-6 sm:p-8">
+            {verifying ? (
+              <div className="py-10 text-center space-y-3">
+                <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-xs font-medium text-slate-500">
+                  Verificando código de segurança no Firebase...
+                </p>
+              </div>
+            ) : invalidReason ? (
+              <div className="space-y-5">
+                <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3 text-xs text-rose-900">
+                  {React.createElement(FaExclamationTriangle as any, {
+                    className: 'text-rose-600 text-base mt-0.5 flex-shrink-0',
+                  })}
+                  <div className="leading-relaxed">
+                    <p className="font-semibold">Link indisponível</p>
+                    <p className="mt-1">{invalidReason}</p>
+                  </div>
+                </div>
+                <Link
+                  to="/forgot-password"
+                  className="exec-btn-primary w-full py-3 inline-flex items-center justify-center"
+                >
+                  Solicitar novo e-mail
+                </Link>
+              </div>
+            ) : completed ? (
+              <div className="space-y-5 text-center py-4">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                  {React.createElement(FaCheckCircle as any, { className: 'text-2xl' })}
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    {isReactivate ? 'Nova senha salva!' : 'Senha redefinida!'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    {isReactivate
+                      ? 'Faça login agora com seu e-mail e sua nova senha para reativar automaticamente sua conta.'
+                      : 'Agora você já pode entrar no Painel Monet usando sua nova senha.'}
+                  </p>
+                </div>
+                <Link
+                  to={isReactivate ? '/login?reactivated=1' : '/login?passwordReset=1'}
+                  className="exec-btn-primary w-full py-3 inline-flex items-center justify-center"
+                >
+                  Entrar agora
+                </Link>
+              </div>
+            ) : (
+              <form className="space-y-4" onSubmit={handleConfirm}>
+                {verifiedEmail && (
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                        Conta verificada
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {verifiedEmail}
+                      </p>
+                    </div>
+                    {React.createElement(FaCheckCircle as any, {
+                      className: 'text-emerald-600 text-base flex-shrink-0',
+                    })}
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="action-new-password" className="exec-label">
+                    Nova senha
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="action-new-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      minLength={6}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="exec-input pr-10"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700"
+                    >
+                      {React.createElement((showPassword ? FaEyeSlash : FaEye) as any, {
+                        className: 'text-sm',
+                      })}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="action-confirm-password" className="exec-label">
+                    Confirmar nova senha
+                  </label>
+                  <input
+                    id="action-confirm-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="exec-input"
+                    placeholder="Repita a nova senha"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="exec-btn-primary w-full py-3 mt-2"
+                >
+                  {submitting
+                    ? 'Salvando nova senha...'
+                    : isReactivate
+                      ? 'Salvar senha e reativar conta'
+                      : 'Salvar nova senha'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AuthAction;
