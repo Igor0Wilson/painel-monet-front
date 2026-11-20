@@ -143,7 +143,7 @@ const AuthAction: React.FC = () => {
           </p>
           <div className="flex items-center gap-3 text-xs text-slate-300 pt-2">
             <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-              {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
+              {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
             Link criptografado de uso único com proteção contra reutilização
           </div>
@@ -161,14 +161,14 @@ const AuthAction: React.FC = () => {
               to="/login"
               className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
             >
-              {React.createElement(FaArrowLeft as any, { className: 'text-[10px]' })}
+              {React.createElement(FaArrowLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
               Ir para o login
             </Link>
           </div>
 
           <div className="mb-6">
             <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-              {React.createElement(FaKey as any, { className: 'text-base' })}
+              {React.createElement(FaKey as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
               {isReactivate ? 'Reativar conta e criar nova senha' : 'Definir nova senha'}
@@ -193,7 +193,7 @@ const AuthAction: React.FC = () => {
             ) : invalidReason ? (
               <div className="space-y-5">
                 <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3 text-xs text-rose-900">
-                  {React.createElement(FaExclamationTriangle as any, {
+                  {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-rose-600 text-base mt-0.5 flex-shrink-0',
                   })}
                   <div className="leading-relaxed">
@@ -211,7 +211,7 @@ const AuthAction: React.FC = () => {
             ) : completed ? (
               <div className="space-y-5 text-center py-4">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  {React.createElement(FaCheckCircle as any, { className: 'text-2xl' })}
+                  {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-2xl' })}
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">
@@ -242,7 +242,7 @@ const AuthAction: React.FC = () => {
                         {verifiedEmail}
                       </p>
                     </div>
-                    {React.createElement(FaCheckCircle as any, {
+                    {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                       className: 'text-emerald-600 text-base flex-shrink-0',
                     })}
                   </div>
@@ -269,7 +269,7 @@ const AuthAction: React.FC = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700"
                     >
-                      {React.createElement((showPassword ? FaEyeSlash : FaEye) as any, {
+                      {React.createElement((showPassword ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>, {
                         className: 'text-sm',
                       })}
                     </button>

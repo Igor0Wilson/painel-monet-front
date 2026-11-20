@@ -64,7 +64,7 @@ const CategoryDetailsView: React.FC<Props> = ({
             onClick={onBack}
             className="exec-btn-secondary px-3 py-2 text-xs gap-1.5 flex-shrink-0"
           >
-            {React.createElement(FaArrowLeft as any, { className: 'text-[10px]' })}
+            {React.createElement(FaArrowLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
             <span>Voltar</span>
           </button>
           <div>
@@ -83,7 +83,7 @@ const CategoryDetailsView: React.FC<Props> = ({
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
-            {React.createElement(FaChevronLeft as any, { className: 'text-[10px]' })}
+            {React.createElement(FaChevronLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
             <span>Anterior</span>
           </button>
 
@@ -100,7 +100,7 @@ const CategoryDetailsView: React.FC<Props> = ({
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
             <span>Próximo</span>
-            {React.createElement(FaChevronRight as any, { className: 'text-[10px]' })}
+            {React.createElement(FaChevronRight as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
           </button>
         </div>
       </div>
@@ -146,7 +146,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                     <span
                       className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
                     >
-                      {React.createElement(cat.meta.icon as any, { className: 'text-sm' })}
+                      {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
@@ -185,7 +185,7 @@ const CategoryDetailsView: React.FC<Props> = ({
       {monthExpenses.length === 0 ? (
         <div className="exec-card p-10 text-center space-y-2">
           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
-            {React.createElement(FaChartPie as any, { className: 'text-sm' })}
+            {React.createElement(FaChartPie as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </div>
           <p className="text-sm font-semibold text-slate-700">
             Nenhum gasto registrado em {formatMonthLabel(selectedMonth)}
@@ -204,7 +204,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                   <span
                     className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
                   >
-                    {React.createElement(cat.meta.icon as any, { className: 'text-sm' })}
+                    {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                           />
                           {isFamilyMode && item.ownerName && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-white">
-                              {React.createElement(FaUser as any, { className: 'text-[8px]' })}
+                              {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[8px]' })}
                               {item.ownerName.split(' ')[0]}
                             </span>
                           )}
@@ -261,14 +261,14 @@ const CategoryDetailsView: React.FC<Props> = ({
 
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
                           <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
-                            {React.createElement(FaCalendarAlt as any, {
+                            {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[10px] text-slate-400',
                             })}
                             Data: {formatDateBr(item.dueDate)}
                           </span>
                           {item.isCreditCard && (
                             <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                              {React.createElement(FaCreditCard as any, {
+                              {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, {
                                 className: 'text-[10px]',
                               })}
                               Fatura Cartão

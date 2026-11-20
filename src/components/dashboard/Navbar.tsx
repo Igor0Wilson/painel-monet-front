@@ -78,7 +78,7 @@ const Navbar: React.FC<Props> = ({
             className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50"
             title="Baixar todas as informações e valores vinculados ao seu CPF + ID"
           >
-            {React.createElement(FaDownload as any, { className: 'text-xs text-emerald-700' })}
+            {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-700' })}
             <span className="hidden md:inline">
               {downloading ? 'Baixando...' : 'Baixar Dados'}
             </span>
@@ -95,7 +95,7 @@ const Navbar: React.FC<Props> = ({
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                {React.createElement(FaUser as any, { className: 'text-[10px]' })}
+                {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                 Individual
               </button>
               <button
@@ -107,7 +107,7 @@ const Navbar: React.FC<Props> = ({
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                {React.createElement(FaUsers as any, { className: 'text-[11px]' })}
+                {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
                 Família ({familyStatus.members?.length || 2})
               </button>
             </div>
@@ -119,7 +119,7 @@ const Navbar: React.FC<Props> = ({
             className="relative inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors"
             title="Gerenciar Modo Família"
           >
-            {React.createElement(FaUsers as any, { className: 'text-xs text-slate-700' })}
+            {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-slate-700' })}
             <span className="hidden sm:inline">Modo Família</span>
             {pendingInvitesCount > 0 && (
               <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
@@ -151,7 +151,7 @@ const Navbar: React.FC<Props> = ({
             className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             title="Encerrar sessão"
           >
-            {React.createElement(FaSignOutAlt as any, { className: 'text-sm' })}
+            {React.createElement(FaSignOutAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             <span className="hidden lg:inline">Sair</span>
           </button>
         </div>

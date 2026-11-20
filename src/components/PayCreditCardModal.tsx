@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { IconType } from 'react-icons';
 import {
   FaTimes,
   FaCreditCard,
@@ -9,6 +10,7 @@ import {
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import type { ExpenseItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 export interface CreditCardInvoiceGroup {
@@ -16,7 +18,7 @@ export interface CreditCardInvoiceGroup {
   label: string;
   shortLabel: string;
   total: number;
-  items: any[];
+  items: ExpenseItem[];
 }
 
 interface Props {
@@ -42,7 +44,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
     return `${d}/${m}/${y}`;
   };
 
-  const methods: { id: CashMethod; label: string; icon: any }[] = [
+  const methods: { id: CashMethod; label: string; icon: IconType }[] = [
     { id: 'pix', label: 'Pix', icon: FaQrcode },
     { id: 'debito', label: 'Débito', icon: FaUniversity },
     { id: 'dinheiro', label: 'Dinheiro', icon: FaMoneyBillWave },
@@ -75,7 +77,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-              {React.createElement(FaCreditCard as any, { className: 'text-sm' })}
+              {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">
@@ -91,7 +93,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-lg"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -152,7 +154,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                   >
-                    {React.createElement(m.icon as any, { className: 'text-sm' })}
+                    {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                     <span className="text-xs font-semibold">{m.label}</span>
                   </button>
                 );
@@ -169,7 +171,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-sm hover:bg-emerald-700 transition-all disabled:opacity-50"
             >
-              {React.createElement(FaCheckCircle as any, { className: 'text-xs' })}
+              {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               <span>{loading ? 'Liquidando...' : `Quitar Fatura (${formatCurrency(invoice.total)})`}</span>
             </button>
           </div>

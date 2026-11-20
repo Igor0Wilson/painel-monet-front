@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate, Link } from 'react-router-dom';
@@ -58,7 +58,7 @@ const Register: React.FC = () => {
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
+    resolver: yupResolver(schema) as unknown as Resolver<FormData>,
     defaultValues: { cpf: '', phone: '' },
   });
 
@@ -237,19 +237,19 @@ const Register: React.FC = () => {
           </h1>
           <div className="space-y-3 text-sm text-slate-300">
             <div className="flex items-center gap-2.5">
-              {React.createElement(FaCheckCircle as any, {
+              {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-emerald-400 text-sm flex-shrink-0',
               })}
               <span>Controle completo de salários, adiantamento quinzenal e receitas extras</span>
             </div>
             <div className="flex items-center gap-2.5">
-              {React.createElement(FaCheckCircle as any, {
+              {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-emerald-400 text-sm flex-shrink-0',
               })}
               <span>Modo Família seguro validado por CPF único + ID em tempo real</span>
             </div>
             <div className="flex items-center gap-2.5">
-              {React.createElement(FaShieldAlt as any, {
+              {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-emerald-400 text-sm flex-shrink-0',
               })}
               <span>Autenticação protegida pelo Firebase com recuperação gratuita por e-mail</span>
@@ -302,7 +302,7 @@ const Register: React.FC = () => {
 
             {cpfRedirectBanner && (
               <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3.5 flex items-start gap-2.5 text-xs text-amber-900">
-                {React.createElement(FaExclamationTriangle as any, {
+                {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
                   className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
                 })}
                 <div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import type { IconType } from 'react-icons';
 import {
   FaTimes,
   FaReceipt,
@@ -18,6 +19,7 @@ import api from '../api';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import type { PaymentMethod } from './PayExpenseModal';
+import type { ExpenseItem } from '../types/finance';
 import { filterOfficialAccountTypes, isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
@@ -53,7 +55,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialData?: any;
+  initialData?: Partial<ExpenseItem> | null;
 }
 
 function getTodayIso(): string {
@@ -94,7 +96,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
     control,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
+    resolver: yupResolver(schema) as unknown as Resolver<FormData>,
     defaultValues: {
       isRecurring: false,
       isInstallment: false,
@@ -155,14 +157,14 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           dueDate: initialData.dueDate,
           isRecurring: initialData.isRecurring,
           isInstallment: initialData.isInstallment,
-          installmentCount: initialData.installmentCount,
+          installmentCount: initialData.installmentCount ?? undefined,
           isPaid: initialData.isPaid,
         });
       } else {
         setIsOneTimePurchase(false);
         reset({
           name: '',
-          value: undefined as any,
+          value: undefined as unknown as number,
           dueDate: getTodayIso(),
           isRecurring: false,
           isInstallment: false,
@@ -182,7 +184,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
     return `${d}/${m}/${y}`;
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: FormData) => {
     setCreditError('');
 
     if (showPaymentFlow) {
@@ -203,7 +205,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
       setLoading(true);
 
       if (initialData) {
-        const payload = { ...data };
+        const payload: Record<string, unknown> = { ...data };
         if (!payload.isInstallment) delete payload.installmentCount;
         if (payload.isRecurring) payload.isPaid = false;
 
@@ -212,7 +214,11 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             ...payload,
             isPaid: false,
           });
-          const payPayload: any = { paymentMethod: purchasePaymentMethod };
+          const payPayload: {
+            paymentMethod: PaymentMethod;
+            installments?: number;
+            firstInstallmentDate?: string;
+          } = { paymentMethod: purchasePaymentMethod };
           if (purchasePaymentMethod === 'credito') {
             payPayload.installments = parseInt(creditInstallments, 10);
             payPayload.firstInstallmentDate = firstInstallmentDate;
@@ -261,7 +267,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           toast.success('Pagamento registrado e debitado do saldo disponível!');
         }
       } else {
-        const payload = { ...data };
+        const payload: Record<string, unknown> = { ...data };
         if (!payload.isInstallment) {
           delete payload.installmentCount;
         } else {
@@ -299,7 +305,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
     id: PaymentMethod;
     label: string;
     subtitle: string;
-    icon: any;
+    icon: IconType;
   }[] = [
     { id: 'pix', label: 'Pix', subtitle: 'Débito imediato', icon: FaQrcode },
     { id: 'debito', label: 'Débito', subtitle: 'Saldo em conta', icon: FaUniversity },
@@ -329,7 +335,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center justify-center">
-              {React.createElement((isOneTimePurchase ? FaShoppingBag : FaReceipt) as any, {
+              {React.createElement((isOneTimePurchase ? FaShoppingBag : FaReceipt) as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-base',
               })}
             </div>
@@ -353,7 +359,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors p-2 rounded-lg"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -533,7 +539,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                             isSelected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
                           }`}
                         >
-                          {React.createElement(m.icon as any, { className: 'text-xs' })}
+                          {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold leading-tight">{m.label}</p>
@@ -554,7 +560,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
               {purchasePaymentMethod === 'credito' ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
                   <div className="flex items-center gap-2">
-                    {React.createElement(FaCreditCard as any, {
+                    {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, {
                       className: 'text-xs text-slate-700',
                     })}
                     <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
@@ -593,7 +599,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
                   <div>
                     <label className="exec-label flex items-center gap-1.5">
-                      {React.createElement(FaCalendarAlt as any, {
+                      {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                         className: 'text-[10px] text-slate-400',
                       })}
                       Data de vencimento da 1ª parcela (fatura)

@@ -101,7 +101,7 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition-colors"
         title="Baixar e instalar aplicativo"
       >
-        {React.createElement(FaMobileAlt as any, { className: 'text-xs text-emerald-700' })}
+        {React.createElement(FaMobileAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-700' })}
         <span className="hidden sm:inline">Instalar App</span>
       </button>
     );
@@ -129,7 +129,7 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
         onClick={handleInstallClick}
         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors flex-shrink-0"
       >
-        {React.createElement(FaDownload as any, { className: 'text-xs' })}
+        {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
         Instalar
       </button>
     </div>

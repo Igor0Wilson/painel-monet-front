@@ -103,7 +103,11 @@ const Dashboard: React.FC = () => {
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<
+    | (Partial<ExpenseItem> & { type: 'expense' })
+    | (Partial<IncomeItem> & { type: 'income' })
+    | null
+  >(null);
   const [payingExpense, setPayingExpense] = useState<ExpenseItem | null>(null);
   const [selectedInvoiceMonth, setSelectedInvoiceMonth] = useState<string>('');
   const [payingInvoice, setPayingInvoice] = useState<CreditCardInvoiceGroup | null>(null);
@@ -448,7 +452,7 @@ const Dashboard: React.FC = () => {
           <div className="rounded-2xl bg-slate-950 text-white px-5 py-4 shadow-executive-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0">
-                {React.createElement(FaBell as any, { className: 'text-sm' })}
+                {React.createElement(FaBell as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </span>
               <div className="text-xs sm:text-sm">
                 <p className="font-semibold">Convite pendente para o Modo Família!</p>
@@ -477,7 +481,7 @@ const Dashboard: React.FC = () => {
                 panelScope === 'individual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
               }`}
             >
-              {React.createElement(FaUser as any, { className: 'text-[10px]' })}
+              {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
               Painel Individual
             </button>
             <button
@@ -487,7 +491,7 @@ const Dashboard: React.FC = () => {
                 panelScope === 'family' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
               }`}
             >
-              {React.createElement(FaUsers as any, { className: 'text-[11px]' })}
+              {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
               Painel Família ({familyStatus.members?.length || 2})
             </button>
           </div>
@@ -517,7 +521,7 @@ const Dashboard: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {React.createElement(FaThLarge as any, { className: 'text-[11px]' })}
+                {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
                 Painel do Mês
               </button>
               <button
@@ -532,7 +536,7 @@ const Dashboard: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {React.createElement(FaHistory as any, { className: 'text-[11px]' })}
+                {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
                 Histórico
               </button>
             </div>
@@ -547,7 +551,7 @@ const Dashboard: React.FC = () => {
               }}
               className="exec-btn-secondary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
-              {React.createElement(FaPlus as any, { className: 'text-xs text-emerald-600' })}
+              {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-600' })}
               <span>Nova Receita</span>
             </button>
             <button
@@ -558,7 +562,7 @@ const Dashboard: React.FC = () => {
               }}
               className="exec-btn-primary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
-              {React.createElement(FaPlus as any, { className: 'text-xs' })}
+              {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               <span>Nova Despesa</span>
             </button>
           </div>

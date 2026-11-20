@@ -118,7 +118,7 @@ const ForgotPassword: React.FC = () => {
           </p>
           <div className="flex items-center gap-3 text-xs text-slate-300 pt-2">
             <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-              {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
+              {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
             Disparo oficial Google Firebase com link seguro de uso único
           </div>
@@ -136,14 +136,14 @@ const ForgotPassword: React.FC = () => {
               to="/login"
               className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
             >
-              {React.createElement(FaArrowLeft as any, { className: 'text-[10px]' })}
+              {React.createElement(FaArrowLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
               Voltar para o login
             </Link>
           </div>
 
           <div className="mb-6">
             <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
-              {React.createElement((sent ? FaEnvelopeOpenText : FaKey) as any, {
+              {React.createElement((sent ? FaEnvelopeOpenText : FaKey) as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-base',
               })}
             </div>
@@ -159,7 +159,7 @@ const ForgotPassword: React.FC = () => {
 
           {state.reason === 'cpf_exists' && !sent && (
             <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-              {React.createElement(FaExclamationTriangle as any, {
+              {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
               })}
               <div className="text-xs text-amber-900 leading-relaxed">
@@ -174,7 +174,7 @@ const ForgotPassword: React.FC = () => {
 
           {state.reason === 'reactivate' && !sent && (
             <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-              {React.createElement(FaExclamationTriangle as any, {
+              {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
               })}
               <div className="text-xs text-amber-900 leading-relaxed">
@@ -221,7 +221,7 @@ const ForgotPassword: React.FC = () => {
             ) : (
               <div className="space-y-5">
                 <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3 text-xs text-emerald-950">
-                  {React.createElement(FaCheckCircle as any, {
+                  {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-emerald-600 text-base mt-0.5 flex-shrink-0',
                   })}
                   <div className="space-y-1.5 leading-relaxed">

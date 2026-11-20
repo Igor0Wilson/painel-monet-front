@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { IconType } from 'react-icons';
 import {
   FaTimes,
   FaCreditCard,
@@ -12,13 +13,14 @@ import {
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import type { ExpenseItem } from '../types/finance';
 import { isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
 interface Props {
-  expense: any | null;
+  expense: ExpenseItem | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -75,7 +77,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
     id: PaymentMethod;
     label: string;
     subtitle: string;
-    icon: any;
+    icon: IconType;
   }[] = [
       {
         id: 'pix',
@@ -136,7 +138,11 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
 
     try {
       setLoading(true);
-      const payload: any = { paymentMethod };
+      const payload: {
+        paymentMethod: PaymentMethod;
+        installments?: number;
+        firstInstallmentDate?: string;
+      } = { paymentMethod };
       if (paymentMethod === 'credito') {
         payload.installments = parsedInstallments;
         payload.firstInstallmentDate = firstInstallmentDate;
@@ -174,7 +180,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
-              {React.createElement(FaCheckCircle as any, { className: 'text-base' })}
+              {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">Liquidar Despesa</h3>
@@ -188,7 +194,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors p-2 rounded-lg"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -232,7 +238,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
                         : 'bg-slate-100 text-slate-600'
                         }`}
                     >
-                      {React.createElement(m.icon as any, { className: 'text-xs' })}
+                      {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold leading-tight">{m.label}</p>
@@ -253,7 +259,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
           {paymentMethod === 'credito' ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
               <div className="flex items-center gap-2">
-                {React.createElement(FaCreditCard as any, {
+                {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, {
                   className: 'text-xs text-slate-700',
                 })}
                 <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
@@ -291,7 +297,7 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
 
               <div>
                 <label className="exec-label flex items-center gap-1.5">
-                  {React.createElement(FaCalendarAlt as any, {
+                  {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-[10px] text-slate-400',
                   })}
                   Data de vencimento da 1ª parcela

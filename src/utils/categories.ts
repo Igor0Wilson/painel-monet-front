@@ -1,3 +1,4 @@
+import type { IconType } from 'react-icons';
 import {
   FaBoxOpen,
   FaCar,
@@ -23,7 +24,7 @@ export type OfficialCategoryName = (typeof OFFICIAL_CATEGORIES)[number];
 
 export interface CategoryMeta {
   name: OfficialCategoryName;
-  icon: any;
+  icon: IconType;
   color: string;
   bgClass: string;
   textClass: string;

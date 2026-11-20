@@ -78,7 +78,7 @@ const FamilyInviteModal: React.FC<Props> = ({
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-                  {React.createElement(FaUsers as any, { className: 'text-sm' })}
+                  {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">
@@ -92,7 +92,7 @@ const FamilyInviteModal: React.FC<Props> = ({
                 onClick={onClose}
                 className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
               >
-                {React.createElement(FaTimes as any, { className: 'text-sm' })}
+                {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </button>
             </div>
 
@@ -110,13 +110,13 @@ const FamilyInviteModal: React.FC<Props> = ({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-700 hover:bg-emerald-100 text-xs font-medium transition-colors"
                 >
-                  {React.createElement(FaWhatsapp as any, { className: 'text-sm' })}
+                  {React.createElement(FaWhatsapp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                   Conversar com {invite.inviterName} no WhatsApp
                 </a>
               )}
 
               <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 text-xs text-slate-600 flex items-start gap-2.5">
-                {React.createElement(FaShieldAlt as any, {
+                {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
                   className: 'text-emerald-600 text-sm mt-0.5 flex-shrink-0',
                 })}
                 <span>
@@ -140,7 +140,7 @@ const FamilyInviteModal: React.FC<Props> = ({
                   disabled={loading}
                   className="exec-btn-primary gap-2"
                 >
-                  {React.createElement(FaCheckCircle as any, { className: 'text-xs' })}
+                  {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                   Sim, aceitar
                 </button>
               </div>
@@ -151,7 +151,7 @@ const FamilyInviteModal: React.FC<Props> = ({
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-amber-50/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                  {React.createElement(FaExclamationTriangle as any, { className: 'text-sm' })}
+                  {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">
@@ -165,7 +165,7 @@ const FamilyInviteModal: React.FC<Props> = ({
                 onClick={onClose}
                 className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
               >
-                {React.createElement(FaTimes as any, { className: 'text-sm' })}
+                {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </button>
             </div>
 
@@ -198,7 +198,7 @@ const FamilyInviteModal: React.FC<Props> = ({
                   disabled={loading}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
                 >
-                  {React.createElement(FaCheckCircle as any, { className: 'text-xs' })}
+                  {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                   {loading ? 'Unificando...' : 'Sim, tenho certeza'}
                 </button>
               </div>

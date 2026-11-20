@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
 import {
   FaArrowDown,
@@ -90,10 +91,10 @@ const HistoryTab: React.FC<Props> = ({
     'Despesas Pagas Acumuladas',
   );
 
-  const interactiveDoughnutOptions = useMemo(
+  const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
       ...EXECUTIVE_DOUGHNUT_OPTIONS,
-      onClick: (_event: any, elements: any[]) => {
+      onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
         if (elements && elements.length > 0) {
           const clickedIndex = elements[0].index;
           const cat = activeCategories[clickedIndex];
@@ -131,7 +132,7 @@ const HistoryTab: React.FC<Props> = ({
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, -1))}
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
-            {React.createElement(FaChevronLeft as any, { className: 'text-[10px]' })}
+            {React.createElement(FaChevronLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
             <span>Anterior</span>
           </button>
 
@@ -148,7 +149,7 @@ const HistoryTab: React.FC<Props> = ({
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
             <span>Próximo</span>
-            {React.createElement(FaChevronRight as any, { className: 'text-[10px]' })}
+            {React.createElement(FaChevronRight as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
           </button>
         </div>
       </div>
@@ -180,7 +181,7 @@ const HistoryTab: React.FC<Props> = ({
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500">Entradas no Mês</span>
             <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              {React.createElement(FaArrowUp as any, { className: 'text-[11px]' })}
+              {React.createElement(FaArrowUp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
             </span>
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
@@ -197,7 +198,7 @@ const HistoryTab: React.FC<Props> = ({
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-slate-500">Despesas Pagas no Mês</span>
             <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              {React.createElement(FaArrowDown as any, { className: 'text-[11px]' })}
+              {React.createElement(FaArrowDown as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
             </span>
           </div>
           <p className="text-2xl font-semibold text-slate-900 tabular-nums">
@@ -241,9 +242,9 @@ const HistoryTab: React.FC<Props> = ({
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-colors flex-shrink-0"
               title="Abrir tela detalhada de gastos por categoria"
             >
-              {React.createElement(FaChartPie as any, { className: 'text-[10px]' })}
+              {React.createElement(FaChartPie as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
               <span>Detalhar</span>
-              {React.createElement(FaExternalLinkAlt as any, { className: 'text-[9px]' })}
+              {React.createElement(FaExternalLinkAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
             </button>
           </div>
           <div
@@ -274,7 +275,7 @@ const HistoryTab: React.FC<Props> = ({
                     <span
                       className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
                     >
-                      {React.createElement(cat.meta.icon as any, { className: 'text-[10px]' })}
+                      {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                     </span>
                     <span className="text-xs font-semibold text-slate-800 truncate">
                       {cat.name}
@@ -300,7 +301,7 @@ const HistoryTab: React.FC<Props> = ({
               </p>
             </div>
             <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-600 flex items-center justify-center">
-              {React.createElement(FaChartLine as any, { className: 'text-xs' })}
+              {React.createElement(FaChartLine as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </div>
           </div>
           <div className="h-56">
@@ -350,14 +351,14 @@ const HistoryTab: React.FC<Props> = ({
                       <StatusBadge status={exp.status} paymentMethod={exp.paymentMethod} />
                       {isFamilyMode && exp.ownerName && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-white">
-                          {React.createElement(FaUser as any, { className: 'text-[8px]' })}
+                          {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[8px]' })}
                           {exp.ownerName.split(' ')[0]}
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1">
-                        {React.createElement(FaCalendarAlt as any, {
+                        {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                           className: 'text-[10px] text-slate-400',
                         })}
                         {formatDateBr(exp.dueDate)}
@@ -368,7 +369,7 @@ const HistoryTab: React.FC<Props> = ({
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${catMeta.bgClass} ${catMeta.textClass} ${catMeta.borderClass}`}
                           >
-                            {React.createElement(catMeta.icon as any, {
+                            {React.createElement(catMeta.icon as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[10px]',
                             })}
                             {catMeta.name}
@@ -377,7 +378,7 @@ const HistoryTab: React.FC<Props> = ({
                       })()}
                       {exp.isCreditCard && (
                         <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
-                          {React.createElement(FaCreditCard as any, { className: 'text-[10px]' })}
+                          {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                           Cartão
                         </span>
                       )}

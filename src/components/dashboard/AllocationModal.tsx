@@ -75,7 +75,7 @@ const AllocationModal: React.FC<Props> = ({
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center ${headerBadgeClass}`}
             >
-              {React.createElement(IconComp as any, {
+              {React.createElement(IconComp as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-sm',
               })}
             </div>
@@ -89,7 +89,7 @@ const AllocationModal: React.FC<Props> = ({
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -116,7 +116,7 @@ const AllocationModal: React.FC<Props> = ({
               <div className="mt-4 space-y-4">
                 <div>
                   <label className="exec-label flex items-center gap-1.5">
-                    {React.createElement(FaCalendarAlt as any, {
+                    {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                       className: 'text-[10px] text-slate-400',
                     })}
                     Data em que o VA / VR vai cair

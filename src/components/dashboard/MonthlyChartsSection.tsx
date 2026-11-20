@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
 import { FaChartLine, FaChartPie, FaExternalLinkAlt } from 'react-icons/fa';
 import { ChartDataResponse, ExpenseItem } from '../../types/finance';
@@ -43,10 +44,10 @@ const MonthlyChartsSection: React.FC<Props> = ({
   );
   const lineData = buildLineChartData(chartData?.monthlyHistory);
 
-  const interactiveDoughnutOptions = useMemo(
+  const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
       ...EXECUTIVE_DOUGHNUT_OPTIONS,
-      onClick: (_event: any, elements: any[]) => {
+      onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
         if (elements && elements.length > 0) {
           const clickedIndex = elements[0].index;
           const cat = activeCategories[clickedIndex];
@@ -77,9 +78,9 @@ const MonthlyChartsSection: React.FC<Props> = ({
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-colors flex-shrink-0"
             title="Abrir tela detalhada de gastos por categoria"
           >
-            {React.createElement(FaChartPie as any, { className: 'text-[10px]' })}
+            {React.createElement(FaChartPie as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
             <span>Detalhar</span>
-            {React.createElement(FaExternalLinkAlt as any, { className: 'text-[9px]' })}
+            {React.createElement(FaExternalLinkAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
           </button>
         </div>
 
@@ -119,7 +120,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
                   <span
                     className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
                   >
-                    {React.createElement(cat.meta.icon as any, { className: 'text-[10px]' })}
+                    {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                   </span>
                   <span className="text-xs font-semibold text-slate-800 truncate">
                     {cat.name}
@@ -145,7 +146,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
             </p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-600 flex items-center justify-center">
-            {React.createElement(FaChartLine as any, { className: 'text-xs' })}
+            {React.createElement(FaChartLine as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
           </div>
         </div>
         <div className="h-56">

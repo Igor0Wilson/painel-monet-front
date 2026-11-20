@@ -1,3 +1,4 @@
+import type { ChartOptions, TooltipItem } from 'chart.js';
 import { getCategoryMeta } from './categories';
 import { formatCurrency } from './formatters';
 
@@ -11,7 +12,7 @@ export const EXECUTIVE_CHART_PALETTE = [
   '#06b6d4',
 ];
 
-export const EXECUTIVE_LINE_OPTIONS: any = {
+export const EXECUTIVE_LINE_OPTIONS: ChartOptions<'line'> = {
   maintainAspectRatio: false,
   interaction: { mode: 'index', intersect: false },
   scales: {
@@ -22,18 +23,18 @@ export const EXECUTIVE_LINE_OPTIONS: any = {
       ticks: {
         color: '#64748b',
         font: { size: 11 },
-        callback: (value: number) =>
+        callback: (value: string | number) =>
           new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL',
             maximumFractionDigits: 0,
-          }).format(value),
+          }).format(Number(value)),
       },
     },
     x: {
       grid: { display: false },
       border: { display: false },
-      ticks: { color: '#64748b', font: { size: 11, weight: '500' } },
+      ticks: { color: '#64748b', font: { size: 11 } },
     },
   },
   plugins: {
@@ -45,7 +46,7 @@ export const EXECUTIVE_LINE_OPTIONS: any = {
         pointStyle: 'circle',
         boxWidth: 8,
         color: '#475569',
-        font: { size: 11, weight: '500' },
+        font: { size: 11 },
       },
     },
     tooltip: {
@@ -53,13 +54,14 @@ export const EXECUTIVE_LINE_OPTIONS: any = {
       padding: 10,
       cornerRadius: 8,
       callbacks: {
-        label: (ctx: any) => ` ${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`,
+        label: (ctx: TooltipItem<'line'>) =>
+          ` ${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y || 0))}`,
       },
     },
   },
 };
 
-export const EXECUTIVE_DOUGHNUT_OPTIONS: any = {
+export const EXECUTIVE_DOUGHNUT_OPTIONS: ChartOptions<'doughnut'> = {
   maintainAspectRatio: false,
   cutout: '68%',
   plugins: {
@@ -79,7 +81,8 @@ export const EXECUTIVE_DOUGHNUT_OPTIONS: any = {
       padding: 10,
       cornerRadius: 8,
       callbacks: {
-        label: (ctx: any) => ` ${ctx.label}: ${formatCurrency(ctx.parsed)}`,
+        label: (ctx: TooltipItem<'doughnut'>) =>
+          ` ${ctx.label}: ${formatCurrency(Number(ctx.parsed || 0))}`,
       },
     },
   },

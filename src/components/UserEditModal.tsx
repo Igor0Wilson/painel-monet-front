@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
@@ -47,6 +47,8 @@ const schema = yup.object().shape({
     .optional(),
 });
 
+type UserEditFormData = yup.InferType<typeof schema>;
+
 interface UserEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -73,8 +75,8 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     watch,
     setValue,
     formState: { errors },
-  } = useForm({
-    resolver: yupResolver(schema) as any,
+  } = useForm<UserEditFormData>({
+    resolver: yupResolver(schema) as unknown as Resolver<UserEditFormData>,
     defaultValues: {
       name: userData.name,
       email: userData.email,
@@ -104,10 +106,10 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
 
   if (!isOpen) return null;
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: UserEditFormData) => {
     try {
       setLoading(true);
-      const payload: Record<string, any> = {
+      const payload: Record<string, string> = {
         name: data.name,
         email: data.email,
         cpf: onlyDigits(data.cpf),
@@ -141,7 +143,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              {React.createElement(FaUser as any, { className: 'text-sm' })}
+              {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">Perfil do Usuário</h3>
@@ -155,7 +157,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors p-2 rounded-lg"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -222,7 +224,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 mt-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
                 >
-                  {React.createElement(FaWhatsapp as any, { className: 'text-sm' })}
+                  {React.createElement(FaWhatsapp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                   Abrir link do WhatsApp
                 </a>
               )}
@@ -230,7 +232,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
           </div>
 
           <div className="rounded-xl bg-slate-50 border border-slate-200/80 px-3.5 py-2.5 flex items-start gap-2.5">
-            {React.createElement(FaShieldAlt as any, {
+            {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
               className: 'text-slate-600 text-xs mt-0.5 flex-shrink-0',
             })}
             <p className="text-[11px] text-slate-600 leading-relaxed">
@@ -254,7 +256,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 >
-                  {React.createElement((showPassword ? FaEyeSlash : FaEye) as any, {
+                  {React.createElement((showPassword ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-sm',
                   })}
                 </button>
@@ -280,7 +282,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 >
-                  {React.createElement((showConfirmPassword ? FaEyeSlash : FaEye) as any, {
+                  {React.createElement((showConfirmPassword ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-sm',
                   })}
                 </button>
@@ -309,7 +311,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
               disabled={downloadingBackup}
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
             >
-              {React.createElement(FaDownload as any, { className: 'text-xs' })}
+              {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               {downloadingBackup ? 'Gerando backup...' : 'Baixar meus dados (.json)'}
             </button>
 
@@ -318,7 +320,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
               onClick={() => setDangerModalOpen(true)}
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-colors"
             >
-              {React.createElement(FaExclamationTriangle as any, { className: 'text-xs' })}
+              {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               Desativar / Excluir conta
             </button>
           </div>

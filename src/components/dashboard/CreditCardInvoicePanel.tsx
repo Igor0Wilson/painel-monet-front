@@ -23,7 +23,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
       <div className="px-6 py-4 bg-slate-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="w-9 h-9 rounded-xl bg-white/10 text-emerald-400 flex items-center justify-center flex-shrink-0">
-            {React.createElement(FaCreditCard as any, { className: 'text-sm' })}
+            {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </span>
           <div>
             <h2 className="text-sm font-semibold text-white">Fatura do Cartão de Crédito</h2>
@@ -101,7 +101,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
             onClick={() => onPayInvoice(activeInvoice)}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
           >
-            {React.createElement(FaCheckCircle as any, { className: 'text-xs' })}
+            {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             <span>
               Pagar Fatura de {activeInvoice.shortLabel} ({formatCurrency(activeInvoice.total)})
             </span>

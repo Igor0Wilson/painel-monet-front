@@ -40,7 +40,7 @@ const KpiGrid: React.FC<Props> = ({
               {isFamilyMode ? 'Patrimônio Disponível da Família' : 'Patrimônio Disponível'}
             </span>
             <span className="w-8 h-8 rounded-lg bg-white/10 text-emerald-400 flex items-center justify-center">
-              {React.createElement(FaLandmark as any, { className: 'text-xs' })}
+              {React.createElement(FaLandmark as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums">
@@ -57,7 +57,7 @@ const KpiGrid: React.FC<Props> = ({
               {isFamilyMode ? 'Receitas Totais da Família' : 'Receitas Creditadas'}
             </span>
             <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
-              {React.createElement(FaArrowUp as any, { className: 'text-xs' })}
+              {React.createElement(FaArrowUp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
@@ -85,7 +85,7 @@ const KpiGrid: React.FC<Props> = ({
               {isFamilyMode ? 'Despesas Liquidadas da Família' : 'Despesas Liquidadas'}
             </span>
             <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-              {React.createElement(FaArrowDown as any, { className: 'text-xs' })}
+              {React.createElement(FaArrowDown as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
@@ -109,7 +109,7 @@ const KpiGrid: React.FC<Props> = ({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">
-                {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
+                {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {isFamilyMode ? 'Reserva de Emergência da Família' : 'Reserva de Emergência'}
@@ -131,7 +131,7 @@ const KpiGrid: React.FC<Props> = ({
             aria-label="Guardar na reserva de emergência"
             className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
-            {React.createElement(FaPiggyBank as any, { className: 'text-sm text-emerald-400' })}
+            {React.createElement(FaPiggyBank as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm text-emerald-400' })}
             <span>Guardar</span>
           </button>
         </div>
@@ -140,7 +140,7 @@ const KpiGrid: React.FC<Props> = ({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
-                {React.createElement(FaSeedling as any, { className: 'text-xs' })}
+                {React.createElement(FaSeedling as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {isFamilyMode ? 'Investimentos da Família' : 'Investimentos'}
@@ -162,7 +162,7 @@ const KpiGrid: React.FC<Props> = ({
             aria-label="Guardar em investimentos"
             className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
-            {React.createElement(FaSeedling as any, { className: 'text-sm' })}
+            {React.createElement(FaSeedling as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             <span>Guardar</span>
           </button>
         </div>
@@ -171,7 +171,7 @@ const KpiGrid: React.FC<Props> = ({
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
-                {React.createElement(FaUtensils as any, { className: 'text-xs' })}
+                {React.createElement(FaUtensils as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {isFamilyMode
@@ -209,7 +209,7 @@ const KpiGrid: React.FC<Props> = ({
               aria-label="Inserir Vale Alimentação ou Refeição"
               className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold shadow-sm active:scale-[0.99] transition-all"
             >
-              {React.createElement(FaUtensils as any, { className: 'text-xs' })}
+              {React.createElement(FaUtensils as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               <span>Inserir VA/VR</span>
             </button>
           )}

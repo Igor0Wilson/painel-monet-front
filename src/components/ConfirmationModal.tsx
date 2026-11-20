@@ -30,7 +30,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              {React.createElement(FaExclamationTriangle as any, { className: 'text-base' })}
+              {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">{title}</h3>

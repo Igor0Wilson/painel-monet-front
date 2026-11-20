@@ -12,13 +12,18 @@ import {
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import type {
+  FamilyMemberSummary,
+  FamilyStatusData,
+  PendingSentInvite,
+} from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import { buildWhatsAppUrl, formatCpfInput, onlyDigits } from '../utils/formatters';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  familyStatus: any;
+  familyStatus: FamilyStatusData | null;
   onRefresh: () => void;
   onOpenProfile: () => void;
 }
@@ -37,8 +42,8 @@ const FamilyModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const hasCpf = Boolean(familyStatus?.hasCpf);
-  const members: any[] = familyStatus?.members || [];
-  const pendingSentInvites: any[] = familyStatus?.pendingSentInvites || [];
+  const members: FamilyMemberSummary[] = familyStatus?.members || [];
+  const pendingSentInvites: PendingSentInvite[] = familyStatus?.pendingSentInvites || [];
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +97,7 @@ const FamilyModal: React.FC<Props> = ({
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-              {React.createElement(FaUsers as any, { className: 'text-sm' })}
+              {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900">Modo Família</h3>
@@ -106,14 +111,14 @@ const FamilyModal: React.FC<Props> = ({
             onClick={onClose}
             className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-lg"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
         <div className="p-6 space-y-6">
           {/* Security notice */}
           <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 flex items-start gap-3">
-            {React.createElement(FaShieldAlt as any, {
+            {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
               className: 'text-emerald-600 text-sm mt-0.5 flex-shrink-0',
             })}
             <div className="text-xs text-slate-600 leading-relaxed">
@@ -138,7 +143,7 @@ const FamilyModal: React.FC<Props> = ({
                 }}
                 className="exec-btn-primary text-xs gap-2"
               >
-                {React.createElement(FaUserEdit as any, { className: 'text-xs' })}
+                {React.createElement(FaUserEdit as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                 Cadastrar meu CPF no Perfil
               </button>
             </div>
@@ -161,7 +166,7 @@ const FamilyModal: React.FC<Props> = ({
                   disabled={loading}
                   className="exec-btn-primary gap-2 whitespace-nowrap"
                 >
-                  {React.createElement(FaUserPlus as any, { className: 'text-xs' })}
+                  {React.createElement(FaUserPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                   <span>{loading ? 'Buscando...' : 'Enviar Convite'}</span>
                 </button>
               </div>
@@ -210,7 +215,7 @@ const FamilyModal: React.FC<Props> = ({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 text-xs font-medium transition-colors"
                         >
-                          {React.createElement(FaWhatsapp as any, { className: 'text-sm' })}
+                          {React.createElement(FaWhatsapp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                           WhatsApp
                         </a>
                       )}
@@ -238,7 +243,7 @@ const FamilyModal: React.FC<Props> = ({
                         {inv.inviteeName}
                       </p>
                       <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                        {React.createElement(FaClock as any, { className: 'text-[10px] text-amber-600' })}
+                        {React.createElement(FaClock as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-amber-600' })}
                         CPF: {inv.inviteeMaskedCpf} · Aguardando aceite
                       </p>
                     </div>
@@ -248,7 +253,7 @@ const FamilyModal: React.FC<Props> = ({
                       className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                       title="Cancelar convite"
                     >
-                      {React.createElement(FaTrash as any, { className: 'text-xs' })}
+                      {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </button>
                   </div>
                 ))}
@@ -265,7 +270,7 @@ const FamilyModal: React.FC<Props> = ({
                 disabled={leaving}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700"
               >
-                {React.createElement(FaSignOutAlt as any, { className: 'text-xs' })}
+                {React.createElement(FaSignOutAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                 {leaving ? 'Saindo...' : 'Desvincular do Modo Família'}
               </button>
             ) : (

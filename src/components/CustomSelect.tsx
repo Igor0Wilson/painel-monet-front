@@ -56,14 +56,14 @@ const CustomSelect: React.FC<Props> = ({
             <span
               className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedMeta.iconBgClass}`}
             >
-              {React.createElement(selectedMeta.icon as any, { className: 'text-xs' })}
+              {React.createElement(selectedMeta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
             <span className="truncate text-slate-900 font-semibold">{selectedMeta.name}</span>
           </span>
         ) : (
           <span className="truncate text-slate-400">{placeholder}</span>
         )}
-        {React.createElement(FaChevronDown as any, {
+        {React.createElement(FaChevronDown as unknown as React.ComponentType<{ className?: string }>, {
           className: `text-slate-400 text-xs ml-2 flex-shrink-0 transition-transform duration-200 ${
             isOpen ? 'rotate-180 text-slate-700' : ''
           }`,
@@ -99,12 +99,12 @@ const CustomSelect: React.FC<Props> = ({
                       <span
                         className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${meta.iconBgClass}`}
                       >
-                        {React.createElement(meta.icon as any, { className: 'text-xs' })}
+                        {React.createElement(meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                       </span>
                       <span className="truncate">{meta.name}</span>
                     </span>
                     {isSelected &&
-                      React.createElement(FaCheck as any, {
+                      React.createElement(FaCheck as unknown as React.ComponentType<{ className?: string }>, {
                         className: 'text-xs text-slate-900 flex-shrink-0 ml-2',
                       })}
                   </button>

@@ -108,7 +108,7 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
         <div className="px-6 py-5 bg-slate-950 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              {React.createElement(FaUserShield as any, { className: 'text-base' })}
+              {React.createElement(FaUserShield as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
               <h3 className="text-base font-semibold tracking-tight">Complete seu cadastro</h3>
@@ -123,7 +123,7 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
             className="text-slate-400 hover:text-white transition-colors"
             aria-label="Fechar"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -135,7 +135,7 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
               </p>
               <p className="text-sm font-semibold text-slate-900 truncate">{pending.email}</p>
             </div>
-            {React.createElement(FaCheckCircle as any, {
+            {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
               className: 'text-emerald-600 text-base flex-shrink-0',
             })}
           </div>

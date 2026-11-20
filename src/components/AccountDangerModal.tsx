@@ -96,7 +96,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
         <div className="px-6 py-4 bg-rose-950 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center">
-              {React.createElement(FaExclamationTriangle as any, { className: 'text-sm' })}
+              {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
               <h3 className="text-sm font-semibold">
@@ -117,7 +117,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
             className="text-rose-200 hover:text-white p-1.5 rounded-lg"
             aria-label="Fechar"
           >
-            {React.createElement(FaTimes as any, { className: 'text-sm' })}
+            {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
@@ -137,7 +137,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
               disabled={downloading}
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex-shrink-0 disabled:opacity-60"
             >
-              {React.createElement(FaDownload as any, { className: 'text-xs' })}
+              {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               {downloading ? 'Baixando...' : 'Baixar meus dados'}
             </button>
           </div>
@@ -148,7 +148,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-amber-950 flex items-center gap-2">
-                      {React.createElement(FaPauseCircle as any, {
+                      {React.createElement(FaPauseCircle as unknown as React.ComponentType<{ className?: string }>, {
                         className: 'text-amber-600 text-sm',
                       })}
                       Desativar conta temporariamente (Recomendado)
@@ -171,7 +171,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
 
               <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4">
                 <p className="text-sm font-semibold text-rose-950 flex items-center gap-2">
-                  {React.createElement(FaTrashAlt as any, {
+                  {React.createElement(FaTrashAlt as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-rose-600 text-sm',
                   })}
                   Excluir conta permanentemente

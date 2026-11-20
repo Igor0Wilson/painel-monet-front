@@ -244,19 +244,19 @@ const Login: React.FC = () => {
           <div className="space-y-3 pt-2">
             <div className="flex items-center gap-3 text-xs text-slate-300">
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-                {React.createElement(FaChartLine as any, { className: 'text-xs' })}
+                {React.createElement(FaChartLine as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               Projeção mensal e distribuição de gastos em tempo real
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-300">
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-                {React.createElement(FaLayerGroup as any, { className: 'text-xs' })}
+                {React.createElement(FaLayerGroup as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               Suporte a múltiplos salários, adiantamento quinzenal e parcelas
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-300">
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
-                {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
+                {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
               Autenticação Firebase + CPF único validado no banco de dados
             </div>
@@ -293,7 +293,7 @@ const Login: React.FC = () => {
           <div className="exec-card p-5 sm:p-8 w-full">
             {deactivatedEmail && (
               <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-                {React.createElement(FaExclamationTriangle as any, {
+                {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
                   className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
                 })}
                 <div className="text-xs text-amber-900 leading-relaxed">
@@ -378,7 +378,7 @@ const Login: React.FC = () => {
                     className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    {React.createElement((showPassword ? FaEyeSlash : FaEye) as any, {
+                    {React.createElement((showPassword ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>, {
                       className: 'text-sm',
                     })}
                   </button>

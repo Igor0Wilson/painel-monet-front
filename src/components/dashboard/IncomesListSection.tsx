@@ -33,7 +33,7 @@ const IncomesListSection: React.FC<Props> = ({
           className="w-8 h-8 rounded-xl bg-slate-900 text-white hover:bg-slate-800 flex items-center justify-center transition-colors"
           title="Adicionar salário ou receita"
         >
-          {React.createElement(FaPlus as any, { className: 'text-xs' })}
+          {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
         </button>
       </div>
 
@@ -77,7 +77,7 @@ const IncomesListSection: React.FC<Props> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-                    {React.createElement(FaCalendarAlt as any, { className: 'text-[10px]' })}
+                    {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                     <span>Entrada: {formatDateBr(income.incomeDate)}</span>
                   </p>
                 </div>
@@ -90,7 +90,7 @@ const IncomesListSection: React.FC<Props> = ({
                       className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
                       title="Editar receita"
                     >
-                      {React.createElement(FaEdit as any, { className: 'text-xs' })}
+                      {React.createElement(FaEdit as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </button>
                     <button
                       type="button"
@@ -98,7 +98,7 @@ const IncomesListSection: React.FC<Props> = ({
                       className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                       title="Excluir receita"
                     >
-                      {React.createElement(FaTrash as any, { className: 'text-xs' })}
+                      {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </button>
                   </div>
                 )}

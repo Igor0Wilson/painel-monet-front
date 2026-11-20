@@ -122,7 +122,7 @@ const ExpensesListSection: React.FC<Props> = ({
                               : 'bg-teal-50 text-teal-800 border border-teal-200/80'
                           }`}
                         >
-                          {React.createElement(FaUser as any, { className: 'text-[8px]' })}
+                          {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[8px]' })}
                           {expense.ownerName.split(' ')[0]}
                         </span>
                       )}
@@ -134,7 +134,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         >
                           {childInstallments.length + 1} parcelas
                           {React.createElement(
-                            (isAccordionOpen ? FaChevronUp : FaChevronDown) as any,
+                            (isAccordionOpen ? FaChevronUp : FaChevronDown) as unknown as React.ComponentType<{ className?: string }>,
                             { className: 'text-[9px]' },
                           )}
                         </button>
@@ -143,7 +143,7 @@ const ExpensesListSection: React.FC<Props> = ({
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1.5">
-                        {React.createElement(FaCalendarAlt as any, {
+                        {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                           className: 'text-[10px] text-slate-400',
                         })}
                         {formatDateBr(expense.dueDate)}
@@ -154,7 +154,7 @@ const ExpensesListSection: React.FC<Props> = ({
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${catMeta.bgClass} ${catMeta.textClass} ${catMeta.borderClass}`}
                           >
-                            {React.createElement(catMeta.icon as any, {
+                            {React.createElement(catMeta.icon as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[10px]',
                             })}
                             {catMeta.name}
@@ -173,7 +173,7 @@ const ExpensesListSection: React.FC<Props> = ({
                       )}
                       {expense.isCreditCard && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md">
-                          {React.createElement(FaCreditCard as any, { className: 'text-[9px]' })}
+                          {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
                           Fatura Cartão
                         </span>
                       )}
@@ -194,7 +194,7 @@ const ExpensesListSection: React.FC<Props> = ({
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition-colors"
                             title="Liquidar despesa"
                           >
-                            {React.createElement(FaCheckCircle as any, {
+                            {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[11px]',
                             })}
                             <span>Liquidar</span>
@@ -206,7 +206,7 @@ const ExpensesListSection: React.FC<Props> = ({
                           className="p-2 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
                           title="Editar"
                         >
-                          {React.createElement(FaEdit as any, { className: 'text-xs' })}
+                          {React.createElement(FaEdit as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                         </button>
                         <button
                           type="button"
@@ -214,7 +214,7 @@ const ExpensesListSection: React.FC<Props> = ({
                           className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Excluir"
                         >
-                          {React.createElement(FaTrash as any, { className: 'text-xs' })}
+                          {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                         </button>
                       </div>
                     )}
@@ -251,7 +251,7 @@ const ExpensesListSection: React.FC<Props> = ({
                                   className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors"
                                   title="Liquidar parcela"
                                 >
-                                  {React.createElement(FaCheckCircle as any, {
+                                  {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
                                     className: 'text-xs',
                                   })}
                                 </button>
@@ -262,7 +262,7 @@ const ExpensesListSection: React.FC<Props> = ({
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                                 title="Editar parcela"
                               >
-                                {React.createElement(FaEdit as any, { className: 'text-xs' })}
+                                {React.createElement(FaEdit as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                               </button>
                               <button
                                 type="button"
@@ -270,7 +270,7 @@ const ExpensesListSection: React.FC<Props> = ({
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                                 title="Excluir parcela"
                               >
-                                {React.createElement(FaTrash as any, { className: 'text-xs' })}
+                                {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                               </button>
                             </div>
                           )}

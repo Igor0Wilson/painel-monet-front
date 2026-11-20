@@ -79,7 +79,7 @@ const FamilyMembersStrip: React.FC<Props> = ({
                     }`}
                     title={`Enviar WhatsApp para ${member.name}`}
                   >
-                    {React.createElement(FaWhatsapp as any, { className: 'text-sm' })}
+                    {React.createElement(FaWhatsapp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                   </a>
                 )}
               </div>
