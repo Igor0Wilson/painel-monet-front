@@ -16,6 +16,7 @@ import {
   FaExclamationTriangle,
 } from 'react-icons/fa';
 import AccountDangerModal from './AccountDangerModal';
+import { downloadUserFinancialData } from '../utils/downloadUserData';
 import {
   buildWhatsAppUrl,
   formatCpfInput,
@@ -128,43 +129,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   const handleDownloadBackup = async () => {
     try {
       setDownloadingBackup(true);
-      const response = await api.get('/users/me/export');
-      const formattedJson = JSON.stringify(response.data, null, 2);
-      const dateStamp = new Date().toISOString().slice(0, 10);
-      const filename = `painel-monet-backup-${dateStamp}.json`;
-
-      const rnWebView = (
-        window as unknown as {
-          ReactNativeWebView?: { postMessage: (msg: string) => void };
-        }
-      ).ReactNativeWebView;
-
-      if (rnWebView && typeof rnWebView.postMessage === 'function') {
-        rnWebView.postMessage(
-          JSON.stringify({
-            type: 'DOWNLOAD_BACKUP',
-            filename,
-            content: formattedJson,
-          }),
-        );
-        toast.success('Backup enviado para compartilhamento no aplicativo!');
-        return;
-      }
-
-      const jsonBlob = new Blob([formattedJson], {
-        type: 'application/json;charset=utf-8',
-      });
-      const url = URL.createObjectURL(jsonBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success('Backup dos seus dados baixado com sucesso!');
-    } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao exportar dados'));
+      await downloadUserFinancialData({ cpf: cpfValue || userData.cpf });
     } finally {
       setDownloadingBackup(false);
     }
