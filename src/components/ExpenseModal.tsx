@@ -265,8 +265,8 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   ];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-executive-lg w-full max-w-xl overflow-hidden border border-slate-200 my-8">
+    <div className="exec-modal-overlay z-50">
+      <div className="exec-modal-container max-w-xl">
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 border border-slate-200/80 flex items-center justify-center">

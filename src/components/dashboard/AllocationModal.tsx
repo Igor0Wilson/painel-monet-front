@@ -28,8 +28,8 @@ const AllocationModal: React.FC<Props> = ({
   const isEmergency = variant === 'emergency';
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-executive-lg border border-slate-200 overflow-hidden">
+    <div className="exec-modal-overlay z-[60]">
+      <div className="exec-modal-container max-w-md">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div

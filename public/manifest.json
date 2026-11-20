@@ -1,6 +1,6 @@
 {
   "short_name": "Monet",
-  "name": "Controle Financeiro — Gestão Patrimonial",
+  "name": "Painel Monet — Gestão Patrimonial",
   "icons": [
     {
       "src": "favicon.ico",
@@ -23,7 +23,7 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/login?app=1",
   "display": "standalone",
   "theme_color": "#0f172a",
   "background_color": "#ffffff"

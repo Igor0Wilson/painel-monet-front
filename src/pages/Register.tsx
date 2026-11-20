@@ -207,7 +207,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-slate-50 flex flex-col lg:flex-row">
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -260,23 +260,25 @@ const Register: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16">
-        <div className="mx-auto w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+      <div className="w-full min-w-0 flex-1 flex flex-col justify-center items-center px-5 py-8 sm:px-10 lg:px-16">
+        <div className="mx-auto w-full max-w-md min-w-0">
+          <div className="lg:hidden flex items-center gap-2.5 mb-6">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
               {React.createElement(FaLandmark as any, { className: 'text-sm' })}
             </div>
-            <span className="text-base font-semibold text-slate-900">Controle Financeiro</span>
+            <span className="text-base font-semibold text-slate-900 truncate">
+              Controle Financeiro
+            </span>
           </div>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Criar conta</h2>
             <p className="mt-1.5 text-sm text-slate-500">
               Cadastre-se com Gmail ou preencha seus dados abaixo.
             </p>
           </div>
 
-          <div className="exec-card p-6 sm:p-8">
+          <div className="exec-card p-5 sm:p-8 w-full">
             <GoogleSignInButton
               onClick={handleGoogleRegister}
               loading={googleLoading}

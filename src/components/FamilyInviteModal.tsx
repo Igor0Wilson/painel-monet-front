@@ -71,8 +71,8 @@ const FamilyInviteModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-executive-lg w-full max-w-md overflow-hidden border border-slate-200">
+    <div className="exec-modal-overlay z-[90]">
+      <div className="exec-modal-container max-w-md">
         {step === 1 ? (
           <>
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">

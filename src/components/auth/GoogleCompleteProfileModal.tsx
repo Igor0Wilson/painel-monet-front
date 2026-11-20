@@ -103,8 +103,8 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="exec-modal-overlay z-50">
+      <div className="exec-modal-container max-w-md">
         <div className="px-6 py-5 bg-slate-950 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">

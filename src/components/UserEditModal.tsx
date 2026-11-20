@@ -171,8 +171,8 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-executive-lg overflow-hidden border border-slate-200 my-8">
+    <div className="exec-modal-overlay z-[100]">
+      <div className="exec-modal-container max-w-lg">
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">

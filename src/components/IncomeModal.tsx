@@ -230,8 +230,8 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-executive-lg w-full max-w-2xl overflow-hidden border border-slate-200 my-8">
+    <div className="exec-modal-overlay z-50">
+      <div className="exec-modal-container max-w-2xl">
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
           <div className="flex items-center gap-3">

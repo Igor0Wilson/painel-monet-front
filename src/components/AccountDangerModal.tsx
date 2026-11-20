@@ -91,8 +91,8 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="exec-modal-overlay z-[120]">
+      <div className="exec-modal-container max-w-lg">
         <div className="px-6 py-4 bg-rose-950 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center">

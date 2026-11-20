@@ -25,8 +25,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-executive-lg w-full max-w-md overflow-hidden border border-slate-200">
+    <div className="exec-modal-overlay z-[100]">
+      <div className="exec-modal-container max-w-md">
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl flex items-center justify-center flex-shrink-0">

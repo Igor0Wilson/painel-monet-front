@@ -30,7 +30,7 @@
       <key>Precomposed</key>
       <true/>
       <key>URL</key>
-      <string>https://painel-monet-front.vercel.app/login</string>
+      <string>https://painel-monet-front.vercel.app/login?app=1</string>
     </dict>
   </array>
   <key>PayloadDescription</key>
