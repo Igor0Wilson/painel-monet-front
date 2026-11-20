@@ -3,6 +3,7 @@ import {
   FaCar,
   FaGamepad,
   FaHamburger,
+  FaHeartbeat,
   FaHome,
   FaUtensils,
 } from 'react-icons/fa';
@@ -14,6 +15,7 @@ export const OFFICIAL_CATEGORIES = [
   'Lazer',
   'Alimentação',
   'FastFood',
+  'Saúde e Beleza',
   'Diversos',
 ] as const;
 
@@ -74,6 +76,15 @@ export const CATEGORY_META_MAP: Record<OfficialCategoryName, CategoryMeta> = {
     textClass: 'text-amber-700',
     borderClass: 'border-amber-200',
     iconBgClass: 'bg-amber-100 text-amber-700',
+  },
+  'Saúde e Beleza': {
+    name: 'Saúde e Beleza',
+    icon: FaHeartbeat,
+    color: '#e11d48',
+    bgClass: 'bg-rose-50',
+    textClass: 'text-rose-700',
+    borderClass: 'border-rose-200',
+    iconBgClass: 'bg-rose-100 text-rose-700',
   },
   Diversos: {
     name: 'Diversos',
@@ -143,7 +154,67 @@ export function normalizeCategoryName(rawName?: string | null): OfficialCategory
   ) {
     return 'Alimentação';
   }
+  if (
+    norm.includes('saude') ||
+    norm.includes('beleza') ||
+    norm.includes('farmacia') ||
+    norm.includes('medico') ||
+    norm.includes('dentista') ||
+    norm.includes('academia') ||
+    norm.includes('estetica') ||
+    norm.includes('salao') ||
+    norm.includes('barbearia') ||
+    norm.includes('cosmetico')
+  ) {
+    return 'Saúde e Beleza';
+  }
   return 'Diversos';
+}
+
+export function isFoodCategory(
+  rawCategoryName?: string | null,
+  expenseDescription?: string | null,
+): boolean {
+  if (rawCategoryName) {
+    const canonical = normalizeCategoryName(rawCategoryName);
+    if (canonical === 'Alimentação' || canonical === 'FastFood') {
+      return true;
+    }
+  }
+  if (expenseDescription) {
+    const normDesc = expenseDescription
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const foodKeywords = [
+      'mercado',
+      'supermercado',
+      'atacadao',
+      'assai',
+      'carrefour',
+      'restaurante',
+      'lanche',
+      'ifood',
+      'comida',
+      'refeicao',
+      'almoco',
+      'jantar',
+      'padaria',
+      'acougue',
+      'hortifruti',
+      'feira',
+      'burger',
+      'mcdonald',
+      'pizza',
+      'sushi',
+      'churrasco',
+      'cafeteria',
+    ];
+    if (foodKeywords.some((kw) => normDesc.includes(kw))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function getCategoryMeta(rawName?: string | null): CategoryMeta {

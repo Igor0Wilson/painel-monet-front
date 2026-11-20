@@ -84,7 +84,7 @@ const FamilyMembersStrip: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="mt-3 pt-2.5 border-t border-current/10 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-3 pt-2.5 border-t border-current/10 grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <span
                     className={`block text-[10px] ${
@@ -111,6 +111,22 @@ const FamilyMembersStrip: React.FC<Props> = ({
                   </span>
                   <span className="font-semibold tabular-nums">
                     {formatCurrency(member.totalExpenses)}
+                  </span>
+                </div>
+                <div>
+                  <span
+                    className={`block text-[10px] ${
+                      isSelected ? 'text-slate-300' : 'text-slate-400'
+                    }`}
+                  >
+                    Saldo VA/VR
+                  </span>
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      isSelected ? 'text-amber-300' : 'text-amber-700'
+                    }`}
+                  >
+                    {formatCurrency(member.foodAllowance || 0)}
                   </span>
                 </div>
               </div>

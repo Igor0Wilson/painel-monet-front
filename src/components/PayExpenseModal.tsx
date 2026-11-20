@@ -7,12 +7,15 @@ import {
   FaUniversity,
   FaCheckCircle,
   FaCalendarAlt,
+  FaUtensils,
+  FaHamburger,
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import { isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
-export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito';
+export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
 interface Props {
   expense: any | null;
@@ -63,6 +66,11 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
     return `${d}/${m}/${y}`;
   };
 
+  const showFoodVoucherOptions = isFoodCategory(
+    expense?.accountType?.name,
+    expense?.name,
+  );
+
   const methods: {
     id: PaymentMethod;
     label: string;
@@ -93,6 +101,22 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
         subtitle: 'Gerar fatura/parcelas',
         icon: FaCreditCard,
       },
+      ...(showFoodVoucherOptions
+        ? [
+            {
+              id: 'va' as PaymentMethod,
+              label: 'VA (Vale Alimentação)',
+              subtitle: 'Desconta do saldo VA/VR',
+              icon: FaUtensils,
+            },
+            {
+              id: 'vr' as PaymentMethod,
+              label: 'VR (Vale Refeição)',
+              subtitle: 'Desconta do saldo VA/VR',
+              icon: FaHamburger,
+            },
+          ]
+        : []),
     ];
 
   const handleConfirm = async (e: React.FormEvent) => {
@@ -125,6 +149,10 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
           parsedInstallments > 1
             ? `Liquidado no crédito! ${parsedInstallments} parcelas geradas no Cartão de Crédito.`
             : 'Liquidado no crédito! Fatura 1/1 gerada no Cartão de Crédito.',
+        );
+      } else if (paymentMethod === 'va' || paymentMethod === 'vr') {
+        toast.success(
+          `Pagamento registrado no ${paymentMethod.toUpperCase()} e descontado do seu Vale Alimentação/Refeição!`,
         );
       } else {
         toast.success('Pagamento registrado e debitado do saldo disponível!');
@@ -290,6 +318,14 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
                   agora) e cada parcela debitará o saldo quando você liquidá-la.
                 </p>
               </div>
+            </div>
+          ) : paymentMethod === 'va' || paymentMethod === 'vr' ? (
+            <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-4 py-3">
+              <p className="text-xs text-amber-900 leading-relaxed">
+                O valor de <strong className="tabular-nums">{formatCurrency(numericValue)}</strong>{' '}
+                será descontado diretamente do seu saldo de{' '}
+                <strong>Vale Alimentação / Refeição ({paymentMethod.toUpperCase()})</strong>.
+              </p>
             </div>
           ) : (
             <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/70 px-4 py-3">

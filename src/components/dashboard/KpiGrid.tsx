@@ -6,6 +6,7 @@ import {
   FaPiggyBank,
   FaSeedling,
   FaShieldAlt,
+  FaUtensils,
 } from 'react-icons/fa';
 import { BalanceData } from '../../types/finance';
 import { formatCurrency } from '../../utils/formatters';
@@ -16,6 +17,7 @@ interface Props {
   isFamilyMode: boolean;
   onOpenEmergencyModal: () => void;
   onOpenInvestmentModal: () => void;
+  onOpenFoodAllowanceModal?: () => void;
 }
 
 const KpiGrid: React.FC<Props> = ({
@@ -24,6 +26,7 @@ const KpiGrid: React.FC<Props> = ({
   isFamilyMode,
   onOpenEmergencyModal,
   onOpenInvestmentModal,
+  onOpenFoodAllowanceModal,
 }) => {
   const netFlow = balance.totalIncome - balance.totalExpenses;
 
@@ -101,8 +104,8 @@ const KpiGrid: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-        <div className="exec-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">
@@ -112,7 +115,7 @@ const KpiGrid: React.FC<Props> = ({
                 {isFamilyMode ? 'Reserva de Emergência da Família' : 'Reserva de Emergência'}
               </span>
             </div>
-            <p className="text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
               {formatCurrency(balance.emergencyFund)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
@@ -126,14 +129,14 @@ const KpiGrid: React.FC<Props> = ({
             type="button"
             onClick={onOpenEmergencyModal}
             aria-label="Guardar na reserva de emergência"
-            className="w-full sm:w-auto min-w-[148px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
+            className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
             {React.createElement(FaPiggyBank as any, { className: 'text-sm text-emerald-400' })}
             <span>Guardar</span>
           </button>
         </div>
 
-        <div className="exec-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
@@ -143,7 +146,7 @@ const KpiGrid: React.FC<Props> = ({
                 {isFamilyMode ? 'Investimentos da Família' : 'Investimentos'}
               </span>
             </div>
-            <p className="text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
               {formatCurrency(balance.investments || 0)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
@@ -157,11 +160,48 @@ const KpiGrid: React.FC<Props> = ({
             type="button"
             onClick={onOpenInvestmentModal}
             aria-label="Guardar em investimentos"
-            className="w-full sm:w-auto min-w-[148px] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
+            className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
             {React.createElement(FaSeedling as any, { className: 'text-sm' })}
             <span>Guardar</span>
           </button>
+        </div>
+
+        <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
+                {React.createElement(FaUtensils as any, { className: 'text-xs' })}
+              </span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                {isFamilyMode
+                  ? 'Vale Alimentação / Refeição (Família)'
+                  : 'Vale Alimentação / Refeição'}
+              </span>
+            </div>
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+              {formatCurrency(balance.foodAllowance || 0)}
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              {isFamilyMode
+                ? `Seu saldo VA/VR: ${formatCurrency(balance.ownFoodAllowance || 0)} (Total: ${formatCurrency(balance.foodAllowanceTotal || 0)})`
+                : (balance.foodAllowanceUsed || 0) > 0
+                  ? `Total: ${formatCurrency(balance.foodAllowanceTotal || 0)} · Usado em VA/VR: ${formatCurrency(balance.foodAllowanceUsed || 0)}`
+                  : 'Saldo para compras em Alimentação e FastFood (VA / VR)'}
+            </p>
+          </div>
+
+          {onOpenFoodAllowanceModal && (
+            <button
+              type="button"
+              onClick={onOpenFoodAllowanceModal}
+              aria-label="Inserir Vale Alimentação ou Refeição"
+              className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold shadow-sm active:scale-[0.99] transition-all"
+            >
+              {React.createElement(FaUtensils as any, { className: 'text-xs' })}
+              <span>Inserir VA/VR</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

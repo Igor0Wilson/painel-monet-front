@@ -11,12 +11,14 @@ import {
   FaMoneyBillWave,
   FaCreditCard,
   FaCalendarAlt,
+  FaUtensils,
+  FaHamburger,
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import type { PaymentMethod } from './PayExpenseModal';
-import { filterOfficialAccountTypes } from '../utils/categories';
+import { filterOfficialAccountTypes, isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 interface AccountType {
@@ -105,6 +107,23 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const isPaid = watch('isPaid');
   const watchedValue = Number(watch('value')) || 0;
   const watchedInstallments = Number(watch('installmentCount')) || 0;
+  const watchedAccountTypeId = watch('accountTypeId');
+  const watchedName = watch('name');
+
+  const selectedCategoryName =
+    accountTypes.find((t) => t.id === watchedAccountTypeId)?.name ||
+    initialData?.accountType?.name ||
+    '';
+  const showFoodVoucherOptions = isFoodCategory(selectedCategoryName, watchedName);
+
+  useEffect(() => {
+    if (
+      !showFoodVoucherOptions &&
+      (purchasePaymentMethod === 'va' || purchasePaymentMethod === 'vr')
+    ) {
+      setPurchasePaymentMethod('pix');
+    }
+  }, [showFoodVoucherOptions, purchasePaymentMethod]);
 
   const isMarkingPaidOnEdit = Boolean(initialData && !initialData.isPaid && !isRecurring && isPaid);
   const showPaymentFlow =
@@ -286,6 +305,22 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
     { id: 'debito', label: 'Débito', subtitle: 'Saldo em conta', icon: FaUniversity },
     { id: 'dinheiro', label: 'Dinheiro', subtitle: 'Em espécie', icon: FaMoneyBillWave },
     { id: 'credito', label: 'Crédito', subtitle: 'Vai para a fatura', icon: FaCreditCard },
+    ...(showFoodVoucherOptions
+      ? [
+          {
+            id: 'va' as PaymentMethod,
+            label: 'VA (Vale Alimentação)',
+            subtitle: 'Desconta do saldo VA/VR',
+            icon: FaUtensils,
+          },
+          {
+            id: 'vr' as PaymentMethod,
+            label: 'VR (Vale Refeição)',
+            subtitle: 'Desconta do saldo VA/VR',
+            icon: FaHamburger,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -590,6 +625,15 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                   {creditError && (
                     <p className="text-xs text-rose-600 font-medium">{creditError}</p>
                   )}
+                </div>
+              ) : purchasePaymentMethod === 'va' || purchasePaymentMethod === 'vr' ? (
+                <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-4 py-3">
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    O valor{watchedValue > 0 ? ` de ${formatCurrency(watchedValue)}` : ''} será
+                    registrado como <strong>pago ({purchasePaymentMethod.toUpperCase()})</strong> e
+                    descontado diretamente do seu saldo de{' '}
+                    <strong>Vale Alimentação / Refeição</strong>.
+                  </p>
                 </div>
               ) : (
                 <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/70 px-4 py-3">

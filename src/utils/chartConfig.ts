@@ -7,6 +7,7 @@ export const EXECUTIVE_CHART_PALETTE = [
   '#ec4899',
   '#10b981',
   '#f59e0b',
+  '#e11d48',
   '#06b6d4',
 ];
 

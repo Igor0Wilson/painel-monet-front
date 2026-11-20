@@ -1,7 +1,7 @@
 export type ExpenseFilter = 'todas' | 'pendente' | 'em_atraso' | 'pago';
 export type ActiveTab = 'overview' | 'history';
 export type PanelScope = 'individual' | 'family';
-export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito';
+export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
 export interface MemberBreakdown {
   userId: string;
@@ -15,6 +15,9 @@ export interface MemberBreakdown {
   totalExpenses: number;
   emergencyFund: number;
   investments: number;
+  foodAllowance?: number;
+  foodAllowanceTotal?: number;
+  foodAllowanceUsed?: number;
 }
 
 export interface BalanceData {
@@ -25,9 +28,15 @@ export interface BalanceData {
   totalExpenses: number;
   emergencyFund: number;
   investments: number;
+  foodAllowance?: number;
+  foodAllowanceTotal?: number;
+  foodAllowanceUsed?: number;
   ownBalance: number;
   ownEmergencyFund: number;
   ownInvestments: number;
+  ownFoodAllowance?: number;
+  ownFoodAllowanceTotal?: number;
+  ownFoodAllowanceUsed?: number;
   memberBreakdown: MemberBreakdown[];
 }
 

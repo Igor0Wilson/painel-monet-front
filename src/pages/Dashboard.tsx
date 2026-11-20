@@ -70,9 +70,15 @@ const INITIAL_BALANCE: BalanceData = {
   totalExpenses: 0,
   emergencyFund: 0,
   investments: 0,
+  foodAllowance: 0,
+  foodAllowanceTotal: 0,
+  foodAllowanceUsed: 0,
   ownBalance: 0,
   ownEmergencyFund: 0,
   ownInvestments: 0,
+  ownFoodAllowance: 0,
+  ownFoodAllowanceTotal: 0,
+  ownFoodAllowanceUsed: 0,
   memberBreakdown: [],
 };
 
@@ -110,7 +116,9 @@ const Dashboard: React.FC = () => {
   const [openInstallments, setOpenInstallments] = useState<string[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
 
-  const [allocationModal, setAllocationModal] = useState<'emergency' | 'investment' | null>(null);
+  const [allocationModal, setAllocationModal] = useState<'emergency' | 'investment' | 'food' | null>(
+    null,
+  );
   const [allocationInput, setAllocationInput] = useState('');
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
 
@@ -242,11 +250,13 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleOpenAllocation = (variant: 'emergency' | 'investment') => {
+  const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
     const currentVal =
-      variant === 'emergency'
-        ? balance.ownEmergencyFund ?? balance.emergencyFund ?? 0
-        : balance.ownInvestments ?? balance.investments ?? 0;
+      variant === 'food'
+        ? balance.ownFoodAllowanceTotal ?? balance.foodAllowanceTotal ?? 0
+        : variant === 'emergency'
+          ? balance.ownEmergencyFund ?? balance.emergencyFund ?? 0
+          : balance.ownInvestments ?? balance.investments ?? 0;
     setAllocationInput(String(currentVal));
     setAllocationModal(variant);
   };
@@ -262,24 +272,37 @@ const Dashboard: React.FC = () => {
     }
 
     const isEmergency = allocationModal === 'emergency';
-    const maxLimit =
-      Number(balance.ownBalance || 0) +
-      Number(isEmergency ? balance.ownEmergencyFund || 0 : balance.ownInvestments || 0);
+    const isFood = allocationModal === 'food';
 
-    if (amount > maxLimit + 0.001) {
-      toast.error(
-        isEmergency
-          ? 'A reserva não pode exceder o seu saldo disponível'
-          : 'O valor investido não pode exceder o seu saldo disponível',
-      );
-      return;
+    if (!isFood) {
+      const maxLimit =
+        Number(balance.ownBalance || 0) +
+        Number(isEmergency ? balance.ownEmergencyFund || 0 : balance.ownInvestments || 0);
+
+      if (amount > maxLimit + 0.001) {
+        toast.error(
+          isEmergency
+            ? 'A reserva não pode exceder o seu saldo disponível'
+            : 'O valor investido não pode exceder o seu saldo disponível',
+        );
+        return;
+      }
     }
 
     try {
       setIsAllocationLoading(true);
-      await api.post(isEmergency ? '/balance/emergency-fund' : '/balance/investments', { amount });
+      const endpoint = isFood
+        ? '/balance/food-allowance'
+        : isEmergency
+          ? '/balance/emergency-fund'
+          : '/balance/investments';
+      await api.post(endpoint, { amount });
       toast.success(
-        isEmergency ? 'Reserva de emergência atualizada!' : 'Investimentos atualizados!',
+        isFood
+          ? 'Vale Alimentação / Refeição atualizado!'
+          : isEmergency
+            ? 'Reserva de emergência atualizada!'
+            : 'Investimentos atualizados!',
       );
       setAllocationModal(null);
       fetchData();
@@ -287,7 +310,11 @@ const Dashboard: React.FC = () => {
       toast.error(
         extractApiErrorMessage(
           error,
-          isEmergency ? 'Erro ao atualizar reserva' : 'Erro ao atualizar investimentos',
+          isFood
+            ? 'Erro ao atualizar Vale Alimentação / Refeição'
+            : isEmergency
+              ? 'Erro ao atualizar reserva'
+              : 'Erro ao atualizar investimentos',
         ),
       );
     } finally {
@@ -570,6 +597,7 @@ const Dashboard: React.FC = () => {
               isFamilyMode={isFamilyMode}
               onOpenEmergencyModal={() => handleOpenAllocation('emergency')}
               onOpenInvestmentModal={() => handleOpenAllocation('investment')}
+              onOpenFoodAllowanceModal={() => handleOpenAllocation('food')}
             />
 
             <MonthlyChartsSection
@@ -753,6 +781,7 @@ const Dashboard: React.FC = () => {
         variant={allocationModal || 'emergency'}
         value={allocationInput}
         maxLimit={allocationMaxLimit}
+        usedAmount={balance.ownFoodAllowanceUsed ?? balance.foodAllowanceUsed ?? 0}
         loading={isAllocationLoading}
         onChangeValue={setAllocationInput}
         onClose={() => setAllocationModal(null)}

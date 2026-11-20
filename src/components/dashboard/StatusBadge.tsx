@@ -15,6 +15,8 @@ const METHOD_LABELS: Record<string, string> = {
   pix: 'Pago · Pix',
   debito: 'Pago · Débito',
   dinheiro: 'Pago · Dinheiro',
+  va: 'Pago · VA',
+  vr: 'Pago · VR',
 };
 
 const StatusBadge: React.FC<Props> = ({ status, paymentMethod }) => {
