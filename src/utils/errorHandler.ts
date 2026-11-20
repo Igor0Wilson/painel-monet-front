@@ -3,6 +3,7 @@ interface ApiErrorShape {
     status?: number;
     data?: {
       message?: string | string[];
+      code?: string;
     };
   };
   message?: string;
@@ -28,6 +29,14 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
 export function getApiErrorStatus(error: unknown): number | undefined {
   if (typeof error === 'object' && error !== null) {
     return (error as ApiErrorShape).response?.status;
+  }
+  return undefined;
+}
+
+export function getApiErrorCode(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null) {
+    const code = (error as ApiErrorShape).response?.data?.code;
+    return typeof code === 'string' ? code : undefined;
   }
   return undefined;
 }

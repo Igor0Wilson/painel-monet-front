@@ -7,6 +7,11 @@ import { FaLandmark, FaEye, FaEyeSlash, FaShieldAlt, FaChartLine, FaLayerGroup }
 import { toast } from 'react-toastify';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
+import { signInWithGooglePopup } from '../services/firebaseAuth';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
+import GoogleCompleteProfileModal, {
+  GooglePendingProfile,
+} from '../components/auth/GoogleCompleteProfileModal';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 
 const schema = yup
@@ -21,6 +26,8 @@ type FormData = yup.InferType<typeof schema>;
 const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googlePending, setGooglePending] = useState<GooglePendingProfile | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -47,9 +54,42 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      const googleResult = await signInWithGooglePopup();
+      const response = await api.post('/auth/google', {
+        idToken: googleResult.idToken,
+      });
+
+      if (response.data?.requiresProfileCompletion) {
+        setGooglePending({
+          completionToken: response.data.completionToken,
+          email: response.data.googleProfile?.email || googleResult.email,
+          name: response.data.googleProfile?.name || googleResult.displayName,
+          cpf: response.data.googleProfile?.cpf || '',
+          phone: response.data.googleProfile?.phone || '',
+        });
+        return;
+      }
+
+      const { access_token, user } = response.data;
+      login(access_token, user);
+      toast.success('Acesso autorizado via Google.');
+      navigate('/dashboard');
+    } catch (error: unknown) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+      toast.error(extractApiErrorMessage(error, 'Erro ao entrar com Google'));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
-
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -97,7 +137,7 @@ const Login: React.FC = () => {
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                 {React.createElement(FaShieldAlt as any, { className: 'text-xs' })}
               </span>
-              Dados isolados por usuário com autenticação segura JWT
+              Dados isolados por usuário com CPF único e autenticação segura
             </div>
           </div>
         </div>
@@ -109,7 +149,6 @@ const Login: React.FC = () => {
 
       <div className="flex-1 flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16">
         <div className="mx-auto w-full max-w-md">
-
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
             <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center">
               {React.createElement(FaLandmark as any, { className: 'text-sm' })}
@@ -122,11 +161,28 @@ const Login: React.FC = () => {
               Acessar painel
             </h2>
             <p className="mt-1.5 text-sm text-slate-500">
-              Insira suas credenciais para continuar sua gestão financeira.
+              Insira suas credenciais ou entre com sua conta Gmail.
             </p>
           </div>
 
           <div className="exec-card p-6 sm:p-8">
+            <GoogleSignInButton
+              onClick={handleGoogleLogin}
+              loading={googleLoading}
+              label="Entrar com Google (Gmail)"
+            />
+
+            <div className="relative my-5">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-white text-slate-400 font-medium">
+                  ou acesse com e-mail e senha
+                </span>
+              </div>
+            </div>
+
             <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <div>
                 <label htmlFor="email" className="exec-label">
@@ -146,9 +202,17 @@ const Login: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="password" className="exec-label">
-                  Senha
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="exec-label">
+                    Senha
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:underline underline-offset-4 mb-1.5"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                </div>
                 <div className="relative">
                   <input
                     id="password"
@@ -177,7 +241,7 @@ const Login: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || googleLoading}
                 className="exec-btn-primary w-full py-3 mt-2"
               >
                 {loading ? 'Autenticando...' : 'Entrar'}
@@ -198,6 +262,11 @@ const Login: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <GoogleCompleteProfileModal
+        pending={googlePending}
+        onClose={() => setGooglePending(null)}
+      />
     </div>
   );
 };

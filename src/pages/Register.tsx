@@ -3,24 +3,30 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaLandmark, FaShieldAlt, FaCheckCircle } from 'react-icons/fa';
+import { FaLandmark, FaShieldAlt, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { extractApiErrorMessage } from '../utils/errorHandler';
+import { useAuth } from '../context/AuthContext';
+import { signInWithGooglePopup } from '../services/firebaseAuth';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
+import GoogleCompleteProfileModal, {
+  GooglePendingProfile,
+} from '../components/auth/GoogleCompleteProfileModal';
+import { extractApiErrorMessage, getApiErrorCode } from '../utils/errorHandler';
 import { formatCpfInput, formatPhoneInput, onlyDigits } from '../utils/formatters';
 
 const schema = yup
   .object({
-    name: yup.string().required('Campo obrigatório'),
+    name: yup.string().trim().min(2, 'Informe seu nome completo').required('Campo obrigatório'),
     email: yup.string().email('E-mail inválido').required('Campo obrigatório'),
     cpf: yup
       .string()
-      .optional()
-      .test('cpf-len', 'CPF deve conter 11 dígitos', (v) => {
-        const d = onlyDigits(v);
-        return d.length === 0 || d.length === 11;
-      }),
-    phone: yup.string().optional(),
+      .required('CPF obrigatório')
+      .test('cpf-len', 'CPF deve conter 11 dígitos', (v) => onlyDigits(v).length === 11),
+    phone: yup
+      .string()
+      .required('Telefone obrigatório')
+      .test('phone-len', 'Informe DDD + número', (v) => onlyDigits(v).length >= 10),
     password: yup.string().min(6, 'Mínimo 6 caracteres').required('Campo obrigatório'),
     confirmPassword: yup
       .string()
@@ -33,6 +39,10 @@ type FormData = yup.InferType<typeof schema>;
 
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googlePending, setGooglePending] = useState<GooglePendingProfile | null>(null);
+  const [cpfRedirectBanner, setCpfRedirectBanner] = useState<string | null>(null);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -50,27 +60,82 @@ const Register: React.FC = () => {
   const phoneValue = watch('phone') || '';
 
   const onSubmit = async (data: FormData) => {
+    setCpfRedirectBanner(null);
+    const cpfDigits = onlyDigits(data.cpf);
+
     try {
       setLoading(true);
       await api.post('/users', {
-        name: data.name,
-        email: data.email,
+        name: data.name.trim(),
+        email: data.email.trim(),
         password: data.password,
-        cpf: onlyDigits(data.cpf) || undefined,
-        phone: onlyDigits(data.phone) || undefined,
+        cpf: cpfDigits,
+        phone: onlyDigits(data.phone),
       });
       toast.success('Conta criada com sucesso! Faça login para começar.');
       navigate('/login');
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao cadastrar usuário'));
+      const code = getApiErrorCode(error);
+      const message = extractApiErrorMessage(error, 'Erro ao cadastrar usuário');
+
+      if (code === 'CPF_ALREADY_EXISTS' || message.toLowerCase().includes('cpf já está')) {
+        setCpfRedirectBanner(
+          'Este CPF já está cadastrado em outra conta. Redirecionando para recuperação de senha...',
+        );
+        toast.warning('Este CPF já existe! Redirecionando para recuperar a senha...');
+        setTimeout(() => {
+          navigate('/forgot-password', {
+            state: {
+              identifier: formatCpfInput(cpfDigits),
+              reason: 'cpf_exists',
+            },
+          });
+        }, 1800);
+        return;
+      }
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGoogleRegister = async () => {
+    try {
+      setGoogleLoading(true);
+      const googleResult = await signInWithGooglePopup();
+      const response = await api.post('/auth/google', {
+        idToken: googleResult.idToken,
+      });
+
+      if (response.data?.requiresProfileCompletion) {
+        setGooglePending({
+          completionToken: response.data.completionToken,
+          email: response.data.googleProfile?.email || googleResult.email,
+          name: response.data.googleProfile?.name || googleResult.displayName,
+          cpf: response.data.googleProfile?.cpf || '',
+          phone: response.data.googleProfile?.phone || '',
+        });
+        return;
+      }
+
+      const { access_token, user } = response.data;
+      login(access_token, user);
+      toast.success('Você já possui conta! Acesso liberado.');
+      navigate('/dashboard');
+    } catch (error: unknown) {
+      const code = (error as { code?: string })?.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+      toast.error(extractApiErrorMessage(error, 'Erro ao continuar com Google'));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
-
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -107,7 +172,7 @@ const Register: React.FC = () => {
               {React.createElement(FaCheckCircle as any, {
                 className: 'text-emerald-400 text-sm flex-shrink-0',
               })}
-              <span>Modo Família seguro validado por CPF + ID com atualização em tempo real</span>
+              <span>Modo Família seguro validado por CPF único + ID em tempo real</span>
             </div>
             <div className="flex items-center gap-2.5">
               {React.createElement(FaShieldAlt as any, {
@@ -135,15 +200,54 @@ const Register: React.FC = () => {
           <div className="mb-8">
             <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">Criar conta</h2>
             <p className="mt-1.5 text-sm text-slate-500">
-              Preencha seus dados para configurar seu painel financeiro pessoal ou familiar.
+              Cadastre-se com Gmail ou preencha seus dados abaixo.
             </p>
           </div>
 
           <div className="exec-card p-6 sm:p-8">
+            <GoogleSignInButton
+              onClick={handleGoogleRegister}
+              loading={googleLoading}
+              label="Cadastrar com Google (Gmail)"
+            />
+
+            <div className="relative my-5">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-white text-slate-400 font-medium">
+                  ou preencha manualmente
+                </span>
+              </div>
+            </div>
+
+            {cpfRedirectBanner && (
+              <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3.5 flex items-start gap-2.5 text-xs text-amber-900">
+                {React.createElement(FaExclamationTriangle as any, {
+                  className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+                })}
+                <div>
+                  <p className="font-semibold">{cpfRedirectBanner}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/forgot-password', {
+                        state: { identifier: cpfValue, reason: 'cpf_exists' },
+                      })
+                    }
+                    className="mt-1 underline font-semibold text-amber-950"
+                  >
+                    Ir agora para recuperação de senha
+                  </button>
+                </div>
+              </div>
+            )}
+
             <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
               <div>
                 <label htmlFor="name" className="exec-label">
-                  Nome completo
+                  Nome completo *
                 </label>
                 <input
                   id="name"
@@ -159,7 +263,7 @@ const Register: React.FC = () => {
 
               <div>
                 <label htmlFor="email" className="exec-label">
-                  E-mail
+                  E-mail *
                 </label>
                 <input
                   id="email"
@@ -176,7 +280,7 @@ const Register: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="cpf" className="exec-label">
-                    CPF (para Modo Família)
+                    CPF * (chave única)
                   </label>
                   <input
                     id="cpf"
@@ -194,7 +298,7 @@ const Register: React.FC = () => {
 
                 <div>
                   <label htmlFor="phone" className="exec-label">
-                    WhatsApp / Telefone
+                    WhatsApp / Telefone *
                   </label>
                   <input
                     id="phone"
@@ -202,16 +306,19 @@ const Register: React.FC = () => {
                     inputMode="tel"
                     value={phoneValue}
                     onChange={(e) => setValue('phone', formatPhoneInput(e.target.value))}
-                    className="exec-input tabular-nums"
+                    className={`exec-input tabular-nums ${errors.phone ? 'exec-input-error' : ''}`}
                     placeholder="(11) 99999-9999"
                   />
+                  {errors.phone && (
+                    <p className="mt-1 text-xs text-rose-600 font-medium">{errors.phone.message}</p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="password" className="exec-label">
-                    Senha
+                    Senha *
                   </label>
                   <input
                     id="password"
@@ -229,7 +336,7 @@ const Register: React.FC = () => {
 
                 <div>
                   <label htmlFor="confirmPassword" className="exec-label">
-                    Confirmar senha
+                    Confirmar senha *
                   </label>
                   <input
                     id="confirmPassword"
@@ -246,7 +353,11 @@ const Register: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="exec-btn-primary w-full py-3 mt-2">
+              <button
+                type="submit"
+                disabled={loading || googleLoading}
+                className="exec-btn-primary w-full py-3 mt-2"
+              >
                 {loading ? 'Criando conta...' : 'Finalizar cadastro'}
               </button>
             </form>
@@ -265,6 +376,11 @@ const Register: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <GoogleCompleteProfileModal
+        pending={googlePending}
+        onClose={() => setGooglePending(null)}
+      />
     </div>
   );
 };
