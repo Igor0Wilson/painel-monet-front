@@ -6,6 +6,7 @@ import {
   FaUsers,
 } from 'react-icons/fa';
 import { FamilyStatusData, PanelScope } from '../../types/finance';
+import InstallAppBanner from '../InstallAppBanner';
 
 interface Props {
   userName?: string;
@@ -50,6 +51,8 @@ const Navbar: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <InstallAppBanner compact />
+
           {familyStatus?.inFamily && (
             <div className="hidden md:inline-flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/80">
               <button

@@ -26,6 +26,7 @@ import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import GoogleCompleteProfileModal, {
   GooglePendingProfile,
 } from '../components/auth/GoogleCompleteProfileModal';
+import InstallAppBanner from '../components/InstallAppBanner';
 import { extractApiErrorMessage, getApiErrorCode } from '../utils/errorHandler';
 
 const schema = yup
@@ -405,6 +406,8 @@ const Login: React.FC = () => {
               </p>
             </div>
           </div>
+
+          <InstallAppBanner />
         </div>
       </div>
 
