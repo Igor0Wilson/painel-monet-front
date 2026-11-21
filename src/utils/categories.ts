@@ -2,6 +2,8 @@ import type { IconType } from 'react-icons';
 import {
   FaBoxOpen,
   FaCar,
+  FaCouch,
+  FaFileInvoiceDollar,
   FaGamepad,
   FaHamburger,
   FaHeartbeat,
@@ -17,6 +19,8 @@ export const OFFICIAL_CATEGORIES = [
   'Alimentação',
   'FastFood',
   'Saúde e Beleza',
+  'Móveis e Eletrônicos',
+  'Dívidas',
   'Diversos',
 ] as const;
 
@@ -86,6 +90,24 @@ export const CATEGORY_META_MAP: Record<OfficialCategoryName, CategoryMeta> = {
     textClass: 'text-rose-700',
     borderClass: 'border-rose-200',
     iconBgClass: 'bg-rose-100 text-rose-700',
+  },
+  'Móveis e Eletrônicos': {
+    name: 'Móveis e Eletrônicos',
+    icon: FaCouch,
+    color: '#4f46e5',
+    bgClass: 'bg-indigo-50',
+    textClass: 'text-indigo-700',
+    borderClass: 'border-indigo-200',
+    iconBgClass: 'bg-indigo-100 text-indigo-700',
+  },
+  Dívidas: {
+    name: 'Dívidas',
+    icon: FaFileInvoiceDollar,
+    color: '#ea580c',
+    bgClass: 'bg-orange-50',
+    textClass: 'text-orange-700',
+    borderClass: 'border-orange-200',
+    iconBgClass: 'bg-orange-100 text-orange-700',
   },
   Diversos: {
     name: 'Diversos',
@@ -168,6 +190,30 @@ export function normalizeCategoryName(rawName?: string | null): OfficialCategory
     norm.includes('cosmetico')
   ) {
     return 'Saúde e Beleza';
+  }
+  if (
+    norm.includes('moveis') ||
+    norm.includes('movel') ||
+    norm.includes('eletron') ||
+    norm.includes('eletro') ||
+    norm.includes('notebook') ||
+    norm.includes('computador') ||
+    norm.includes('celular') ||
+    norm.includes('geladeira') ||
+    norm.includes('sofa') ||
+    norm.includes('televisao') ||
+    norm.includes('monitor')
+  ) {
+    return 'Móveis e Eletrônicos';
+  }
+  if (
+    norm.includes('divida') ||
+    norm.includes('emprestimo') ||
+    norm.includes('financiamento') ||
+    norm.includes('acordo') ||
+    norm.includes('renegociacao')
+  ) {
+    return 'Dívidas';
   }
   return 'Diversos';
 }

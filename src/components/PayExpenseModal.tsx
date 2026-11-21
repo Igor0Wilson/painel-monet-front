@@ -21,6 +21,7 @@ export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | '
 
 interface Props {
   expense: ExpenseItem | null;
+  batchExpenses?: ExpenseItem[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -36,25 +37,34 @@ function getNextMonthIso(): string {
 
 const QUICK_INSTALLMENTS = [1, 2, 3, 6, 10, 12];
 
-const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
+const PayExpenseModal: React.FC<Props> = ({
+  expense,
+  batchExpenses = [],
+  onClose,
+  onSuccess,
+}) => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [installments, setInstallments] = useState<string>('1');
   const [firstInstallmentDate, setFirstInstallmentDate] = useState<string>(getNextMonthIso());
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  const targetExpenses = batchExpenses.length > 0 ? batchExpenses : expense ? [expense] : [];
+  const isBatch = batchExpenses.length > 0;
+  const targetKey = targetExpenses.map((e) => e.id).join(',');
+
   useEffect(() => {
-    if (expense) {
+    if (targetKey) {
       setPaymentMethod('pix');
       setInstallments('1');
       setFirstInstallmentDate(getNextMonthIso());
       setErrorMsg('');
     }
-  }, [expense]);
+  }, [targetKey]);
 
-  if (!expense) return null;
+  if (targetExpenses.length === 0) return null;
 
-  const numericValue = Number(expense.value) || 0;
+  const numericValue = targetExpenses.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const parsedInstallments = parseInt(installments, 10);
   const validInstallments = !isNaN(parsedInstallments) && parsedInstallments >= 1 ? parsedInstallments : 1;
   const perInstallment = numericValue / validInstallments;
@@ -64,13 +74,13 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
 
   const formatDateBr = (dateStr: string) => {
     if (!dateStr) return '-';
-    const [y, m, d] = dateStr.split('-');
+    const clean = String(dateStr).split('T')[0];
+    const [y, m, d] = clean.split('-');
     return `${d}/${m}/${y}`;
   };
 
-  const showFoodVoucherOptions = isFoodCategory(
-    expense?.accountType?.name,
-    expense?.name,
+  const showFoodVoucherOptions = targetExpenses.every((item) =>
+    isFoodCategory(item.accountType?.name, item.name),
   );
 
   const methods: {
@@ -148,20 +158,33 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
         payload.firstInstallmentDate = firstInstallmentDate;
       }
 
-      await api.patch(`/expenses/${expense.id}/pay`, payload);
+      if (isBatch) {
+        await api.post('/expenses/pay-batch', {
+          expenseIds: targetExpenses.map((e) => e.id),
+          ...payload,
+        });
+      } else {
+        await api.patch(`/expenses/${targetExpenses[0].id}/pay`, payload);
+      }
 
       if (paymentMethod === 'credito') {
         toast.success(
-          parsedInstallments > 1
-            ? `Liquidado no crédito! ${parsedInstallments} parcelas geradas no Cartão de Crédito.`
-            : 'Liquidado no crédito! Fatura 1/1 gerada no Cartão de Crédito.',
+          isBatch
+            ? `${targetExpenses.length} dívidas liquidadas no cartão de crédito (${parsedInstallments}x)!`
+            : parsedInstallments > 1
+              ? `Liquidado no crédito! ${parsedInstallments} parcelas geradas no Cartão de Crédito.`
+              : 'Liquidado no crédito! Fatura 1/1 gerada no Cartão de Crédito.',
         );
       } else if (paymentMethod === 'va' || paymentMethod === 'vr') {
         toast.success(
           `Pagamento registrado no ${paymentMethod.toUpperCase()} e descontado do seu Vale Alimentação/Refeição!`,
         );
       } else {
-        toast.success('Pagamento registrado e debitado do saldo disponível!');
+        toast.success(
+          isBatch
+            ? `${targetExpenses.length} dívidas liquidadas e debitadas do saldo disponível!`
+            : 'Pagamento registrado e debitado do saldo disponível!',
+        );
       }
 
       onSuccess();
@@ -183,9 +206,15 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
               {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Liquidar Despesa</h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                {isBatch ? 'Pagar Dívidas em Lote' : 'Liquidar Despesa'}
+              </h3>
               <p className="text-xs text-slate-500">
-                Selecione como este pagamento foi realizado
+                {isBatch
+                  ? `Selecione a forma de pagamento para quitar ${targetExpenses.length} ${
+                      targetExpenses.length === 1 ? 'dívida selecionada' : 'dívidas selecionadas'
+                    }`
+                  : 'Selecione como este pagamento foi realizado'}
               </p>
             </div>
           </div>
@@ -200,18 +229,55 @@ const PayExpenseModal: React.FC<Props> = ({ expense, onClose, onSuccess }) => {
 
         <form onSubmit={handleConfirm} className="p-6 space-y-5">
           {/* Expense Summary */}
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 px-4 py-3.5 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-xs text-slate-500">Despesa selecionada</p>
-              <p className="text-sm font-semibold text-slate-900 truncate">{expense.name}</p>
+          {isBatch ? (
+            <div className="space-y-2.5">
+              <div className="rounded-xl bg-slate-950 text-white px-4 py-3.5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider">
+                    Total selecionado ({targetExpenses.length}{' '}
+                    {targetExpenses.length === 1 ? 'item' : 'itens'})
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums mt-0.5">
+                    {formatCurrency(numericValue)}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-emerald-300">
+                  Lote
+                </span>
+              </div>
+              <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                {targetExpenses.map((item) => (
+                  <div
+                    key={item.id}
+                    className="px-3.5 py-2 flex items-center justify-between gap-2 text-xs bg-white"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 truncate">{item.name}</p>
+                      <p className="text-[11px] text-slate-400">{formatDateBr(item.dueDate)}</p>
+                    </div>
+                    <span className="font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                      {formatCurrency(Number(item.value))}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-xs text-slate-500">Valor</p>
-              <p className="text-base font-semibold text-slate-900 tabular-nums">
-                {formatCurrency(numericValue)}
-              </p>
+          ) : (
+            <div className="rounded-xl bg-slate-50 border border-slate-200/80 px-4 py-3.5 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">Despesa selecionada</p>
+                <p className="text-sm font-semibold text-slate-900 truncate">
+                  {targetExpenses[0].name}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs text-slate-500">Valor</p>
+                <p className="text-base font-semibold text-slate-900 tabular-nums">
+                  {formatCurrency(numericValue)}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Payment Method Grid */}
           <div>

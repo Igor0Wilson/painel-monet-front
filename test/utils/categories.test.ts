@@ -7,7 +7,7 @@ import {
 } from '../../src/utils/categories';
 
 describe('categories', () => {
-  it('exposes exactly the 7 official categories including Saúde e Beleza', () => {
+  it('exposes all 9 official categories including Móveis e Eletrônicos and Dívidas', () => {
     expect(OFFICIAL_CATEGORIES).toEqual([
       'Transporte',
       'Moradia',
@@ -15,6 +15,8 @@ describe('categories', () => {
       'Alimentação',
       'FastFood',
       'Saúde e Beleza',
+      'Móveis e Eletrônicos',
+      'Dívidas',
       'Diversos',
     ]);
   });
@@ -23,6 +25,8 @@ describe('categories', () => {
     expect(normalizeCategoryName('Aluguel')).toBe('Moradia');
     expect(normalizeCategoryName('Fast Food')).toBe('FastFood');
     expect(normalizeCategoryName('Farmácia e Saúde')).toBe('Saúde e Beleza');
+    expect(normalizeCategoryName('Móveis e Notebook')).toBe('Móveis e Eletrônicos');
+    expect(normalizeCategoryName('Empréstimo e Dívida')).toBe('Dívidas');
     expect(normalizeCategoryName('Uber')).toBe('Transporte');
     expect(normalizeCategoryName('Qualquer outra')).toBe('Diversos');
   });

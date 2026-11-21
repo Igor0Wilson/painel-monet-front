@@ -126,6 +126,7 @@ const Dashboard: React.FC = () => {
     | null
   >(null);
   const [payingExpense, setPayingExpense] = useState<ExpenseItem | null>(null);
+  const [payingBatchExpenses, setPayingBatchExpenses] = useState<ExpenseItem[]>([]);
   const [selectedInvoiceMonth, setSelectedInvoiceMonth] = useState<string>('');
   const [payingInvoice, setPayingInvoice] = useState<CreditCardInvoiceGroup | null>(null);
   const [deleteConfig, setDeleteConfig] = useState<{
@@ -277,6 +278,10 @@ const Dashboard: React.FC = () => {
     }
     if (payingExpense) {
       setPayingExpense(null);
+      return true;
+    }
+    if (payingBatchExpenses.length > 0) {
+      setPayingBatchExpenses([]);
       return true;
     }
     if (payingInvoice) {
@@ -855,6 +860,7 @@ const Dashboard: React.FC = () => {
                     )
                   }
                   onPayExpense={setPayingExpense}
+                  onPayBatchExpenses={setPayingBatchExpenses}
                   onEditExpense={(item) => {
                     setEditingItem({ ...item, type: 'expense' });
                     setIsExpenseModalOpen(true);
@@ -924,7 +930,11 @@ const Dashboard: React.FC = () => {
 
       <PayExpenseModal
         expense={payingExpense}
-        onClose={() => setPayingExpense(null)}
+        batchExpenses={payingBatchExpenses}
+        onClose={() => {
+          setPayingExpense(null);
+          setPayingBatchExpenses([]);
+        }}
         onSuccess={fetchData}
       />
 
