@@ -1,4 +1,5 @@
 import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import i18n from '../i18n';
 import {
   Auth,
   confirmPasswordReset,
@@ -16,16 +17,71 @@ import {
 
 let cachedApp: FirebaseApp | null = null;
 let cachedAuth: Auth | null = null;
+let cachedEnvName: 'development' | 'production' | null = null;
 
-function getFirebaseAuth(): Auth {
-  if (cachedAuth) {
-    return cachedAuth;
+export interface ResolvedFirebaseClientConfig {
+  environment: 'development' | 'production';
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId: string;
+  measurementId?: string;
+}
+
+const DEV_FIREBASE_DEFAULT_CONFIG = {
+  apiKey: 'AIzaSyCp7epNvGqDH5TGCVEAW8_-3D-U_mV70u0',
+  authDomain: 'painel-monet-dev.firebaseapp.com',
+  projectId: 'painel-monet-dev',
+  storageBucket: 'painel-monet-dev.firebasestorage.app',
+  messagingSenderId: '5074525108',
+  appId: '1:5074525108:web:dc9c5bcd662da717f5b0e1',
+  measurementId: 'G-8TN13SK7LC',
+} as const;
+
+export function getFirebaseEnvironment(): 'development' | 'production' {
+  const raw = (process.env.REACT_APP_FIREBASE_ENV || '').trim().toLowerCase();
+  if (raw === 'development' || raw === 'dev') {
+    return 'development';
+  }
+  return 'production';
+}
+
+export function resolveFirebaseClientConfig(): ResolvedFirebaseClientConfig {
+  const environment = getFirebaseEnvironment();
+
+  if (environment === 'development') {
+    return {
+      environment,
+      apiKey:
+        process.env.REACT_APP_FIREBASE_DEV_API_KEY?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.apiKey,
+      authDomain:
+        process.env.REACT_APP_FIREBASE_DEV_AUTH_DOMAIN?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.authDomain,
+      projectId:
+        process.env.REACT_APP_FIREBASE_DEV_PROJECT_ID?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.projectId,
+      storageBucket:
+        process.env.REACT_APP_FIREBASE_DEV_STORAGE_BUCKET?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.storageBucket,
+      messagingSenderId:
+        process.env.REACT_APP_FIREBASE_DEV_MESSAGING_SENDER_ID?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.messagingSenderId,
+      appId:
+        process.env.REACT_APP_FIREBASE_DEV_APP_ID?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.appId,
+      measurementId:
+        process.env.REACT_APP_FIREBASE_DEV_MEASUREMENT_ID?.trim() ||
+        DEV_FIREBASE_DEFAULT_CONFIG.measurementId,
+    };
   }
 
-  const apiKey = process.env.REACT_APP_FIREBASE_API_KEY?.trim();
-  const authDomain = process.env.REACT_APP_FIREBASE_AUTH_DOMAIN?.trim();
-  const projectId = process.env.REACT_APP_FIREBASE_PROJECT_ID?.trim();
-  const appId = process.env.REACT_APP_FIREBASE_APP_ID?.trim();
+  const apiKey = process.env.REACT_APP_FIREBASE_API_KEY?.trim() || '';
+  const authDomain = process.env.REACT_APP_FIREBASE_AUTH_DOMAIN?.trim() || '';
+  const projectId = process.env.REACT_APP_FIREBASE_PROJECT_ID?.trim() || '';
+  const appId = process.env.REACT_APP_FIREBASE_APP_ID?.trim() || '';
 
   if (!apiKey || !authDomain || !projectId || !appId) {
     throw new Error(
@@ -33,19 +89,54 @@ function getFirebaseAuth(): Auth {
     );
   }
 
-  if (getApps().length > 0) {
-    cachedApp = getApps()[0];
-  } else {
-    cachedApp = initializeApp({
-      apiKey,
-      authDomain,
-      projectId,
-      storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET?.trim(),
-      messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID?.trim(),
-      appId,
-    });
+  return {
+    environment,
+    apiKey,
+    authDomain,
+    projectId,
+    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET?.trim(),
+    messagingSenderId:
+      process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID?.trim(),
+    appId,
+    measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID?.trim(),
+  };
+}
+
+export function resetFirebaseClientForTests(): void {
+  cachedApp = null;
+  cachedAuth = null;
+  cachedEnvName = null;
+}
+
+function getFirebaseAuth(): Auth {
+  const config = resolveFirebaseClientConfig();
+  if (cachedAuth && cachedEnvName === config.environment) {
+    return cachedAuth;
   }
 
+  const existing = getApps().find((item) => item.name === config.environment);
+  if (existing) {
+    cachedApp = existing;
+  } else {
+    cachedApp = initializeApp(
+      {
+        apiKey: config.apiKey,
+        authDomain: config.authDomain,
+        projectId: config.projectId,
+        storageBucket: config.storageBucket,
+        messagingSenderId: config.messagingSenderId,
+        appId: config.appId,
+        ...(config.measurementId
+          ? { measurementId: config.measurementId }
+          : {}),
+      },
+      config.environment === 'production' && getApps().length === 0
+        ? undefined
+        : config.environment,
+    );
+  }
+
+  cachedEnvName = config.environment;
   cachedAuth = getAuth(cachedApp);
   return cachedAuth;
 }
@@ -194,23 +285,23 @@ export function translateFirebaseAuthError(
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'E-mail ou senha inválidos. Se sua conta estiver desativada, clique em "Esqueci minha senha / Reativar conta".';
+      return i18n.t('auth.firebaseErrors.invalidCredential');
     case 'auth/email-already-in-use':
-      return 'Este e-mail já está em uso. Tente fazer login ou clique em "Esqueci minha senha".';
+      return i18n.t('auth.firebaseErrors.emailAlreadyInUse');
     case 'auth/weak-password':
-      return 'A senha precisa ter no mínimo 6 caracteres.';
+      return i18n.t('auth.firebaseErrors.weakPassword');
     case 'auth/invalid-email':
-      return 'E-mail inválido.';
+      return i18n.t('auth.firebaseErrors.invalidEmail');
     case 'auth/too-many-requests':
-      return 'Muitas tentativas. Aguarde alguns instantes e tente novamente.';
+      return i18n.t('auth.firebaseErrors.tooManyRequests');
     case 'auth/user-disabled':
-      return 'Esta conta está desativada.';
+      return i18n.t('auth.firebaseErrors.userDisabled');
     case 'auth/operation-not-allowed':
-      return 'Provedor de autenticação não habilitado no Firebase Console.';
+      return i18n.t('auth.firebaseErrors.operationNotAllowed');
     case 'auth/expired-action-code':
-      return 'Este link expirou. Solicite um novo e-mail de recuperação/reativação.';
+      return i18n.t('auth.firebaseErrors.expiredActionCode');
     case 'auth/invalid-action-code':
-      return 'Este link é inválido ou já foi utilizado. Solicite um novo e-mail.';
+      return i18n.t('auth.firebaseErrors.invalidActionCode');
     default:
       return fallback;
   }

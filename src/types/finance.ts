@@ -34,7 +34,9 @@ export interface MemberBreakdown {
   userId: string;
   name: string;
   maskedCpf: string;
+  maskedPhone?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
   isSelf: boolean;
   permissions?: FamilyMemberPermissions;
   balance: number;
@@ -106,6 +108,7 @@ export interface ExpenseItem {
   isPaid: boolean;
   isCreditCard?: boolean;
   paymentMethod?: string | null;
+  receiptUrl?: string | null;
   status: 'pago' | 'em_atraso' | 'pendente';
   ownerId?: string;
   ownerName?: string;
@@ -147,7 +150,9 @@ export interface FamilyMemberSummary {
   userId: string;
   name: string;
   maskedCpf: string;
+  maskedPhone?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
   role: string;
   isSelf: boolean;
   permissionsSharedWithMe?: FamilyMemberPermissions;

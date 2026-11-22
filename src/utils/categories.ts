@@ -1,4 +1,5 @@
 import type { IconType } from 'react-icons';
+import i18n from '../i18n';
 import {
   FaBoxOpen,
   FaCar,
@@ -41,82 +42,82 @@ export const CATEGORY_META_MAP: Record<OfficialCategoryName, CategoryMeta> = {
     name: 'Transporte',
     icon: FaCar,
     color: '#2563eb',
-    bgClass: 'bg-blue-50',
-    textClass: 'text-blue-700',
-    borderClass: 'border-blue-200',
-    iconBgClass: 'bg-blue-100 text-blue-700',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/40',
+    textClass: 'text-blue-700 dark:text-blue-300',
+    borderClass: 'border-blue-200 dark:border-blue-800/60',
+    iconBgClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
   },
   Moradia: {
     name: 'Moradia',
     icon: FaHome,
     color: '#7c3aed',
-    bgClass: 'bg-violet-50',
-    textClass: 'text-violet-700',
-    borderClass: 'border-violet-200',
-    iconBgClass: 'bg-violet-100 text-violet-700',
+    bgClass: 'bg-violet-50 dark:bg-violet-950/40',
+    textClass: 'text-violet-700 dark:text-violet-300',
+    borderClass: 'border-violet-200 dark:border-violet-800/60',
+    iconBgClass: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300',
   },
   Lazer: {
     name: 'Lazer',
     icon: FaGamepad,
     color: '#ec4899',
-    bgClass: 'bg-pink-50',
-    textClass: 'text-pink-700',
-    borderClass: 'border-pink-200',
-    iconBgClass: 'bg-pink-100 text-pink-700',
+    bgClass: 'bg-pink-50 dark:bg-pink-950/40',
+    textClass: 'text-pink-700 dark:text-pink-300',
+    borderClass: 'border-pink-200 dark:border-pink-800/60',
+    iconBgClass: 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
   },
   Alimentação: {
     name: 'Alimentação',
     icon: FaUtensils,
     color: '#10b981',
-    bgClass: 'bg-emerald-50',
-    textClass: 'text-emerald-700',
-    borderClass: 'border-emerald-200',
-    iconBgClass: 'bg-emerald-100 text-emerald-700',
+    bgClass: 'bg-emerald-50 dark:bg-emerald-950/40',
+    textClass: 'text-emerald-700 dark:text-emerald-300',
+    borderClass: 'border-emerald-200 dark:border-emerald-800/60',
+    iconBgClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
   },
   FastFood: {
     name: 'FastFood',
     icon: FaHamburger,
     color: '#f59e0b',
-    bgClass: 'bg-amber-50',
-    textClass: 'text-amber-700',
-    borderClass: 'border-amber-200',
-    iconBgClass: 'bg-amber-100 text-amber-700',
+    bgClass: 'bg-amber-50 dark:bg-amber-950/40',
+    textClass: 'text-amber-700 dark:text-amber-300',
+    borderClass: 'border-amber-200 dark:border-amber-800/60',
+    iconBgClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
   },
   'Saúde e Beleza': {
     name: 'Saúde e Beleza',
     icon: FaHeartbeat,
     color: '#e11d48',
-    bgClass: 'bg-rose-50',
-    textClass: 'text-rose-700',
-    borderClass: 'border-rose-200',
-    iconBgClass: 'bg-rose-100 text-rose-700',
+    bgClass: 'bg-rose-50 dark:bg-rose-950/40',
+    textClass: 'text-rose-700 dark:text-rose-300',
+    borderClass: 'border-rose-200 dark:border-rose-800/60',
+    iconBgClass: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300',
   },
   'Móveis e Eletrônicos': {
     name: 'Móveis e Eletrônicos',
     icon: FaCouch,
     color: '#4f46e5',
-    bgClass: 'bg-indigo-50',
-    textClass: 'text-indigo-700',
-    borderClass: 'border-indigo-200',
-    iconBgClass: 'bg-indigo-100 text-indigo-700',
+    bgClass: 'bg-indigo-50 dark:bg-indigo-950/40',
+    textClass: 'text-indigo-700 dark:text-indigo-300',
+    borderClass: 'border-indigo-200 dark:border-indigo-800/60',
+    iconBgClass: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300',
   },
   Dívidas: {
     name: 'Dívidas',
     icon: FaFileInvoiceDollar,
     color: '#ea580c',
-    bgClass: 'bg-orange-50',
-    textClass: 'text-orange-700',
-    borderClass: 'border-orange-200',
-    iconBgClass: 'bg-orange-100 text-orange-700',
+    bgClass: 'bg-orange-50 dark:bg-orange-950/40',
+    textClass: 'text-orange-700 dark:text-orange-300',
+    borderClass: 'border-orange-200 dark:border-orange-800/60',
+    iconBgClass: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
   },
   Diversos: {
     name: 'Diversos',
     icon: FaBoxOpen,
     color: '#06b6d4',
-    bgClass: 'bg-cyan-50',
-    textClass: 'text-cyan-700',
-    borderClass: 'border-cyan-200',
-    iconBgClass: 'bg-cyan-100 text-cyan-700',
+    bgClass: 'bg-cyan-50 dark:bg-cyan-950/40',
+    textClass: 'text-cyan-700 dark:text-cyan-300',
+    borderClass: 'border-cyan-200 dark:border-cyan-800/60',
+    iconBgClass: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300',
   },
 };
 
@@ -395,7 +396,7 @@ export function computeRealtimeCategoriesForMonth(
       color: meta.color,
       meta,
       items: entry.items,
-    };
+  };
   }).sort((a, b) => b.value - a.value);
 
   const activeCategories = allCategories.filter((c) => c.value > 0);
@@ -406,4 +407,9 @@ export function computeRealtimeCategoriesForMonth(
     monthExpenses,
     totalMonthExpenses: Number(totalMonthExpenses.toFixed(2)),
   };
+}
+
+export function translateCategoryName(rawName?: string | null): string {
+  const canonical = normalizeCategoryName(rawName);
+  return i18n.t(`categories.${canonical}`, { defaultValue: canonical });
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ArcElement,
   CategoryScale,
@@ -58,6 +59,7 @@ import {
   getCurrentMonthKey,
   parseCurrencyInput,
 } from '../utils/formatters';
+import { getActiveLocale } from '../i18n';
 
 ChartJS.register(
   ArcElement,
@@ -99,6 +101,7 @@ const INITIAL_BALANCE: BalanceData = {
 };
 
 const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { user, logout, updateUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -227,13 +230,13 @@ const Dashboard: React.FC = () => {
         }
         if (scopeToUse === 'family' && status === 403) {
           setPanelScope('individual');
-          toast.warning('Acesso ao Painel Família não autorizado. Voltando ao Painel Individual.');
+          toast.warning(t('dashboard.familyAccessFallback'));
           return;
         }
-        toast.error(extractApiErrorMessage(error, 'Erro ao carregar dados do painel financeiro'));
+        toast.error(extractApiErrorMessage(error, t('dashboard.syncError')));
       }
     },
-    [panelScope, chartMonth, logout],
+    [panelScope, chartMonth, logout, t],
   );
 
   useEffect(() => {
@@ -369,11 +372,26 @@ const Dashboard: React.FC = () => {
             ? '/balance/investments/items'
             : '/income';
       await api.delete(`${endpoint}/${deleteConfig.id}`);
-      toast.success('Registro removido com sucesso');
+      toast.success(
+        deleteConfig.type === 'income'
+          ? t('dashboard.deleteIncomeSuccess')
+          : deleteConfig.type === 'investment'
+            ? t('dashboard.deleteInvestmentSuccess')
+            : t('dashboard.deleteExpenseSuccess'),
+      );
       setDeleteConfig(null);
       fetchData();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao remover registro'));
+      toast.error(
+        extractApiErrorMessage(
+          error,
+          deleteConfig.type === 'income'
+            ? t('dashboard.deleteIncomeError')
+            : deleteConfig.type === 'investment'
+              ? t('dashboard.deleteInvestmentError')
+              : t('dashboard.deleteExpenseError'),
+        ),
+      );
     } finally {
       setIsDeleteLoading(false);
     }
@@ -433,8 +451,8 @@ const Dashboard: React.FC = () => {
       });
       toast.success(
         isEmergency
-          ? 'Reserva movida para já existente e saldo disponível liberado!'
-          : 'Investimentos movidos para carteira já existente e saldo disponível liberado!',
+          ? t('dashboard.reclassifyEmergencySuccess')
+          : t('dashboard.reclassifyInvestmentSuccess'),
       );
       setAllocationModal(null);
       fetchData();
@@ -442,7 +460,9 @@ const Dashboard: React.FC = () => {
       toast.error(
         extractApiErrorMessage(
           error,
-          isEmergency ? 'Erro ao reclassificar reserva' : 'Erro ao reclassificar investimentos',
+          isEmergency
+            ? t('dashboard.reclassifyEmergencyError')
+            : t('dashboard.reclassifyInvestmentError'),
         ),
       );
     } finally {
@@ -456,7 +476,7 @@ const Dashboard: React.FC = () => {
 
     const amount = parseCurrencyInput(allocationInput);
     if (isNaN(amount) || amount < 0) {
-      toast.error('Informe um valor válido');
+      toast.error(t('dashboard.invalidAmountError'));
       return;
     }
 
@@ -473,8 +493,8 @@ const Dashboard: React.FC = () => {
       if (amount > currentBucket + 0.001 && amount > maxLimit + 0.001) {
         toast.error(
           isEmergency
-            ? 'A reserva alocada do mês não pode exceder o seu saldo disponível'
-            : 'O valor alocado do saldo não pode exceder o seu saldo disponível',
+            ? t('dashboard.emergencyExceedsBalance')
+            : t('dashboard.investmentExceedsBalance'),
         );
         return;
       }
@@ -500,10 +520,10 @@ const Dashboard: React.FC = () => {
       await api.post(endpoint, payload);
       toast.success(
         isFood
-          ? 'Vale Alimentação / Refeição atualizado!'
+          ? t('dashboard.foodUpdatedToast')
           : isEmergency
-            ? 'Reserva de emergência atualizada!'
-            : 'Investimentos atualizados!',
+            ? t('dashboard.emergencyUpdatedToast')
+            : t('dashboard.investmentsUpdatedToast'),
       );
       setAllocationModal(null);
       fetchData();
@@ -512,10 +532,10 @@ const Dashboard: React.FC = () => {
         extractApiErrorMessage(
           error,
           isFood
-            ? 'Erro ao atualizar Vale Alimentação / Refeição'
+            ? t('dashboard.foodUpdateError')
             : isEmergency
-              ? 'Erro ao atualizar reserva'
-              : 'Erro ao atualizar investimentos',
+              ? t('dashboard.emergencyUpdateError')
+              : t('dashboard.investmentsUpdateError'),
         ),
       );
     } finally {
@@ -576,12 +596,13 @@ const Dashboard: React.FC = () => {
       .map(([month, items]) => {
         const [yearStr, monthStr] = month.split('-');
         const dateObj = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-        const fullMonth = dateObj.toLocaleDateString('pt-BR', {
+        const locale = getActiveLocale();
+        const fullMonth = dateObj.toLocaleDateString(locale, {
           month: 'long',
           year: 'numeric',
         });
         const shortMonth = dateObj
-          .toLocaleDateString('pt-BR', { month: 'short' })
+          .toLocaleDateString(locale, { month: 'short' })
           .replace('.', '');
         const total = items.reduce((sum, item) => sum + Number(item.value), 0);
 
@@ -621,12 +642,12 @@ const Dashboard: React.FC = () => {
       : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
       <Navbar
         userId={user?.id}
         userName={user?.name}
-        userCpf={user?.cpf}
         userInitials={userInitials}
+        userAvatarUrl={user?.avatarUrl}
         panelScope={panelScope}
         familyStatus={familyStatus}
         pendingInvitesCount={pendingInvites.length}
@@ -644,10 +665,14 @@ const Dashboard: React.FC = () => {
                 {React.createElement(FaBell as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </span>
               <div className="text-xs sm:text-sm">
-                <p className="font-semibold">Convite pendente para o Modo Família!</p>
+                <p className="font-semibold">
+                  {t('dashboard.pendingInvitesTitle', { count: pendingInvites.length })}
+                </p>
                 <p className="text-slate-300 text-xs mt-0.5">
-                  <strong>{pendingInvites[0].inviterName}</strong> (CPF{' '}
-                  {pendingInvites[0].inviterMaskedCpf}) quer unificar o painel financeiro com você.
+                  {t('dashboard.pendingInvitesSubtitle', {
+                    name: pendingInvites[0].inviterName,
+                    cpf: pendingInvites[0].inviterMaskedCpf,
+                  })}
                 </p>
               </div>
             </div>
@@ -656,32 +681,36 @@ const Dashboard: React.FC = () => {
               onClick={() => setActiveInviteModal(pendingInvites[0])}
               className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors self-start sm:self-center whitespace-nowrap"
             >
-              Analisar convite
+              {t('dashboard.reviewInviteButton')}
             </button>
           </div>
         )}
 
         {familyStatus?.inFamily && (
-          <div className="md:hidden flex items-center rounded-xl bg-white p-1 border border-slate-200 shadow-sm">
+          <div className="md:hidden flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
             <button
               type="button"
               onClick={() => handleScopeChange('individual')}
               className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                panelScope === 'individual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                panelScope === 'individual'
+                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300'
               }`}
             >
               {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-              Painel Individual
+              {t('dashboard.individualScopeBanner')}
             </button>
             <button
               type="button"
               onClick={() => handleScopeChange('family')}
               className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                panelScope === 'family' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                panelScope === 'family'
+                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300'
               }`}
             >
               {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-              Painel Família ({familyStatus.members?.length || 2})
+              {t('navbar.familyScope')} ({familyStatus.members?.length || 2})
             </button>
           </div>
         )}
@@ -689,15 +718,16 @@ const Dashboard: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                {currentPeriodLabel} {isFamilyMode ? '· Modo Família Ativo' : ''}
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {currentPeriodLabel}{' '}
+                {isFamilyMode ? `· ${t('dashboard.familyPanelActive')}` : ''}
               </p>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight mt-0.5">
-                {isFamilyMode ? 'Painel Consolidado da Família' : 'Visão Geral Financeira'}
+              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mt-0.5">
+                {isFamilyMode ? t('dashboard.familyPanelActive') : t('dashboard.overviewTab')}
               </h1>
             </div>
 
-            <div className="inline-flex items-center rounded-xl bg-white p-1 border border-slate-200 shadow-sm">
+            <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
               <button
                 type="button"
                 onClick={() => {
@@ -706,12 +736,12 @@ const Dashboard: React.FC = () => {
                 }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
                   activeTab === 'overview' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                Painel do Mês
+                {t('dashboard.overviewTab')}
               </button>
               <button
                 type="button"
@@ -721,12 +751,12 @@ const Dashboard: React.FC = () => {
                 }}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
                   activeTab === 'history' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                Histórico
+                {t('dashboard.historyTab')}
               </button>
             </div>
           </div>
@@ -740,8 +770,8 @@ const Dashboard: React.FC = () => {
               }}
               className="exec-btn-secondary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
-              {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-600' })}
-              <span>Nova Receita</span>
+              {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-600 dark:text-emerald-400' })}
+              <span>{t('dashboard.newIncomeBtn')}</span>
             </button>
             <button
               type="button"
@@ -752,7 +782,7 @@ const Dashboard: React.FC = () => {
               className="exec-btn-primary w-full sm:w-44 h-11 gap-2 whitespace-nowrap justify-center"
             >
               {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-              <span>Nova Despesa</span>
+              <span>{t('dashboard.newExpenseBtn')}</span>
             </button>
           </div>
         </div>
@@ -902,9 +932,9 @@ const Dashboard: React.FC = () => {
         )}
       </main>
 
-      <footer className="border-t border-slate-200/80 bg-white py-5 px-4 text-center mt-auto">
+      <footer className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 py-5 px-4 text-center mt-auto transition-colors duration-300">
         <p className="text-xs text-slate-400">
-          Controle Financeiro &copy; {new Date().getFullYear()} — Gestão Patrimonial
+          {t('dashboard.footerText')} &copy; {new Date().getFullYear()}
         </p>
       </footer>
 
@@ -979,9 +1009,21 @@ const Dashboard: React.FC = () => {
         isOpen={!!deleteConfig}
         onClose={() => setDeleteConfig(null)}
         onConfirm={handleDelete}
-        title="Confirmar exclusão"
-        message="Esta ação é irreversível. O lançamento será removido permanentemente do seu histórico."
-        confirmText="Excluir registro"
+        title={
+          deleteConfig?.type === 'income'
+            ? t('dashboard.deleteIncomeTitle')
+            : deleteConfig?.type === 'investment'
+              ? t('dashboard.deleteInvestmentTitle')
+              : t('dashboard.deleteExpenseTitle')
+        }
+        message={
+          deleteConfig?.type === 'income'
+            ? t('dashboard.deleteIncomeGenericMsg')
+            : deleteConfig?.type === 'investment'
+              ? t('dashboard.deleteInvestmentGenericMsg')
+              : t('dashboard.deleteExpenseGenericMsg')
+        }
+        confirmText={t('common.delete')}
         isLoading={isDeleteLoading}
       />
 
@@ -989,9 +1031,9 @@ const Dashboard: React.FC = () => {
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
         onConfirm={logout}
-        title="Encerrar sessão"
-        message="Deseja sair do painel financeiro? Você precisará fazer login novamente para acessar."
-        confirmText="Sair"
+        title={t('dashboard.logoutConfirmTitle')}
+        message={t('dashboard.logoutConfirmMsg')}
+        confirmText={t('dashboard.logoutConfirmBtn')}
       />
 
       {user && (
@@ -1000,9 +1042,6 @@ const Dashboard: React.FC = () => {
           onClose={() => setIsUserModalOpen(false)}
           userData={{
             name: user.name,
-            email: user.email,
-            cpf: user.cpf,
-            phone: user.phone,
           }}
           onSuccess={async () => {
             try {
@@ -1010,7 +1049,7 @@ const Dashboard: React.FC = () => {
               updateUser(res.data);
               fetchFamilyStatus();
             } catch (error: unknown) {
-              toast.error(extractApiErrorMessage(error, 'Sessão expirada. Faça login novamente.'));
+              toast.error(extractApiErrorMessage(error, t('dashboard.sessionExpired')));
               logout();
             }
           }}

@@ -1,3 +1,5 @@
+import { getActiveLocale } from '../i18n';
+
 export function onlyDigits(raw?: string | null): string {
   if (!raw) return '';
   return String(raw).replace(/\D/g, '');
@@ -37,7 +39,8 @@ export function buildWhatsAppUrl(phone?: string | null): string | null {
 }
 
 export function formatCurrency(val: number): string {
-  return new Intl.NumberFormat('pt-BR', {
+  const locale = getActiveLocale();
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'BRL',
   }).format(val || 0);
@@ -48,13 +51,17 @@ export function formatDateBr(dateStr?: string | null): string {
   const clean = String(dateStr).split('T')[0];
   const parts = clean.split('-');
   if (parts.length !== 3) return dateStr;
+  if (getActiveLocale() === 'en-US') {
+    return `${parts[1]}/${parts[2]}/${parts[0]}`;
+  }
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 export function formatMonthLabel(monthKey: string): string {
   const [y, m] = monthKey.split('-').map(Number);
   if (!y || !m) return monthKey;
-  const label = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', {
+  const locale = getActiveLocale();
+  const label = new Date(y, m - 1, 1).toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric',
   });

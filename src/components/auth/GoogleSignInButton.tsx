@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface GoogleSignInButtonProps {
   onClick: () => void;
@@ -9,14 +10,17 @@ interface GoogleSignInButtonProps {
 const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onClick,
   loading = false,
-  label = 'Continuar com Google (Gmail)',
+  label,
 }) => {
+  const { t } = useTranslation();
+  const displayLabel = label || t('auth.googleContinue');
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm font-semibold shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm font-semibold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
         <path
@@ -36,7 +40,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           d="M12 4.76c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.62l4 3.09C6.23 6.87 8.88 4.76 12 4.76z"
         />
       </svg>
-      <span>{loading ? 'Conectando ao Google...' : label}</span>
+      <span>{loading ? t('auth.googleConnecting') : displayLabel}</span>
     </button>
   );
 };

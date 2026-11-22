@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FaCheckDouble,
   FaClock,
@@ -52,14 +53,14 @@ const RESTRICTED_PERMISSIONS: FamilyMemberPermissions = {
 
 const PERMISSION_FIELDS: Array<{
   key: keyof FamilyMemberPermissions;
-  label: string;
+  labelKey: string;
 }> = [
-  { key: 'viewBalance', label: 'Painel Individual & Saldo Livre' },
-  { key: 'viewIncome', label: 'Renda, Salários & Receitas' },
-  { key: 'viewExpenses', label: 'Despesas, Cartão & Gráficos' },
-  { key: 'viewInvestments', label: 'Investimentos & Datas' },
-  { key: 'viewEmergencyFund', label: 'Reserva de Emergência' },
-  { key: 'viewFoodAllowance', label: 'Vale Alimentação / Refeição' },
+  { key: 'viewBalance', labelKey: 'familyModal.permBalance' },
+  { key: 'viewIncome', labelKey: 'familyModal.permIncome' },
+  { key: 'viewExpenses', labelKey: 'familyModal.permExpenses' },
+  { key: 'viewInvestments', labelKey: 'familyModal.permInvestments' },
+  { key: 'viewEmergencyFund', labelKey: 'familyModal.permEmergency' },
+  { key: 'viewFoodAllowance', labelKey: 'familyModal.permFood' },
 ];
 
 const FamilyModal: React.FC<Props> = ({
@@ -69,6 +70,7 @@ const FamilyModal: React.FC<Props> = ({
   onRefresh,
   onOpenProfile,
 }) => {
+  const { t } = useTranslation();
   const [cpfInput, setCpfInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -109,18 +111,18 @@ const FamilyModal: React.FC<Props> = ({
     e.preventDefault();
     const digits = onlyDigits(cpfInput);
     if (digits.length !== 11) {
-      toast.error('Informe um CPF completo com 11 dígitos.');
+      toast.error(t('familyModal.cpfIncompleteError'));
       return;
     }
 
     try {
       setLoading(true);
       const res = await api.post('/family/invite', { cpf: digits });
-      toast.success(res.data?.message || 'Convite enviado!');
+      toast.success(res.data?.message || t('familyModal.inviteSentToast'));
       setCpfInput('');
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao enviar convite'));
+      toast.error(extractApiErrorMessage(error, t('familyModal.inviteError')));
     } finally {
       setLoading(false);
     }
@@ -129,10 +131,10 @@ const FamilyModal: React.FC<Props> = ({
   const handleCancelInvite = async (inviteId: string) => {
     try {
       await api.delete(`/family/invites/${inviteId}`);
-      toast.info('Convite cancelado.');
+      toast.info(t('familyModal.inviteCancelledToast'));
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao cancelar convite.'));
+      toast.error(extractApiErrorMessage(error, t('familyModal.inviteCancelError')));
     }
   };
 
@@ -140,11 +142,11 @@ const FamilyModal: React.FC<Props> = ({
     try {
       setLeaving(true);
       const res = await api.post('/family/leave');
-      toast.success(res.data?.message || 'Você saiu do Modo Família.');
+      toast.success(res.data?.message || t('familyModal.leftGroupToast'));
       onRefresh();
       onClose();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao sair do grupo familiar'));
+      toast.error(extractApiErrorMessage(error, t('familyModal.leaveGroupError')));
     } finally {
       setLeaving(false);
     }
@@ -161,7 +163,7 @@ const FamilyModal: React.FC<Props> = ({
   const savePrivacy = async (
     nextFullAccess: boolean,
     nextMap: Record<string, FamilyMemberPermissions>,
-    successMsg = 'Permissões de privacidade atualizadas!',
+    successMsg = t('familyModal.privacySavedToast'),
   ) => {
     try {
       setSavingPrivacy(true);
@@ -172,7 +174,7 @@ const FamilyModal: React.FC<Props> = ({
       toast.success(successMsg);
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao atualizar permissões do Painel Família'));
+      toast.error(extractApiErrorMessage(error, t('familyModal.privacySaveError')));
     } finally {
       setSavingPrivacy(false);
     }
@@ -208,29 +210,32 @@ const FamilyModal: React.FC<Props> = ({
     }
     setFullAccessAll(true);
     setRulesByMember(allFullMap);
-    savePrivacy(true, allFullMap, 'Acesso total liberado para todos no Painel Família!');
+    savePrivacy(true, allFullMap, t('familyModal.fullAccessAllToast'));
   };
 
   return (
     <div className="exec-modal-overlay z-50">
       <div className="exec-modal-container max-w-2xl max-h-[92dvh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center">
               {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Modo Família</h3>
-              <p className="text-xs text-slate-500">
-                Unifique o painel financeiro com seu cônjuge ou familiares (2 ou mais pessoas)
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {t('familyModal.title')}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('familyModal.subtitle')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg transition-colors"
+            aria-label={t('common.close')}
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
@@ -238,23 +243,25 @@ const FamilyModal: React.FC<Props> = ({
 
         <div className="p-6 space-y-6 overflow-y-auto">
           {/* Security notice */}
-          <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-3.5 flex items-start gap-3">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 p-3.5 flex items-start gap-3">
             {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, {
-              className: 'text-emerald-600 text-sm mt-0.5 flex-shrink-0',
+              className: 'text-emerald-600 dark:text-emerald-400 text-sm mt-0.5 flex-shrink-0',
             })}
-            <div className="text-xs text-slate-600 leading-relaxed">
-              <strong className="text-slate-900">Proteção Dupla (CPF + ID):</strong> somente
-              usuários encontrados pelo CPF exato e que aceitarem a <strong>dupla confirmação</strong>{' '}
-              podem visualizar o Painel Família. Os painéis sincronizam automaticamente.
+            <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <strong className="text-slate-900 dark:text-slate-100">
+                {t('familyModal.securityTitle')}
+              </strong>{' '}
+              {t('familyModal.securityBodyBefore')}{' '}
+              <strong>{t('familyModal.securityBodyStrong')}</strong>{' '}
+              {t('familyModal.securityBodyAfter')}
             </div>
           </div>
 
           {/* Convite por CPF */}
           {!hasCpf ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
-              <p className="text-xs font-medium text-amber-900">
-                Para usar o Modo Família, primeiro cadastre o seu próprio <strong>CPF</strong> no
-                seu perfil.
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 p-4 space-y-3">
+              <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                {t('familyModal.noCpfIntro')} <strong>CPF</strong> {t('familyModal.noCpfEnd')}
               </p>
               <button
                 type="button"
@@ -265,14 +272,12 @@ const FamilyModal: React.FC<Props> = ({
                 className="exec-btn-primary text-xs gap-2"
               >
                 {React.createElement(FaUserEdit as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-                Cadastrar meu CPF no Perfil
+                {t('familyModal.registerCpfBtn')}
               </button>
             </div>
           ) : (
             <form onSubmit={handleInvite} className="space-y-3">
-              <label className="exec-label">
-                Convidar cônjuge ou familiar pelo CPF
-              </label>
+              <label className="exec-label">{t('familyModal.inviteLabel')}</label>
               <div className="flex flex-col sm:flex-row gap-2.5">
                 <input
                   type="text"
@@ -288,11 +293,17 @@ const FamilyModal: React.FC<Props> = ({
                   className="exec-btn-primary gap-2 whitespace-nowrap"
                 >
                   {React.createElement(FaUserPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-                  <span>{loading ? 'Buscando...' : 'Enviar Convite'}</span>
+                  <span>
+                    {loading ? t('familyModal.sendingInvite') : t('familyModal.inviteBtn')}
+                  </span>
                 </button>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Seu CPF cadastrado: <span className="font-semibold text-slate-600">{familyStatus?.maskedCpf}</span>. A pessoa receberá um alerta em tempo real para confirmar duas vezes antes de unificar.
+              <p className="text-[11px] text-slate-400 dark:text-slate-400">
+                {t('familyModal.yourCpfBefore')}{' '}
+                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                  {familyStatus?.maskedCpf}
+                </span>
+                . {t('familyModal.yourCpfAfter')}
               </p>
             </form>
           )}
@@ -301,41 +312,54 @@ const FamilyModal: React.FC<Props> = ({
           {members.length > 0 && (
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Membros do Painel Família ({members.length})
+                <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  {t('familyModal.membersTitle', { count: members.length })}
                 </h4>
               </div>
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 {members.map((member) => {
                   const waUrl = buildWhatsAppUrl(member.phone);
                   return (
                     <div
                       key={member.userId}
-                      className="px-4 py-3 bg-white flex items-center justify-between gap-3"
+                      className="px-4 py-3 bg-white dark:bg-slate-900 flex items-center justify-between gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-900 truncate">
-                            {member.name}
-                          </p>
-                          {member.isSelf && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
-                              Você
-                            </span>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden flex-shrink-0">
+                          {member.avatarUrl ? (
+                            <img
+                              src={member.avatarUrl}
+                              alt={member.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            member.name.charAt(0).toUpperCase()
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 tabular-nums">
-                          CPF: {member.maskedCpf}
-                        </p>
-                        {!member.isSelf && member.permissionsSharedWithMe && (
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            {Object.values(member.permissionsSharedWithMe).every(Boolean)
-                              ? 'Compartilha acesso total com você'
-                              : Object.values(member.permissionsSharedWithMe).some(Boolean)
-                                ? 'Compartilha acesso personalizado com você'
-                                : 'Ocultou todos os dados individuais para você'}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                              {member.name}
+                            </p>
+                            {member.isSelf && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {t('common.you')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 dark:text-slate-400 tabular-nums">
+                            CPF: {member.maskedCpf}
                           </p>
-                        )}
+                          {!member.isSelf && member.permissionsSharedWithMe && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {Object.values(member.permissionsSharedWithMe).every(Boolean)
+                                ? t('familyModal.sharesFullAccess')
+                                : Object.values(member.permissionsSharedWithMe).some(Boolean)
+                                  ? t('familyModal.sharesCustomAccess')
+                                  : t('familyModal.sharesNoneAccess')}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       {waUrl && !member.isSelf && (
@@ -343,10 +367,10 @@ const FamilyModal: React.FC<Props> = ({
                           href={waUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 text-xs font-medium transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/70 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-xs font-medium transition-colors"
                         >
                           {React.createElement(FaWhatsapp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
-                          WhatsApp
+                          {t('common.whatsapp')}
                         </a>
                       )}
                     </div>
@@ -358,19 +382,18 @@ const FamilyModal: React.FC<Props> = ({
 
           {/* Permissões e Controle de Privacidade no Painel Família */}
           {otherMembers.length > 0 && (
-            <div className="space-y-3 border-t border-slate-100 pt-5">
+            <div className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                     {React.createElement(
                       FaLock as unknown as React.ComponentType<{ className?: string }>,
-                      { className: 'text-[11px] text-slate-600' },
+                      { className: 'text-[11px] text-slate-600 dark:text-slate-400' },
                     )}
-                    O que os participantes podem ver do seu painel
+                    {t('familyModal.privacyTitle')}
                   </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Defina acesso total a todos ou personalize por membro o acesso a renda,
-                    investimentos, despesas, saldo e reservas.
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {t('familyModal.privacySubtitle')}
                   </p>
                 </div>
 
@@ -384,39 +407,43 @@ const FamilyModal: React.FC<Props> = ({
                     FaCheckDouble as unknown as React.ComponentType<{ className?: string }>,
                     { className: 'text-[11px]' },
                   )}
-                  Acesso total a todos
+                  {t('familyModal.fullAccessAllBtn')}
                 </button>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex items-center justify-between gap-3">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 p-3.5 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold text-slate-900">
-                    Modo de compartilhamento do meu painel
+                  <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {t('familyModal.sharingModeTitle')}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {fullAccessAll
-                      ? 'Acesso total ativo: todos no Painel Família veem todas as suas informações.'
-                      : 'Modo personalizado ativo: cada membro vê somente o que você marcar abaixo.'}
+                      ? t('familyModal.sharingModeFullDesc')
+                      : t('familyModal.sharingModeCustomDesc')}
                   </p>
                 </div>
-                <div className="inline-flex rounded-lg bg-white p-1 border border-slate-200 flex-shrink-0">
+                <div className="inline-flex rounded-lg bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-700 flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => setFullAccessAll(true)}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                      fullAccessAll ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                      fullAccessAll
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Todos
+                    {t('familyModal.modeAll')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setFullAccessAll(false)}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                      !fullAccessAll ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                      !fullAccessAll
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Por usuário
+                    {t('familyModal.modePerUser')}
                   </button>
                 </div>
               </div>
@@ -428,29 +455,33 @@ const FamilyModal: React.FC<Props> = ({
                     return (
                       <div
                         key={`perm-${member.userId}`}
-                        className="rounded-xl border border-slate-200 bg-white p-4 space-y-3"
+                        className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 space-y-3"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                           <div>
-                            <p className="text-xs font-semibold text-slate-900">
-                              O que <span className="underline">{member.name}</span> pode ver
+                            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                              {t('familyModal.memberCanSeeBefore')}{' '}
+                              <span className="underline">{member.name}</span>{' '}
+                              {t('familyModal.memberCanSeeAfter')}
                             </p>
-                            <p className="text-[11px] text-slate-400">CPF: {member.maskedCpf}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-400">
+                              CPF: {member.maskedCpf}
+                            </p>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
                               onClick={() => handlePresetMember(member.userId, true)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-semibold transition-colors"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold transition-colors"
                             >
-                              Liberar tudo
+                              {t('familyModal.allowAllMember')}
                             </button>
                             <button
                               type="button"
                               onClick={() => handlePresetMember(member.userId, false)}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors"
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold transition-colors"
                             >
-                              Ocultar tudo
+                              {t('familyModal.hideAllMember')}
                             </button>
                           </div>
                         </div>
@@ -461,10 +492,10 @@ const FamilyModal: React.FC<Props> = ({
                             return (
                               <label
                                 key={field.key}
-                                className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2 cursor-pointer select-none"
+                                className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 px-3 py-2 cursor-pointer select-none"
                               >
-                                <span className="text-xs font-medium text-slate-700">
-                                  {field.label}
+                                <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                                  {t(field.labelKey)}
                                 </span>
                                 <input
                                   type="checkbox"
@@ -472,7 +503,7 @@ const FamilyModal: React.FC<Props> = ({
                                   onChange={() =>
                                     handleToggleMemberPermission(member.userId, field.key)
                                   }
-                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-slate-900 dark:bg-slate-900 focus:ring-slate-900"
                                 />
                               </label>
                             );
@@ -491,7 +522,7 @@ const FamilyModal: React.FC<Props> = ({
                   onClick={() => savePrivacy(fullAccessAll, rulesByMember)}
                   className="exec-btn-primary text-xs"
                 >
-                  {savingPrivacy ? 'Salvando...' : 'Salvar permissões de acesso'}
+                  {savingPrivacy ? t('familyModal.savingPrivacy') : t('familyModal.savePrivacyBtn')}
                 </button>
               </div>
             </div>
@@ -500,29 +531,29 @@ const FamilyModal: React.FC<Props> = ({
           {/* Convites enviados aguardando confirmação */}
           {pendingSentInvites.length > 0 && (
             <div className="space-y-2.5">
-              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Convites Enviados (Aguardando Confirmação)
+              <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                {t('familyModal.sentInvitesTitle')}
               </h4>
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                 {pendingSentInvites.map((inv) => (
                   <div
                     key={inv.id}
-                    className="px-4 py-3 bg-amber-50/40 flex items-center justify-between gap-3"
+                    className="px-4 py-3 bg-amber-50/40 dark:bg-amber-950/30 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {inv.inviteeName}
                       </p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                        {React.createElement(FaClock as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-amber-600' })}
-                        CPF: {inv.inviteeMaskedCpf} · Aguardando aceite
+                      <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        {React.createElement(FaClock as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-amber-600 dark:text-amber-400' })}
+                        CPF: {inv.inviteeMaskedCpf} · {t('familyModal.awaitingAccept')}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCancelInvite(inv.id)}
-                      className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                      title="Cancelar convite"
+                      className="p-2 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                      title={t('familyModal.cancelInviteTitle')}
                     >
                       {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </button>
@@ -533,23 +564,23 @@ const FamilyModal: React.FC<Props> = ({
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
             {familyStatus?.hasGroup ? (
               <button
                 type="button"
                 onClick={handleLeaveFamily}
                 disabled={leaving}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300"
               >
                 {React.createElement(FaSignOutAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-                {leaving ? 'Saindo...' : 'Desvincular do Modo Família'}
+                {leaving ? t('familyModal.leaving') : t('familyModal.leaveBtn')}
               </button>
             ) : (
               <span />
             )}
 
             <button type="button" onClick={onClose} className="exec-btn-secondary">
-              Fechar
+              {t('common.close')}
             </button>
           </div>
         </div>

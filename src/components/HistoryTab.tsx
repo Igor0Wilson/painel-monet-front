@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
+import { useTranslation } from 'react-i18next';
 import {
   FaArrowDown,
   FaArrowUp,
@@ -11,18 +12,22 @@ import {
   FaChevronRight,
   FaCreditCard,
   FaExternalLinkAlt,
+  FaImage,
+  FaTimes,
   FaUser,
 } from 'react-icons/fa';
+import { useTheme } from '../context/ThemeContext';
 import { ChartDataResponse, ExpenseItem, IncomeItem } from '../types/finance';
 import {
   computeRealtimeCategoriesForMonth,
   getCategoryMeta,
+  translateCategoryName,
 } from '../utils/categories';
 import {
   buildDoughnutChartData,
   buildLineChartData,
-  EXECUTIVE_DOUGHNUT_OPTIONS,
-  EXECUTIVE_LINE_OPTIONS,
+  getExecutiveDoughnutOptions,
+  getExecutiveLineOptions,
 } from '../utils/chartConfig';
 import {
   formatCurrency,
@@ -51,6 +56,12 @@ const HistoryTab: React.FC<Props> = ({
   isFamilyMode,
   onOpenCategoryDetail,
 }) => {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const [previewReceipt, setPreviewReceipt] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
   const availableMonths: string[] = chartData?.availableMonths || [selectedMonth];
 
   const { activeCategories, monthExpenses } = useMemo(
@@ -81,19 +92,30 @@ const HistoryTab: React.FC<Props> = ({
   }, [incomes, selectedMonth]);
 
   const hasCategoryData = activeCategories.length > 0;
-  const doughnutData = useMemo(
-    () => buildDoughnutChartData(activeCategories),
+  const localizedCategories = useMemo(
+    () => activeCategories.map((c) => ({ ...c, name: translateCategoryName(c.name) })),
     [activeCategories],
   );
-  const lineData = buildLineChartData(
-    chartData?.monthlyHistory,
-    'Receitas Acumuladas',
-    'Despesas Pagas Acumuladas',
+  const doughnutData = useMemo(
+    () => buildDoughnutChartData(localizedCategories, isDark),
+    [localizedCategories, isDark],
   );
+  const lineData = useMemo(
+    () =>
+      buildLineChartData(
+        chartData?.monthlyHistory,
+        t('charts.incomeDataset'),
+        t('charts.expensesDataset'),
+        isDark,
+      ),
+    [chartData?.monthlyHistory, t, isDark],
+  );
+
+  const lineOptions = useMemo(() => getExecutiveLineOptions(isDark), [isDark]);
 
   const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
-      ...EXECUTIVE_DOUGHNUT_OPTIONS,
+      ...getExecutiveDoughnutOptions(isDark),
       onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
         if (elements && elements.length > 0) {
           const clickedIndex = elements[0].index;
@@ -104,7 +126,7 @@ const HistoryTab: React.FC<Props> = ({
         }
       },
     }),
-    [activeCategories, onOpenCategoryDetail],
+    [activeCategories, onOpenCategoryDetail, isDark],
   );
 
   const summary = chartData?.monthSummary || {
@@ -119,9 +141,10 @@ const HistoryTab: React.FC<Props> = ({
       <div className="exec-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Histórico Detalhado {isFamilyMode ? '· Painel Família' : '· Individual'}
+            {t('modals.history.title')}{' '}
+            {isFamilyMode ? `· ${t('navbar.familyScope')}` : `· ${t('navbar.individualScope')}`}
           </p>
-          <h2 className="text-xl font-semibold text-slate-900 mt-0.5">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mt-0.5">
             {formatMonthLabel(selectedMonth)}
           </h2>
         </div>
@@ -133,7 +156,7 @@ const HistoryTab: React.FC<Props> = ({
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
             {React.createElement(FaChevronLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-            <span>Anterior</span>
+            <span>{t('charts.prevMonth')}</span>
           </button>
 
           <input
@@ -148,7 +171,7 @@ const HistoryTab: React.FC<Props> = ({
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
-            <span>Próximo</span>
+            <span>{t('charts.nextMonth')}</span>
             {React.createElement(FaChevronRight as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
           </button>
         </div>
@@ -157,18 +180,17 @@ const HistoryTab: React.FC<Props> = ({
       {availableMonths.length > 1 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="text-xs font-medium text-slate-400 whitespace-nowrap mr-1">
-            Meses registrados:
+            {t('expenses.periodLabel')}:
           </span>
           {availableMonths.slice(0, 12).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => onSelectMonth(m)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${
-                m === selectedMonth
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition-colors ${m === selectedMonth
+                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
             >
               {formatMonthLabel(m)}
             </button>
@@ -179,49 +201,53 @@ const HistoryTab: React.FC<Props> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="exec-card p-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-500">Entradas no Mês</span>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {t('modals.history.totalFilteredIncomes')}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               {React.createElement(FaArrowUp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+          <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
             {formatCurrency(summary.totalIncome)}
           </p>
           {summary.scheduledIncome > 0 && (
-            <p className="text-[11px] text-amber-700 mt-1">
-              Previsto/agendado: {formatCurrency(summary.scheduledIncome)}
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+              {t('kpi.incomeScheduledNote')} {formatCurrency(summary.scheduledIncome)}
             </p>
           )}
         </div>
 
         <div className="exec-card p-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-500">Despesas Pagas no Mês</span>
-            <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {t('modals.history.totalFilteredExpenses')}
+            </span>
+            <span className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center">
               {React.createElement(FaArrowDown as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
             </span>
           </div>
-          <p className="text-2xl font-semibold text-slate-900 tabular-nums">
+          <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
             {formatCurrency(summary.totalExpenses)}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">
-            {monthExpenses.length}{' '}
-            {monthExpenses.length === 1 ? 'lançamento no mês' : 'lançamentos no mês'}
-          </p>
+          <p className="text-[11px] text-slate-400 mt-1">{monthExpenses.length}</p>
         </div>
 
         <div className="exec-card p-5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-500">Resultado do Mês</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {t('modals.history.netFiltered')}
+            </span>
           </div>
           <p
-            className={`text-2xl font-semibold tabular-nums ${
-              summary.netFlow >= 0 ? 'text-emerald-700' : 'text-rose-600'
-            }`}
+            className={`text-2xl font-semibold tabular-nums ${summary.netFlow >= 0
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : 'text-rose-600 dark:text-rose-400'
+              }`}
           >
             {formatCurrency(summary.netFlow)}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">Entradas menos despesas pagas</p>
+          <p className="text-[11px] text-slate-400 mt-1">{t('charts.monthlySubtitle')}</p>
         </div>
       </div>
 
@@ -229,21 +255,19 @@ const HistoryTab: React.FC<Props> = ({
         <div className="lg:col-span-5 exec-card p-6 flex flex-col">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Despesas por Categoria ({formatMonthLabel(selectedMonth)})
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('charts.categoryTitle')} ({formatMonthLabel(selectedMonth)})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Toque no gráfico para ver cada gasto por item e data
-              </p>
+              <p className="text-xs text-slate-400 mt-0.5">{t('charts.categorySubtitle')}</p>
             </div>
             <button
               type="button"
               onClick={() => onOpenCategoryDetail(null)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-semibold transition-colors flex-shrink-0"
-              title="Abrir tela detalhada de gastos por categoria"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-semibold transition-colors flex-shrink-0"
+              title={t('charts.categorySubtitle')}
             >
               {React.createElement(FaChartPie as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-              <span>Detalhar</span>
+              <span>{t('common.viewPhoto').split(' ')[0]}</span>
               {React.createElement(FaExternalLinkAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
             </button>
           </div>
@@ -257,19 +281,19 @@ const HistoryTab: React.FC<Props> = ({
               <Doughnut data={doughnutData} options={interactiveDoughnutOptions} />
             ) : (
               <p className="text-xs text-slate-400 text-center px-4">
-                Nenhum gasto registrado em {formatMonthLabel(selectedMonth)}.
+                {t('charts.noCategoryData')}
               </p>
             )}
           </div>
 
           {hasCategoryData && (
-            <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+            <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
               {activeCategories.map((cat) => (
                 <button
                   key={cat.name}
                   type="button"
                   onClick={() => onOpenCategoryDetail(cat.name)}
-                  className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200/80 hover:border-slate-300 hover:bg-slate-50 transition-all text-left"
+                  className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span
@@ -277,11 +301,11 @@ const HistoryTab: React.FC<Props> = ({
                     >
                       {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
                     </span>
-                    <span className="text-xs font-semibold text-slate-800 truncate">
-                      {cat.name}
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                      {translateCategoryName(cat.name)}
                     </span>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-900 tabular-nums flex-shrink-0">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
                     {formatCurrency(cat.value)}
                   </span>
                 </button>
@@ -293,23 +317,21 @@ const HistoryTab: React.FC<Props> = ({
         <div className="lg:col-span-7 exec-card p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Fluxo do Mês ({formatMonthLabel(selectedMonth)})
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('charts.monthlyTitle')} ({formatMonthLabel(selectedMonth)})
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Evolução acumulada de entradas e saídas ao longo dos dias do mês
-              </p>
+              <p className="text-xs text-slate-400 mt-0.5">{t('charts.monthlySubtitle')}</p>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200/70 text-slate-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-slate-600 dark:text-emerald-400 flex items-center justify-center">
               {React.createElement(FaChartLine as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </div>
           </div>
           <div className="h-56">
             {chartData ? (
-              <Line data={lineData} options={EXECUTIVE_LINE_OPTIONS} />
+              <Line data={lineData} options={lineOptions} />
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                Carregando gráfico...
+                {t('common.loading')}
               </div>
             )}
           </div>
@@ -318,45 +340,55 @@ const HistoryTab: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 exec-card overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Despesas de {formatMonthLabel(selectedMonth)}
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('expenses.titleIndividual')} — {formatMonthLabel(selectedMonth)}
               </h3>
-              <p className="text-xs text-slate-400">
-                Detalhamento completo de contas, compras e parcelas com vencimento no mês
-              </p>
+              <p className="text-xs text-slate-400">{t('modals.history.subtitle')}</p>
             </div>
-            <span className="text-xs font-semibold text-slate-500 tabular-nums">
-              {monthExpenses.length} {monthExpenses.length === 1 ? 'item' : 'itens'}
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+              {monthExpenses.length}
             </span>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {monthExpenses.length === 0 ? (
               <div className="p-10 text-center text-xs text-slate-400">
-                Nenhuma despesa registrada para {formatMonthLabel(selectedMonth)}.
+                {t('expenses.emptyTitle')}
               </div>
             ) : (
               monthExpenses.map((exp) => (
                 <div
                   key={exp.id}
-                  className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70"
+                  className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-900 truncate">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {exp.name}
                       </span>
                       <StatusBadge status={exp.status} paymentMethod={exp.paymentMethod} />
+                      {exp.receiptUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewReceipt({ url: exp.receiptUrl!, name: exp.name })
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                        >
+                          {React.createElement(FaImage as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                          <span>{t('expenses.receiptAttached')}</span>
+                        </button>
+                      )}
                       {isFamilyMode && exp.ownerName && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-white">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 dark:bg-slate-700 text-white">
                           {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[8px]' })}
                           {exp.ownerName.split(' ')[0]}
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
+                    <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
                       <span className="inline-flex items-center gap-1">
                         {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                           className: 'text-[10px] text-slate-400',
@@ -372,19 +404,19 @@ const HistoryTab: React.FC<Props> = ({
                             {React.createElement(catMeta.icon as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[10px]',
                             })}
-                            {catMeta.name}
+                            {translateCategoryName(catMeta.name)}
                           </span>
                         );
                       })()}
                       {exp.isCreditCard && (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
                           {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-                          Cartão
+                          {t('expenses.creditCardBadge')}
                         </span>
                       )}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
                     {formatCurrency(Number(exp.value))}
                   </span>
                 </div>
@@ -394,48 +426,51 @@ const HistoryTab: React.FC<Props> = ({
         </div>
 
         <div className="lg:col-span-4 exec-card overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
-                Entradas de {formatMonthLabel(selectedMonth)}
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                {t('incomes.title')} — {formatMonthLabel(selectedMonth)}
               </h3>
-              <p className="text-xs text-slate-400">Salários, vales e receitas do período</p>
+              <p className="text-xs text-slate-400">
+                {t('incomes.subtitleCount', { count: monthIncomes.length })}
+              </p>
             </div>
-            <span className="text-xs font-semibold text-slate-500 tabular-nums">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
               {monthIncomes.length}
             </span>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {monthIncomes.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                Nenhuma entrada registrada neste mês.
-              </div>
+              <div className="p-8 text-center text-xs text-slate-400">{t('incomes.empty')}</div>
             ) : (
               monthIncomes.map((inc) => (
-                <div key={inc.id} className="px-6 py-3.5 hover:bg-slate-50/70">
+                <div
+                  key={inc.id}
+                  className="px-6 py-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-semibold text-slate-900 truncate">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {inc.name}
                       </span>
                       {inc.isRecurring && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
-                          Fixo
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {t('incomes.recurringLabel')}
                         </span>
                       )}
                       {isFamilyMode && inc.ownerName && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-white">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 dark:bg-slate-700 text-white">
                           {inc.ownerName.split(' ')[0]}
                         </span>
                       )}
                     </div>
-                    <span className="text-sm font-semibold text-emerald-700 tabular-nums flex-shrink-0">
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums flex-shrink-0">
                       + {formatCurrency(Number(inc.value))}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Data base: {formatDateBr(inc.incomeDate)}
+                    {t('incomes.dateLabel', { date: formatDateBr(inc.incomeDate) })}
                   </p>
                 </div>
               ))
@@ -443,6 +478,41 @@ const HistoryTab: React.FC<Props> = ({
           </div>
         </div>
       </div>
+
+      {previewReceipt && (
+        <div
+          className="exec-modal-overlay z-[130]"
+          onClick={() => setPreviewReceipt(null)}
+        >
+          <div
+            className="exec-modal-container max-w-lg p-4 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t('expenses.receiptModalTitle')}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {previewReceipt.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewReceipt(null)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
+              </button>
+            </div>
+            <img
+              src={previewReceipt.url}
+              alt={previewReceipt.name}
+              className="w-full max-h-[70vh] object-contain rounded-xl bg-slate-100 dark:bg-slate-800"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

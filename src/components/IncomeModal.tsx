@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FaTimes,
   FaWallet,
@@ -12,6 +13,7 @@ import { toast } from 'react-toastify';
 import type { IncomeItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import {
+  formatCurrency,
   formatCurrencyInput,
   formatNumberToCurrencyInput,
   parseCurrencyInput,
@@ -66,6 +68,7 @@ const createBlankEntry = (label = '', defaultDate = getTodayIso(), recurring = t
 });
 
 const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [hasMultipleSalaries, setHasMultipleSalaries] = useState(false);
   const [entries, setEntries] = useState<IncomeEntry[]>([createBlankEntry('', getTodayIso(), false)]);
@@ -97,16 +100,16 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
   const applyBiweeklyPreset = () => {
     setErrors({});
     setEntries([
-      createBlankEntry('Adiantamento Quinzenal', getDateForDay(20), true),
-      createBlankEntry('Salário Principal', getDateForDay(5), true),
+      createBlankEntry(t('modals.income.presetAdvanceName'), getDateForDay(20), true),
+      createBlankEntry(t('modals.income.presetMainSalaryName'), getDateForDay(5), true),
     ]);
   };
 
   const applyTwoSalariesPreset = () => {
     setErrors({});
     setEntries([
-      createBlankEntry('Salário 1', getDateForDay(5), true),
-      createBlankEntry('Salário 2', getDateForDay(15), true),
+      createBlankEntry(t('modals.income.presetSalaryN', { index: 1 }), getDateForDay(5), true),
+      createBlankEntry(t('modals.income.presetSalaryN', { index: 2 }), getDateForDay(15), true),
     ]);
   };
 
@@ -120,7 +123,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         if (hasCustomFirst) {
           setEntries([
             { ...first, isRecurring: true },
-            createBlankEntry('Adiantamento Quinzenal', getDateForDay(20), true),
+            createBlankEntry(t('modals.income.presetAdvanceName'), getDateForDay(20), true),
           ]);
         } else {
           applyBiweeklyPreset();
@@ -152,12 +155,16 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
 
   const addEntry = () => {
     if (entries.length >= 6) {
-      toast.info('Máximo de 6 lançamentos simultâneos.');
+      toast.info(t('modals.income.maxEntriesInfo'));
       return;
     }
     setEntries((prev) => [
       ...prev,
-      createBlankEntry(`Salário / Renda ${prev.length + 1}`, getTodayIso(), true),
+      createBlankEntry(
+        t('modals.income.extraEntryName', { index: prev.length + 1 }),
+        getTodayIso(),
+        true,
+      ),
     ]);
   };
 
@@ -173,16 +180,16 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
     entries.forEach((entry) => {
       const entryErr: EntryErrors = {};
       if (!entry.name.trim()) {
-        entryErr.name = 'Informe a descrição da receita';
+        entryErr.name = t('modals.income.nameRequiredError');
         isValid = false;
       }
       const numericVal = parseCurrencyInput(entry.value);
       if (isNaN(numericVal) || numericVal <= 0) {
-        entryErr.value = 'Informe um valor positivo';
+        entryErr.value = t('modals.income.valueInvalidError');
         isValid = false;
       }
       if (!entry.incomeDate) {
-        entryErr.incomeDate = 'Informe a data';
+        entryErr.incomeDate = t('modals.income.dateRequiredError');
         isValid = false;
       }
       if (Object.keys(entryErr).length > 0) {
@@ -199,9 +206,6 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
     return sum + (isNaN(val) || val < 0 ? 0 : val);
   }, 0);
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEntries()) return;
@@ -216,7 +220,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
           incomeDate: entry.incomeDate,
           isRecurring: entry.isRecurring,
         });
-        toast.success('Receita atualizada com sucesso!');
+        toast.success(t('modals.income.updatedToast'));
       } else {
         for (const entry of entries) {
           await api.post('/income', {
@@ -228,14 +232,14 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
         }
         toast.success(
           entries.length > 1
-            ? `${entries.length} recebimentos cadastrados com sucesso!`
-            : 'Receita cadastrada com sucesso!',
+            ? t('modals.income.createdMultiToast', { count: entries.length })
+            : t('modals.income.createdSingleToast'),
         );
       }
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao salvar receita'));
+      toast.error(extractApiErrorMessage(error, t('modals.income.saveError')));
     } finally {
       setLoading(false);
     }
@@ -247,92 +251,92 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
     <div className="exec-modal-overlay z-50">
       <div className="exec-modal-container max-w-2xl">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-800/70 flex items-center justify-center">
               {React.createElement(FaWallet as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                {initialData ? 'Editar Receita / Salário' : 'Registrar Salário ou Receita'}
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {initialData ? t('modals.income.editTitle') : t('modals.income.newTitle')}
               </h3>
-              <p className="text-xs text-slate-500">
-                {initialData
-                  ? 'Atualize os dados deste recebimento'
-                  : 'Cadastre um lançamento único ou múltiplos recebimentos (ex.: salário + adiantamento quinzenal)'}
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {initialData ? t('modals.income.editSubtitle') : t('modals.income.newSubtitle')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors p-2 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-2 rounded-lg"
+            aria-label={t('common.close')}
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Seletor de Múltiplos Salários / Quinzenal (somente no cadastro) */}
           {!initialData && (
-            <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-4 space-y-3">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-start gap-2.5">
-                  <div className="mt-0.5 text-slate-600">
+                  <div className="mt-0.5 text-slate-600 dark:text-slate-400">
                     {React.createElement(FaLayerGroup as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      Recebe mais de 1 salário ou adiantamento quinzenal?
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {t('modals.income.multiTitle')}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      Ative para cadastrar 2 ou mais recebimentos de uma só vez (ex.: dia 5 e dia 20).
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('modals.income.multiDesc')}
                     </p>
                   </div>
                 </div>
 
-                <div className="inline-flex rounded-lg bg-white p-1 border border-slate-200 self-start sm:self-center flex-shrink-0">
+                <div className="inline-flex rounded-lg bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-700 self-start sm:self-center flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => handleModeChange(false)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${!hasMultipleSalaries
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                       }`}
                   >
-                    1 Salário
+                    {t('modals.income.singleModeBtn')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleModeChange(true)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${hasMultipleSalaries
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                       }`}
                   >
-                    Mais de 1 / Quinzenal
+                    {t('modals.income.multiModeBtn')}
                   </button>
                 </div>
               </div>
 
               {hasMultipleSalaries && (
-                <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-medium text-slate-500 mr-1">Modelos rápidos:</span>
+                <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mr-1">
+                    {t('modals.income.quickPresetsLabel')}
+                  </span>
                   <button
                     type="button"
                     onClick={applyBiweeklyPreset}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:border-slate-900 hover:text-slate-900 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-slate-900 dark:hover:border-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
-                    {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-emerald-600' })}
-                    Salário + Adiantamento Quinzenal
+                    {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-emerald-600 dark:text-emerald-400' })}
+                    {t('modals.income.presetBiweeklyBtn')}
                   </button>
                   <button
                     type="button"
                     onClick={applyTwoSalariesPreset}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:border-slate-900 hover:text-slate-900 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 hover:border-slate-900 dark:hover:border-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
-                    {React.createElement(FaLayerGroup as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-slate-600' })}
-                    2 Salários / Fontes Fixas
+                    {React.createElement(FaLayerGroup as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px] text-slate-600 dark:text-slate-400' })}
+                    {t('modals.income.presetTwoSalariesBtn')}
                   </button>
                 </div>
               )}
@@ -347,23 +351,23 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                 <div
                   key={entry.key}
                   className={`rounded-xl border p-4 transition-colors ${hasMultipleSalaries
-                    ? 'border-slate-200 bg-white'
+                    ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60'
                     : 'border-transparent p-0'
                     }`}
                 >
                   {hasMultipleSalaries && (
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-                      <span className="text-xs font-semibold text-slate-700">
-                        Recebimento #{idx + 1}
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        {t('modals.income.entryHeader', { index: idx + 1 })}
                       </span>
                       {entries.length > 2 && (
                         <button
                           type="button"
                           onClick={() => removeEntry(entry.key)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300"
                         >
                           {React.createElement(FaTrash as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-                          Remover
+                          {t('modals.income.removeEntryBtn')}
                         </button>
                       )}
                     </div>
@@ -371,7 +375,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="exec-label">Descrição / Fonte da receita</label>
+                      <label className="exec-label">{t('modals.income.nameLabel')}</label>
                       <input
                         type="text"
                         value={entry.name}
@@ -380,18 +384,20 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                         placeholder={
                           hasMultipleSalaries
                             ? idx === 0
-                              ? 'Ex: Adiantamento Quinzenal'
-                              : 'Ex: Salário Principal'
-                            : 'Ex: Salário Mensal, Pró-labore, Dividendos'
+                              ? t('modals.income.namePlaceholderFirstMulti')
+                              : t('modals.income.namePlaceholderSecondMulti')
+                            : t('modals.income.namePlaceholderSingle')
                         }
                       />
                       {entryErr.name && (
-                        <p className="mt-1 text-xs text-rose-600 font-medium">{entryErr.name}</p>
+                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                          {entryErr.name}
+                        </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="exec-label">Valor líquido (R$)</label>
+                      <label className="exec-label">{t('modals.income.valueLabel')}</label>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -402,12 +408,14 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                         placeholder="0,00"
                       />
                       {entryErr.value && (
-                        <p className="mt-1 text-xs text-rose-600 font-medium">{entryErr.value}</p>
+                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                          {entryErr.value}
+                        </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="exec-label">Data de recebimento</label>
+                      <label className="exec-label">{t('modals.income.dateLabel')}</label>
                       <input
                         type="date"
                         value={entry.incomeDate}
@@ -415,7 +423,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                         className={`exec-input ${entryErr.incomeDate ? 'exec-input-error' : ''}`}
                       />
                       {entryErr.incomeDate && (
-                        <p className="mt-1 text-xs text-rose-600 font-medium">
+                        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
                           {entryErr.incomeDate}
                         </p>
                       )}
@@ -431,7 +439,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                             className="sr-only"
                           />
                           <div
-                            className={`w-10 h-5 rounded-full transition-colors ${entry.isRecurring ? 'bg-emerald-600' : 'bg-slate-200'
+                            className={`w-10 h-5 rounded-full transition-colors ${entry.isRecurring ? 'bg-emerald-600' : 'bg-slate-200 dark:bg-slate-700'
                               }`}
                           />
                           <div
@@ -439,8 +447,8 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                               }`}
                           />
                         </div>
-                        <span className="text-xs font-medium text-slate-700">
-                          Receita fixa mensal (recorrente)
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                          {t('modals.income.recurringLabel')}
                         </span>
                       </label>
                     </div>
@@ -450,23 +458,22 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
             })}
           </div>
 
-          {/* Botão adicionar mais um salário e resumo combinado */}
           {hasMultipleSalaries && !initialData && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
               <button
                 type="button"
                 onClick={addEntry}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-slate-300 text-xs font-semibold text-slate-700 hover:border-slate-900 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-slate-900 dark:hover:border-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
               >
                 {React.createElement(FaPlus as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-                Adicionar outro salário / parcela
+                {t('modals.income.addAnotherBtn')}
               </button>
 
-              <div className="flex items-center justify-between sm:justify-end gap-2 bg-emerald-50/80 border border-emerald-100 rounded-xl px-4 py-2">
-                <span className="text-xs font-medium text-emerald-800">
-                  Total ({entries.length} lançamentos):
+              <div className="flex items-center justify-between sm:justify-end gap-2 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/70 rounded-xl px-4 py-2">
+                <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                  {t('modals.income.totalCombinedLabel', { count: entries.length })}
                 </span>
-                <span className="text-sm font-bold text-emerald-900 tabular-nums">
+                <span className="text-sm font-bold text-emerald-900 dark:text-emerald-200 tabular-nums">
                   {formatCurrency(totalCombined)}
                 </span>
               </div>
@@ -474,18 +481,18 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
           )}
 
           {/* Footer actions */}
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="exec-btn-secondary">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button type="submit" disabled={loading} className="exec-btn-primary">
               {loading
-                ? 'Processando...'
+                ? t('common.processing')
                 : initialData
-                  ? 'Salvar alterações'
+                  ? t('modals.income.saveEdit')
                   : hasMultipleSalaries
-                    ? `Registrar ${entries.length} recebimentos`
-                    : 'Registrar receita'}
+                    ? t('modals.income.saveMulti', { count: entries.length })
+                    : t('modals.income.saveNew')}
             </button>
           </div>
         </form>

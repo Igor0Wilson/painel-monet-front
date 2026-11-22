@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FaCalendarAlt,
   FaEdit,
@@ -58,6 +59,7 @@ const InvestmentsModal: React.FC<Props> = ({
   onClose,
   onRefresh,
 }) => {
+  const { t } = useTranslation();
   const [editingItem, setEditingItem] = useState<InvestmentItem | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Renda Fixa');
@@ -107,24 +109,25 @@ const InvestmentsModal: React.FC<Props> = ({
   const deltaOnBalance = Number((newBalanceImpact - oldBalanceImpact).toFixed(2));
   const projectedBalance = Number((ownAvailableBalance - deltaOnBalance).toFixed(2));
 
+  const translateInvCategory = (cat: string) =>
+    t(`modals.investments.categories.${cat}`, { defaultValue: cat });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error('Informe o nome ou ativo do investimento.');
+      toast.error(t('modals.investments.nameRequiredError'));
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast.error('Informe um valor positivo para o investimento.');
+      toast.error(t('modals.investments.amountInvalidError'));
       return;
     }
     if (!investedDate) {
-      toast.error('Informe a data em que o investimento foi realizado.');
+      toast.error(t('modals.investments.dateRequiredError'));
       return;
     }
     if (deltaOnBalance > ownAvailableBalance + 0.001) {
-      toast.error(
-        'Saldo disponível insuficiente para este aporte do mês. Use "Carteira já existente" para aplicações anteriores.',
-      );
+      toast.error(t('modals.investments.insufficientBalanceError'));
       return;
     }
 
@@ -141,15 +144,15 @@ const InvestmentsModal: React.FC<Props> = ({
 
       if (editingItem) {
         await api.patch(`/balance/investments/items/${editingItem.id}`, payload);
-        toast.success('Investimento atualizado com sucesso!');
+        toast.success(t('modals.investments.updatedToast'));
       } else {
         await api.post('/balance/investments/items', payload);
-        toast.success('Investimento registrado com sucesso!');
+        toast.success(t('modals.investments.createdToast'));
       }
       resetForm(null);
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao salvar investimento'));
+      toast.error(extractApiErrorMessage(error, t('modals.investments.saveError')));
     } finally {
       setSubmitting(false);
     }
@@ -162,10 +165,10 @@ const InvestmentsModal: React.FC<Props> = ({
       if (editingItem?.id === id) {
         resetForm(null);
       }
-      toast.success('Investimento removido com sucesso!');
+      toast.success(t('modals.investments.deletedToast'));
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao remover investimento'));
+      toast.error(extractApiErrorMessage(error, t('modals.investments.deleteError')));
     } finally {
       setSubmitting(false);
     }
@@ -178,10 +181,10 @@ const InvestmentsModal: React.FC<Props> = ({
         amount: 0,
         reclassifyAllocatedToExternal: true,
       });
-      toast.success('Aportes do mês movidos para carteira já existente e saldo liberado!');
+      toast.success(t('modals.investments.reclassifySuccessToast'));
       onRefresh();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao reclassificar investimentos'));
+      toast.error(extractApiErrorMessage(error, t('modals.investments.reclassifyError')));
     } finally {
       setSubmitting(false);
     }
@@ -190,7 +193,7 @@ const InvestmentsModal: React.FC<Props> = ({
   return (
     <div className="exec-modal-overlay z-[60]">
       <div className="exec-modal-container max-w-3xl max-h-[92dvh] flex flex-col">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
               {React.createElement(
@@ -199,18 +202,19 @@ const InvestmentsModal: React.FC<Props> = ({
               )}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Módulo de Investimentos
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {t('modals.investments.title')}
               </h3>
-              <p className="text-xs text-slate-500">
-                Detalhe seus investimentos realizados com datas, ativos e origem do capital
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('modals.investments.subtitle')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label={t('common.close')}
           >
             {React.createElement(
               FaTimes as unknown as React.ComponentType<{ className?: string }>,
@@ -222,21 +226,27 @@ const InvestmentsModal: React.FC<Props> = ({
         <div className="p-6 space-y-6 overflow-y-auto">
           {/* Resumo da Carteira */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-xl bg-slate-950 text-white p-3.5">
-              <p className="text-[11px] text-slate-400">Carteira Total</p>
+            <div className="rounded-xl bg-slate-950 dark:bg-slate-800 border border-transparent dark:border-slate-700 text-white p-3.5">
+              <p className="text-[11px] text-slate-400">
+                {t('modals.investments.totalPortfolioLabel')}
+              </p>
               <p className="text-lg font-semibold tabular-nums mt-0.5">
                 {formatCurrency(totalPortfolio)}
               </p>
             </div>
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200/80 p-3.5">
-              <p className="text-[11px] text-emerald-800 font-medium">Carteira já existente</p>
-              <p className="text-lg font-semibold text-emerald-950 tabular-nums mt-0.5">
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 p-3.5">
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+                {t('modals.investments.existingPortfolioLabel')}
+              </p>
+              <p className="text-lg font-semibold text-emerald-950 dark:text-emerald-200 tabular-nums mt-0.5">
                 {formatCurrency(externalInvestments)}
               </p>
             </div>
-            <div className="rounded-xl bg-slate-100 border border-slate-200 p-3.5">
-              <p className="text-[11px] text-slate-600 font-medium">Alocado do saldo do mês</p>
-              <p className="text-lg font-semibold text-slate-900 tabular-nums mt-0.5">
+            <div className="rounded-xl bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 p-3.5">
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                {t('modals.investments.monthlyAllocatedLabel')}
+              </p>
+              <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 tabular-nums mt-0.5">
                 {formatCurrency(allocatedInvestments)}
               </p>
             </div>
@@ -247,53 +257,56 @@ const InvestmentsModal: React.FC<Props> = ({
               type="button"
               disabled={submitting}
               onClick={handleReclassifyAll}
-              className="w-full text-left text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl px-4 py-2.5 transition-colors disabled:opacity-50"
+              className="w-full text-left text-xs font-semibold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-xl px-4 py-2.5 transition-colors disabled:opacity-50"
             >
-              Mover os {formatCurrency(allocatedInvestments)} alocados do mês para &quot;Carteira já
-              existente&quot; (libera {formatCurrency(allocatedInvestments)} no seu saldo disponível)
+              {t('modals.investments.reclassifyAllBtn', {
+                amount: formatCurrency(allocatedInvestments),
+              })}
             </button>
           )}
 
           {/* Formulário */}
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 space-y-4"
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-4 sm:p-5 space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                 {React.createElement(
                   (editingItem ? FaEdit : FaPlus) as unknown as React.ComponentType<{
                     className?: string;
                   }>,
-                  { className: 'text-[11px] text-emerald-600' },
+                  { className: 'text-[11px] text-emerald-600 dark:text-emerald-400' },
                 )}
-                {editingItem ? 'Editar investimento realizado' : 'Registrar novo investimento'}
+                {editingItem
+                  ? t('modals.investments.editSectionTitle')
+                  : t('modals.investments.newSectionTitle')}
               </h4>
               {editingItem && (
                 <button
                   type="button"
                   onClick={() => resetForm(null)}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-900 underline"
+                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 underline"
                 >
-                  Cancelar edição
+                  {t('modals.investments.cancelEditBtn')}
                 </button>
               )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div className="sm:col-span-2">
-                <label className="exec-label">Nome do investimento / aplicação</label>
+                <label className="exec-label">{t('modals.investments.nameLabel')}</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="exec-input"
-                  placeholder="Ex: Tesouro Selic 2029, CDB 110% CDI, IVVB11"
+                  placeholder={t('modals.investments.namePlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="exec-label">Categoria</label>
+                <label className="exec-label">{t('modals.investments.categoryLabel')}</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
@@ -301,14 +314,14 @@ const InvestmentsModal: React.FC<Props> = ({
                 >
                   {INVESTMENT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
-                      {cat}
+                      {translateInvCategory(cat)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="exec-label">Valor aplicado (R$)</label>
+                <label className="exec-label">{t('modals.investments.amountLabel')}</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -323,9 +336,9 @@ const InvestmentsModal: React.FC<Props> = ({
                 <label className="exec-label flex items-center gap-1.5">
                   {React.createElement(
                     FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>,
-                    { className: 'text-[10px] text-slate-400' },
+                    { className: 'text-[10px] text-slate-400 dark:text-slate-500' },
                   )}
-                  Data da realização
+                  {t('modals.investments.dateLabel')}
                 </label>
                 <input
                   type="date"
@@ -337,51 +350,56 @@ const InvestmentsModal: React.FC<Props> = ({
               </div>
 
               <div>
-                <label className="exec-label">Observações (opcional)</label>
+                <label className="exec-label">{t('modals.investments.notesLabel')}</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="exec-input"
-                  placeholder="Ex: Corretora, vencimento, meta"
+                  placeholder={t('modals.investments.notesPlaceholder')}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="exec-label">Origem do recurso</label>
+              <label className="exec-label">{t('modals.investments.sourceLabel')}</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setSource('external')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    source === 'external'
-                      ? 'border-emerald-600 bg-emerald-50/80 text-emerald-950 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
+                  className={`p-3 rounded-xl border text-left transition-all ${source === 'external'
+                      ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-950/50 text-emerald-950 dark:text-emerald-200 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
                 >
-                  <p className="text-xs font-semibold">Carteira já existente / Anterior</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Sem limite e sem descontar do saldo livre do mês
+                  <p className="text-xs font-semibold">
+                    {t('modals.investments.sourceExternalTitle')}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {t('modals.investments.sourceExternalSub')}
                   </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSource('balance')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    source === 'balance'
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-semibold">Usar saldo disponível do mês</p>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      source === 'balance' ? 'text-slate-300' : 'text-slate-500'
+                  className={`p-3 rounded-xl border text-left transition-all ${source === 'balance'
+                      ? 'border-slate-900 dark:border-slate-100 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
+                >
+                  <p className="text-xs font-semibold">
+                    {t('modals.investments.sourceBalanceTitle')}
+                  </p>
+                  <p
+                    className={`text-[11px] mt-0.5 ${source === 'balance'
+                        ? 'text-slate-300 dark:text-slate-600'
+                        : 'text-slate-500 dark:text-slate-400'
+                      }`}
                   >
-                    Saldo atual: {formatCurrency(ownAvailableBalance)} → Após:{' '}
-                    {formatCurrency(projectedBalance)}
+                    {t('modals.investments.sourceBalanceSub', {
+                      current: formatCurrency(ownAvailableBalance),
+                      after: formatCurrency(projectedBalance),
+                    })}
                   </p>
                 </button>
               </div>
@@ -394,51 +412,51 @@ const InvestmentsModal: React.FC<Props> = ({
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
               >
                 {submitting
-                  ? 'Salvando...'
+                  ? t('modals.investments.saving')
                   : editingItem
-                    ? 'Salvar alteração'
-                    : 'Adicionar investimento'}
+                    ? t('modals.investments.saveEditBtn')
+                    : t('modals.investments.saveNewBtn')}
               </button>
             </div>
           </form>
 
           {/* Histórico Detalhado */}
           <div className="space-y-2.5">
-            <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              Investimentos Realizados ({ownItems.length})
+            <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              {t('modals.investments.listTitle', { count: ownItems.length })}
             </h4>
 
             {ownItems.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
-                Nenhum investimento detalhado registrado ainda. Preencha o formulário acima com a
-                data e o valor da sua aplicação.
+              <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                {t('modals.investments.emptyList')}
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
                 {ownItems.map((item) => (
                   <div
                     key={item.id}
-                    className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50/70 transition-colors"
+                    className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold text-slate-900 truncate">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                           {item.name}
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                          {item.category}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {translateInvCategory(item.category)}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            item.source === 'balance'
-                              ? 'bg-slate-900 text-white'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
-                          }`}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${item.source === 'balance'
+                              ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950'
+                              : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/70'
+                            }`}
                         >
-                          {item.source === 'balance' ? 'Do mês' : 'Já existente'}
+                          {item.source === 'balance'
+                            ? t('modals.investments.badgeMonthly')
+                            : t('modals.investments.badgeExternal')}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <span className="inline-flex items-center gap-1">
                           {React.createElement(
                             FaCalendarAlt as unknown as React.ComponentType<{
@@ -446,22 +464,24 @@ const InvestmentsModal: React.FC<Props> = ({
                             }>,
                             { className: 'text-[10px]' },
                           )}
-                          Data: {formatDateBr(item.investedDate)}
+                          {t('modals.investments.datePrefix', {
+                            date: formatDateBr(item.investedDate),
+                          })}
                         </span>
                         {item.notes && <span className="truncate">· {item.notes}</span>}
                       </p>
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
-                      <span className="text-sm font-semibold text-slate-900 tabular-nums">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                         {formatCurrency(item.amount)}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => resetForm(item)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                          title="Editar investimento"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title={t('modals.investments.editItemTitle')}
                         >
                           {React.createElement(
                             FaEdit as unknown as React.ComponentType<{ className?: string }>,
@@ -471,8 +491,8 @@ const InvestmentsModal: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteItem(item.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Excluir investimento"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                          title={t('modals.investments.deleteItemTitle')}
                         >
                           {React.createElement(
                             FaTrash as unknown as React.ComponentType<{ className?: string }>,
@@ -488,9 +508,9 @@ const InvestmentsModal: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end flex-shrink-0">
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-end flex-shrink-0">
           <button type="button" onClick={onClose} className="exec-btn-secondary">
-            Fechar
+            {t('common.close')}
           </button>
         </div>
       </div>

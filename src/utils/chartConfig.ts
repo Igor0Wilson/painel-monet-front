@@ -1,4 +1,5 @@
 import type { ChartOptions, TooltipItem } from 'chart.js';
+import { getActiveLocale } from '../i18n';
 import { getCategoryMeta } from './categories';
 import { formatCurrency } from './formatters';
 
@@ -12,84 +13,100 @@ export const EXECUTIVE_CHART_PALETTE = [
   '#06b6d4',
 ];
 
-export const EXECUTIVE_LINE_OPTIONS: ChartOptions<'line'> = {
-  maintainAspectRatio: false,
-  interaction: { mode: 'index', intersect: false },
-  scales: {
-    y: {
-      beginAtZero: true,
-      grid: { color: '#f1f5f9' },
-      border: { display: false },
-      ticks: {
-        color: '#64748b',
-        font: { size: 11 },
-        callback: (value: string | number) =>
-          new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-            maximumFractionDigits: 0,
-          }).format(Number(value)),
-      },
-    },
-    x: {
-      grid: { display: false },
-      border: { display: false },
-      ticks: { color: '#64748b', font: { size: 11 } },
-    },
-  },
-  plugins: {
-    legend: {
-      position: 'top',
-      align: 'end',
-      labels: {
-        usePointStyle: true,
-        pointStyle: 'circle',
-        boxWidth: 8,
-        color: '#475569',
-        font: { size: 11 },
-      },
-    },
-    tooltip: {
-      backgroundColor: '#0f172a',
-      padding: 10,
-      cornerRadius: 8,
-      callbacks: {
-        label: (ctx: TooltipItem<'line'>) =>
-          ` ${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y || 0))}`,
-      },
-    },
-  },
-};
+export function getExecutiveLineOptions(isDark = false): ChartOptions<'line'> {
+  const tickColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? '#1e293b' : '#f1f5f9';
+  const legendColor = isDark ? '#cbd5e1' : '#475569';
+  const tooltipBg = isDark ? '#020617' : '#0f172a';
 
-export const EXECUTIVE_DOUGHNUT_OPTIONS: ChartOptions<'doughnut'> = {
-  maintainAspectRatio: false,
-  cutout: '68%',
-  plugins: {
-    legend: {
-      position: 'right',
-      labels: {
-        usePointStyle: true,
-        pointStyle: 'circle',
-        boxWidth: 8,
-        padding: 14,
-        color: '#334155',
-        font: { size: 12 },
+  return {
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: gridColor },
+        border: { display: false },
+        ticks: {
+          color: tickColor,
+          font: { size: 11 },
+          callback: (value: string | number) =>
+            new Intl.NumberFormat(getActiveLocale(), {
+              style: 'currency',
+              currency: 'BRL',
+              maximumFractionDigits: 0,
+            }).format(Number(value)),
+        },
+      },
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { color: tickColor, font: { size: 11 } },
       },
     },
-    tooltip: {
-      backgroundColor: '#0f172a',
-      padding: 10,
-      cornerRadius: 8,
-      callbacks: {
-        label: (ctx: TooltipItem<'doughnut'>) =>
-          ` ${ctx.label}: ${formatCurrency(Number(ctx.parsed || 0))}`,
+    plugins: {
+      legend: {
+        position: 'top',
+        align: 'end',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          color: legendColor,
+          font: { size: 11 },
+        },
+      },
+      tooltip: {
+        backgroundColor: tooltipBg,
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx: TooltipItem<'line'>) =>
+            ` ${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y || 0))}`,
+        },
       },
     },
-  },
-};
+  };
+}
+
+export function getExecutiveDoughnutOptions(isDark = false): ChartOptions<'doughnut'> {
+  const legendColor = isDark ? '#cbd5e1' : '#334155';
+  const tooltipBg = isDark ? '#020617' : '#0f172a';
+
+  return {
+    maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          boxWidth: 8,
+          padding: 14,
+          color: legendColor,
+          font: { size: 12 },
+        },
+      },
+      tooltip: {
+        backgroundColor: tooltipBg,
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: {
+          label: (ctx: TooltipItem<'doughnut'>) =>
+            ` ${ctx.label}: ${formatCurrency(Number(ctx.parsed || 0))}`,
+        },
+      },
+    },
+  };
+}
+
+export const EXECUTIVE_LINE_OPTIONS: ChartOptions<'line'> = getExecutiveLineOptions(false);
+export const EXECUTIVE_DOUGHNUT_OPTIONS: ChartOptions<'doughnut'> = getExecutiveDoughnutOptions(false);
 
 export function buildDoughnutChartData(
   categories: { name: string; value: number; color?: string }[] = [],
+  isDark = false,
 ) {
   return {
     labels: categories.map((c) => c.name),
@@ -102,7 +119,7 @@ export function buildDoughnutChartData(
             getCategoryMeta(c.name)?.color ||
             EXECUTIVE_CHART_PALETTE[idx % EXECUTIVE_CHART_PALETTE.length],
         ),
-        borderColor: '#ffffff',
+        borderColor: isDark ? '#0f172a' : '#ffffff',
         borderWidth: 2,
         hoverOffset: 6,
       },
@@ -114,17 +131,22 @@ export function buildLineChartData(
   points: { month: string; income: number; expenses: number }[] = [],
   incomeLabel = 'Receitas do Mês',
   expenseLabel = 'Despesas Pagas do Mês',
+  isDark = false,
 ) {
+  const expenseStroke = isDark ? '#f8fafc' : '#0f172a';
+  const expenseFill = isDark ? 'rgba(248, 250, 252, 0.08)' : 'rgba(15, 23, 42, 0.05)';
+  const pointBorder = isDark ? '#0f172a' : '#ffffff';
+
   return {
     labels: points.map((p) => p.month),
     datasets: [
       {
         label: incomeLabel,
         data: points.map((p) => p.income),
-        borderColor: '#059669',
-        backgroundColor: 'rgba(5, 150, 105, 0.08)',
-        pointBackgroundColor: '#059669',
-        pointBorderColor: '#ffffff',
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: pointBorder,
         pointBorderWidth: 2,
         pointRadius: 3.5,
         borderWidth: 2,
@@ -134,10 +156,10 @@ export function buildLineChartData(
       {
         label: expenseLabel,
         data: points.map((p) => p.expenses),
-        borderColor: '#0f172a',
-        backgroundColor: 'rgba(15, 23, 42, 0.05)',
-        pointBackgroundColor: '#0f172a',
-        pointBorderColor: '#ffffff',
+        borderColor: expenseStroke,
+        backgroundColor: expenseFill,
+        pointBackgroundColor: expenseStroke,
+        pointBorderColor: pointBorder,
         pointBorderWidth: 2,
         pointRadius: 3.5,
         borderWidth: 2,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaDownload, FaMobileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
@@ -48,6 +49,7 @@ function checkIsRunningInsideApp(): boolean {
 }
 
 const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) => {
+  const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInsideApp, setIsInsideApp] = useState<boolean>(() => checkIsRunningInsideApp());
 
@@ -98,29 +100,29 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
       <button
         type="button"
         onClick={handleInstallClick}
-        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-800 transition-colors"
-        title="Baixar e instalar aplicativo"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-xs font-semibold text-emerald-800 dark:text-emerald-300 transition-colors"
+        title={t('modals.installApp.title')}
       >
-        {React.createElement(FaMobileAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-700' })}
-        <span className="hidden sm:inline">Instalar App</span>
+        {React.createElement(FaMobileAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs text-emerald-700 dark:text-emerald-400' })}
+        <span className="hidden sm:inline">{t('modals.installApp.installBtn')}</span>
       </button>
     );
   }
 
   return (
-    <div className="mt-4 rounded-2xl bg-slate-900 text-white p-3.5 sm:p-4 flex items-center justify-between gap-2.5 shadow-sm">
+    <div className="mt-4 rounded-2xl bg-slate-900 dark:bg-slate-900/95 border border-slate-800 text-white p-3.5 sm:p-4 flex items-center justify-between gap-2.5 shadow-sm transition-colors duration-300">
       <div className="flex items-center gap-3 min-w-0">
         <img
-          src="/logo192.png?v=4"
-          alt="Finanças"
-          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex-shrink-0"
+          src="/logo192.png?v=5"
+          alt={t('common.appName')}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex-shrink-0 object-cover"
         />
         <div className="min-w-0">
           <p className="text-xs font-semibold text-white truncate">
-            Instalar aplicativo Finanças
+            {t('modals.installApp.title')}
           </p>
           <p className="text-[11px] text-slate-400 truncate">
-            Baixar instalador direto para iPhone ou Android
+            {t('modals.installApp.androidDesc')}
           </p>
         </div>
       </div>
@@ -130,7 +132,7 @@ const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) 
         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors flex-shrink-0"
       >
         {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-        Instalar
+        {t('modals.installApp.installBtn')}
       </button>
     </div>
   );

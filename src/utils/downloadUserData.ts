@@ -1,18 +1,14 @@
 import { toast } from 'react-toastify';
 import api from '../api';
+import i18n from '../i18n';
 import { extractApiErrorMessage } from './errorHandler';
-import { onlyDigits } from './formatters';
 
 export async function downloadUserFinancialData(params?: {
   userId?: string;
-  cpf?: string | null;
 }): Promise<boolean> {
-  const cleanCpf = onlyDigits(params?.cpf);
-
   try {
-    const response = await api.get('/users/me/export', {
-      params: cleanCpf ? { cpf: cleanCpf } : undefined,
-    });
+    // Utiliza POST sem parâmetros pessoais em URL (conformidade LGPD / prevenção de vazamento em logs de proxy)
+    const response = await api.post('/users/me/export', {});
 
     const data = response.data;
     if (
@@ -20,16 +16,13 @@ export async function downloadUserFinancialData(params?: {
       data?.securityVerification?.userId &&
       data.securityVerification.userId !== params.userId
     ) {
-      toast.error(
-        'Bloqueio de segurança: divergência no identificador do usuário (CPF + ID).',
-      );
+      toast.error(i18n.t('modals.download.securityBlock'));
       return false;
     }
 
     const formattedJson = JSON.stringify(data, null, 2);
     const dateStamp = new Date().toISOString().slice(0, 10);
-    const cpfSuffix = cleanCpf ? `-${cleanCpf.slice(-4)}` : '';
-    const filename = `financas-dados${cpfSuffix}-${dateStamp}.json`;
+    const filename = `financas-backup-${dateStamp}.json`;
 
     const rnWebView = (
       window as unknown as {
@@ -45,7 +38,7 @@ export async function downloadUserFinancialData(params?: {
           content: formattedJson,
         }),
       );
-      toast.success('Relatório completo (CPF + ID) pronto para salvar/compartilhar!');
+      toast.success(i18n.t('modals.download.mobileReady'));
       return true;
     }
 
@@ -61,14 +54,11 @@ export async function downloadUserFinancialData(params?: {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    toast.success('Dados financeiros vinculados ao seu CPF + ID baixados com sucesso!');
+    toast.success(i18n.t('modals.download.success'));
     return true;
   } catch (error: unknown) {
     toast.error(
-      extractApiErrorMessage(
-        error,
-        'Erro ao baixar dados financeiros vinculados ao seu CPF',
-      ),
+      extractApiErrorMessage(error, i18n.t('modals.download.error')),
     );
     return false;
   }

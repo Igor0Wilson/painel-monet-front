@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaChevronDown, FaCheck } from 'react-icons/fa';
-import { getCategoryMeta } from '../utils/categories';
+import { getCategoryMeta, translateCategoryName } from '../utils/categories';
 
 interface Option {
   id: string;
@@ -20,10 +21,11 @@ const CustomSelect: React.FC<Props> = ({
   options,
   value,
   onChange,
-  placeholder = 'Selecione uma categoria',
+  placeholder,
   label,
   error,
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -58,24 +60,28 @@ const CustomSelect: React.FC<Props> = ({
             >
               {React.createElement(selectedMeta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
-            <span className="truncate text-slate-900 font-semibold">{selectedMeta.name}</span>
+            <span className="truncate text-slate-900 dark:text-slate-100 font-semibold">
+              {translateCategoryName(selectedMeta.name)}
+            </span>
           </span>
         ) : (
-          <span className="truncate text-slate-400">{placeholder}</span>
+          <span className="truncate text-slate-400">
+            {placeholder || t('modals.expense.categoryLabel')}
+          </span>
         )}
         {React.createElement(FaChevronDown as unknown as React.ComponentType<{ className?: string }>, {
           className: `text-slate-400 text-xs ml-2 flex-shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-slate-700' : ''
+            isOpen ? 'rotate-180 text-slate-700 dark:text-slate-200' : ''
           }`,
         })}
       </button>
 
       {isOpen && (
-        <div className="absolute z-[100] w-full mt-1.5 bg-white rounded-xl shadow-executive-lg border border-slate-200 overflow-hidden">
+        <div className="absolute z-[100] w-full mt-1.5 bg-white dark:bg-slate-900 rounded-xl shadow-executive-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="max-h-60 overflow-y-auto py-1">
             {options.length === 0 ? (
               <div className="px-3.5 py-2.5 text-xs text-slate-400">
-                Nenhuma categoria disponível
+                {t('expenses.emptyTitle')}
               </div>
             ) : (
               options.map((option) => {
@@ -87,8 +93,8 @@ const CustomSelect: React.FC<Props> = ({
                     key={option.id}
                     className={`w-full px-3.5 py-2.5 text-left text-sm flex items-center justify-between transition-colors ${
                       isSelected
-                        ? 'bg-slate-100 text-slate-900 font-semibold'
-                        : 'text-slate-700 hover:bg-slate-50 font-normal'
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/70 font-normal'
                     }`}
                     onClick={() => {
                       onChange(option.id);
@@ -101,11 +107,11 @@ const CustomSelect: React.FC<Props> = ({
                       >
                         {React.createElement(meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                       </span>
-                      <span className="truncate">{meta.name}</span>
+                      <span className="truncate">{translateCategoryName(meta.name)}</span>
                     </span>
                     {isSelected &&
                       React.createElement(FaCheck as unknown as React.ComponentType<{ className?: string }>, {
-                        className: 'text-xs text-slate-900 flex-shrink-0 ml-2',
+                        className: 'text-xs text-slate-900 dark:text-emerald-400 flex-shrink-0 ml-2',
                       })}
                   </button>
                 );
@@ -115,7 +121,7 @@ const CustomSelect: React.FC<Props> = ({
         </div>
       )}
 
-      {error && <p className="mt-1.5 text-xs text-rose-600 font-medium">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">{error}</p>}
     </div>
   );
 };

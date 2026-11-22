@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FaEye,
   FaEyeSlash,
@@ -26,18 +27,16 @@ import GoogleCompleteProfileModal, {
   GooglePendingProfile,
 } from '../components/auth/GoogleCompleteProfileModal';
 import InstallAppBanner from '../components/InstallAppBanner';
+import ThemeAndLangControls from '../components/ThemeAndLangControls';
 import { extractApiErrorMessage, getApiErrorCode } from '../utils/errorHandler';
 
-const schema = yup
-  .object({
-    email: yup.string().email('E-mail inválido').required('Campo obrigatório'),
-    password: yup.string().min(6, 'Mínimo 6 caracteres').required('Campo obrigatório'),
-  })
-  .required();
-
-type FormData = yup.InferType<typeof schema>;
+interface LoginFormData {
+  email: string;
+  password: string;
+}
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -47,15 +46,30 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const schema = useMemo(
+    () =>
+      yup
+        .object({
+          email: yup
+            .string()
+            .email(t('auth.validation.emailInvalid'))
+            .required(t('auth.validation.required')),
+          password: yup
+            .string()
+            .min(6, t('auth.validation.passwordMin'))
+            .required(t('auth.validation.required')),
+        })
+        .required(),
+    [t],
+  );
+
   useEffect(() => {
     if (searchParams.get('reactivated') === '1') {
-      toast.success(
-        'Nova senha definida! Faça login agora com seu e-mail e nova senha para reativar sua conta.',
-      );
+      toast.success(t('auth.reactivatedQueryToast'));
     } else if (searchParams.get('passwordReset') === '1') {
-      toast.success('Senha redefinida pelo Firebase! Faça login com sua nova senha.');
+      toast.success(t('auth.passwordResetQueryToast'));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   useEffect(() => {
     let active = true;
@@ -80,8 +94,8 @@ const Login: React.FC = () => {
         login(access_token, user);
         toast.success(
           reactivated
-            ? 'Conta reativada com sucesso! Bem-vindo de volta.'
-            : 'Acesso autorizado via Google.',
+            ? t('auth.accountReactivatedSuccess')
+            : t('auth.loginGoogleSuccess'),
         );
         navigate('/dashboard', { replace: true });
       } catch (error: unknown) {
@@ -92,7 +106,7 @@ const Login: React.FC = () => {
           return;
         }
         await signOutFirebase();
-        toast.error(extractApiErrorMessage(error, 'Erro ao autenticar com Google'));
+        toast.error(extractApiErrorMessage(error, t('auth.googleGenericError')));
       } finally {
         if (active) setGoogleLoading(false);
       }
@@ -100,17 +114,17 @@ const Login: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [login, navigate]);
+  }, [login, navigate, t]);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<LoginFormData>({
     resolver: yupResolver(schema),
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: LoginFormData) => {
     setDeactivatedEmail(null);
     try {
       setLoading(true);
@@ -123,8 +137,8 @@ const Login: React.FC = () => {
       login(access_token, user);
       toast.success(
         reactivated
-          ? 'Conta reativada com sucesso! Bem-vindo de volta.'
-          : 'Acesso autorizado.',
+          ? t('auth.accountReactivatedSuccess')
+          : t('auth.loginSuccess'),
       );
       navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
@@ -132,13 +146,11 @@ const Login: React.FC = () => {
       if (apiCode === 'ACCOUNT_DEACTIVATED') {
         await signOutFirebase();
         setDeactivatedEmail(data.email.trim().toLowerCase());
-        toast.warning(
-          'Sua conta está desativada. Reative pelo e-mail de redefinição de senha.',
-        );
+        toast.warning(t('auth.deactivatedEmailSent'));
         return;
       }
 
-      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao realizar login');
+      const firebaseMsg = translateFirebaseAuthError(error, t('auth.loginGenericError'));
       if (firebaseMsg === '') return;
       if (firebaseMsg) {
         toast.error(firebaseMsg);
@@ -146,7 +158,7 @@ const Login: React.FC = () => {
       }
 
       await signOutFirebase();
-      toast.error(extractApiErrorMessage(error, 'Erro ao realizar login'));
+      toast.error(extractApiErrorMessage(error, t('auth.loginGenericError')));
     } finally {
       setLoading(false);
     }
@@ -178,8 +190,8 @@ const Login: React.FC = () => {
       login(access_token, user);
       toast.success(
         reactivated
-          ? 'Conta reativada com sucesso! Bem-vindo de volta.'
-          : 'Acesso autorizado via Google.',
+          ? t('auth.accountReactivatedSuccess')
+          : t('auth.loginGoogleSuccess'),
       );
       navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
@@ -187,13 +199,11 @@ const Login: React.FC = () => {
       if (apiCode === 'ACCOUNT_DEACTIVATED') {
         await signOutFirebase();
         setDeactivatedEmail(googleEmail);
-        toast.warning(
-          'Sua conta está desativada. Solicite o e-mail de reativação para voltar a acessar.',
-        );
+        toast.warning(t('auth.deactivatedBannerTitle'));
         return;
       }
 
-      const firebaseMsg = translateFirebaseAuthError(error, 'Erro ao entrar com Google');
+      const firebaseMsg = translateFirebaseAuthError(error, t('auth.googleGenericError'));
       if (firebaseMsg === '') return;
       if (firebaseMsg) {
         toast.error(firebaseMsg);
@@ -201,14 +211,14 @@ const Login: React.FC = () => {
       }
 
       await signOutFirebase();
-      toast.error(extractApiErrorMessage(error, 'Erro ao entrar com Google'));
+      toast.error(extractApiErrorMessage(error, t('auth.googleGenericError')));
     } finally {
       setGoogleLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-slate-50 flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row transition-colors duration-300">
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -222,23 +232,22 @@ const Login: React.FC = () => {
 
         <div className="relative z-10 flex items-center gap-3">
           <img
-            src="/logo192.png?v=4"
-            alt="Finanças"
+            src="/logo192.png?v=5"
+            alt={t('common.appName')}
             className="w-10 h-10 rounded-xl shadow-sm object-cover"
           />
           <div>
-            <p className="text-sm font-semibold tracking-tight text-white">Finanças</p>
-            <p className="text-[11px] text-slate-400">Executive Wealth Suite</p>
+            <p className="text-sm font-semibold tracking-tight text-white">{t('common.appName')}</p>
+            <p className="text-[11px] text-slate-400">{t('common.suiteName')}</p>
           </div>
         </div>
 
         <div className="relative z-10 max-w-md space-y-6">
           <h1 className="text-3xl font-semibold tracking-tight leading-tight text-white">
-            Clareza executiva sobre seu patrimônio, salários e compromissos.
+            {t('auth.heroTitle')}
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Acompanhe fluxo de caixa, múltiplos salários ou adiantamentos quinzenais, despesas
-            parceladas e sua reserva de emergência em um único painel.
+            {t('auth.heroSubtitle')}
           </p>
 
           <div className="space-y-3 pt-2">
@@ -246,61 +255,65 @@ const Login: React.FC = () => {
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                 {React.createElement(FaChartLine as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              Projeção mensal e distribuição de gastos em tempo real
+              {t('auth.heroBullet1')}
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-300">
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                 {React.createElement(FaLayerGroup as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              Suporte a múltiplos salários, adiantamento quinzenal e parcelas
+              {t('auth.heroBullet2')}
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-300">
               <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
                 {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              Autenticação Firebase + CPF único validado no banco de dados
+              {t('auth.heroBullet3')}
             </div>
           </div>
         </div>
 
         <p className="relative z-10 text-xs text-slate-500">
-          &copy; {new Date().getFullYear()} Controle Financeiro. Todos os direitos reservados.
+          &copy; {new Date().getFullYear()} {t('auth.heroCopyright')}
         </p>
       </div>
 
-      <div className="w-full min-w-0 flex-1 flex flex-col justify-center items-center px-5 py-8 sm:px-10 lg:px-16">
+      <div className="w-full min-w-0 flex-1 flex flex-col justify-center items-center px-5 py-8 sm:px-10 lg:px-16 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         <div className="mx-auto w-full max-w-md min-w-0">
-          <div className="lg:hidden flex items-center gap-2.5 mb-6">
-            <img
-              src="/logo192.png?v=4"
-              alt="Finanças"
-              className="w-9 h-9 rounded-xl flex-shrink-0 object-cover shadow-sm"
-            />
-            <span className="text-base font-semibold text-slate-900 truncate">
-              Finanças
-            </span>
+          <div className="flex items-center justify-between gap-2 mb-5">
+            <div className="lg:hidden flex items-center gap-2.5 min-w-0">
+              <img
+                src="/logo192.png?v=5"
+                alt={t('common.appName')}
+                className="w-9 h-9 rounded-xl flex-shrink-0 object-cover shadow-sm"
+              />
+              <span className="text-base font-semibold text-slate-900 dark:text-white truncate">
+                {t('common.appName')}
+              </span>
+            </div>
+            <div className="ml-auto">
+              <ThemeAndLangControls />
+            </div>
           </div>
 
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
-              Acessar painel
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">
+              {t('auth.loginTitle')}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">
-              Entre com sua conta Gmail ou e-mail e senha cadastrados.
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+              {t('auth.loginSubtitle')}
             </p>
           </div>
 
           <div className="exec-card p-5 sm:p-8 w-full">
             {deactivatedEmail && (
-              <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+              <div className="mb-5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 p-4 flex items-start gap-3">
                 {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
-                  className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+                  className: 'text-amber-600 dark:text-amber-400 text-sm mt-0.5 flex-shrink-0',
                 })}
-                <div className="text-xs text-amber-900 leading-relaxed">
-                  <p className="font-semibold">Sua conta está desativada</p>
+                <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                  <p className="font-semibold">{t('auth.deactivatedBannerTitle')}</p>
                   <p className="mt-0.5">
-                    Para reativar, enviaremos um e-mail oficial do Firebase para você definir uma
-                    nova senha e liberar o acesso.
+                    {t('auth.deactivatedBannerBody', { email: deactivatedEmail })}
                   </p>
                   <button
                     type="button"
@@ -311,7 +324,7 @@ const Login: React.FC = () => {
                     }
                     className="mt-2 inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
                   >
-                    Enviar e-mail de reativação
+                    {t('auth.deactivatedButtonSend')}
                   </button>
                 </div>
               </div>
@@ -320,16 +333,16 @@ const Login: React.FC = () => {
             <GoogleSignInButton
               onClick={handleGoogleLogin}
               loading={googleLoading}
-              label="Entrar com Google (Gmail)"
+              label={t('auth.googleContinue')}
             />
 
             <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-3 bg-white text-slate-400 font-medium">
-                  ou acesse com e-mail e senha
+                <span className="px-3 bg-white dark:bg-slate-900 text-slate-400 font-medium transition-colors duration-300">
+                  {t('auth.orEmailContinue')}
                 </span>
               </div>
             </div>
@@ -337,7 +350,7 @@ const Login: React.FC = () => {
             <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
               <div>
                 <label htmlFor="email" className="exec-label">
-                  E-mail
+                  {t('auth.emailLabel')}
                 </label>
                 <input
                   id="email"
@@ -345,23 +358,25 @@ const Login: React.FC = () => {
                   autoComplete="email"
                   {...register('email')}
                   className={`exec-input ${errors.email ? 'exec-input-error' : ''}`}
-                  placeholder="nome@empresa.com"
+                  placeholder={t('auth.emailPlaceholder')}
                 />
                 {errors.email && (
-                  <p className="mt-1.5 text-xs text-rose-600 font-medium">{errors.email.message}</p>
+                  <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
 
               <div>
                 <div className="flex items-center justify-between">
                   <label htmlFor="password" className="exec-label">
-                    Senha
+                    {t('auth.passwordLabel')}
                   </label>
                   <Link
                     to="/forgot-password"
-                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 hover:underline underline-offset-4 mb-1.5"
+                    className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:underline underline-offset-4 mb-1.5"
                   >
-                    Esqueci senha / Reativar conta
+                    {t('auth.forgotPasswordLink')}
                   </Link>
                 </div>
                 <div className="relative">
@@ -375,7 +390,7 @@ const Login: React.FC = () => {
                   />
                   <button
                     type="button"
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {React.createElement((showPassword ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>, {
@@ -384,7 +399,7 @@ const Login: React.FC = () => {
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="mt-1.5 text-xs text-rose-600 font-medium">
+                  <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400 font-medium">
                     {errors.password.message}
                   </p>
                 )}
@@ -395,18 +410,18 @@ const Login: React.FC = () => {
                 disabled={loading || googleLoading}
                 className="exec-btn-primary w-full py-3 mt-2"
               >
-                {loading ? 'Autenticando...' : 'Entrar'}
+                {loading ? t('auth.signingIn') : t('auth.signInButton')}
               </button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-slate-100 text-center">
-              <p className="text-xs text-slate-500">
-                Ainda não possui conta?{' '}
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('auth.noAccountPrompt')}{' '}
                 <Link
                   to="/register"
-                  className="font-semibold text-slate-900 hover:underline underline-offset-4"
+                  className="font-semibold text-slate-900 dark:text-emerald-400 hover:underline underline-offset-4"
                 >
-                  Criar acesso
+                  {t('auth.createFreeAccount')}
                 </Link>
               </p>
             </div>

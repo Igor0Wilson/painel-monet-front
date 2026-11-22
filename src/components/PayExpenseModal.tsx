@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { IconType } from 'react-icons';
 import {
   FaTimes,
@@ -16,6 +17,7 @@ import { toast } from 'react-toastify';
 import type { ExpenseItem } from '../types/finance';
 import { isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
+import { formatCurrency, formatDateBr } from '../utils/formatters';
 
 export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
@@ -43,6 +45,7 @@ const PayExpenseModal: React.FC<Props> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [installments, setInstallments] = useState<string>('1');
   const [firstInstallmentDate, setFirstInstallmentDate] = useState<string>(getNextMonthIso());
@@ -69,16 +72,6 @@ const PayExpenseModal: React.FC<Props> = ({
   const validInstallments = !isNaN(parsedInstallments) && parsedInstallments >= 1 ? parsedInstallments : 1;
   const perInstallment = numericValue / validInstallments;
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
-  const formatDateBr = (dateStr: string) => {
-    if (!dateStr) return '-';
-    const clean = String(dateStr).split('T')[0];
-    const [y, m, d] = clean.split('-');
-    return `${d}/${m}/${y}`;
-  };
-
   const showFoodVoucherOptions = targetExpenses.every((item) =>
     isFoodCategory(item.accountType?.name, item.name),
   );
@@ -89,47 +82,47 @@ const PayExpenseModal: React.FC<Props> = ({
     subtitle: string;
     icon: IconType;
   }[] = [
-      {
-        id: 'pix',
-        label: 'Pix',
-        subtitle: 'Débito imediato',
-        icon: FaQrcode,
-      },
-      {
-        id: 'debito',
-        label: 'Débito',
-        subtitle: 'Saldo em conta',
-        icon: FaUniversity,
-      },
-      {
-        id: 'dinheiro',
-        label: 'Dinheiro',
-        subtitle: 'Pagamento em espécie',
-        icon: FaMoneyBillWave,
-      },
-      {
-        id: 'credito',
-        label: 'Crédito',
-        subtitle: 'Gerar fatura/parcelas',
-        icon: FaCreditCard,
-      },
-      ...(showFoodVoucherOptions
-        ? [
-            {
-              id: 'va' as PaymentMethod,
-              label: 'VA (Vale Alimentação)',
-              subtitle: 'Desconta do saldo VA/VR',
-              icon: FaUtensils,
-            },
-            {
-              id: 'vr' as PaymentMethod,
-              label: 'VR (Vale Refeição)',
-              subtitle: 'Desconta do saldo VA/VR',
-              icon: FaHamburger,
-            },
-          ]
-        : []),
-    ];
+    {
+      id: 'pix',
+      label: t('paymentMethods.pix'),
+      subtitle: 'Pix',
+      icon: FaQrcode,
+    },
+    {
+      id: 'debito',
+      label: t('paymentMethods.debito'),
+      subtitle: t('paymentMethods.debitoFull'),
+      icon: FaUniversity,
+    },
+    {
+      id: 'dinheiro',
+      label: t('paymentMethods.dinheiro'),
+      subtitle: t('paymentMethods.dinheiro'),
+      icon: FaMoneyBillWave,
+    },
+    {
+      id: 'credito',
+      label: t('paymentMethods.credito'),
+      subtitle: t('paymentMethods.creditoFull'),
+      icon: FaCreditCard,
+    },
+    ...(showFoodVoucherOptions
+      ? [
+          {
+            id: 'va' as PaymentMethod,
+            label: t('paymentMethods.vaFull'),
+            subtitle: t('modals.payExpense.vrAvailableHint'),
+            icon: FaUtensils,
+          },
+          {
+            id: 'vr' as PaymentMethod,
+            label: t('paymentMethods.vrFull'),
+            subtitle: t('modals.payExpense.vrAvailableHint'),
+            icon: FaHamburger,
+          },
+        ]
+      : []),
+  ];
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,11 +130,11 @@ const PayExpenseModal: React.FC<Props> = ({
 
     if (paymentMethod === 'credito') {
       if (isNaN(parsedInstallments) || parsedInstallments < 1 || parsedInstallments > 60) {
-        setErrorMsg('Informe um número de parcelas entre 1 e 60.');
+        setErrorMsg(t('modals.payExpense.installmentsLabel'));
         return;
       }
       if (!firstInstallmentDate) {
-        setErrorMsg('Informe a data de vencimento da primeira parcela.');
+        setErrorMsg(t('modals.payExpense.firstDueLabel'));
         return;
       }
     }
@@ -160,37 +153,23 @@ const PayExpenseModal: React.FC<Props> = ({
 
       if (isBatch) {
         await api.post('/expenses/pay-batch', {
-          expenseIds: targetExpenses.map((e) => e.id),
+          expenseIds: targetExpenses.map((item) => item.id),
           ...payload,
         });
       } else {
         await api.patch(`/expenses/${targetExpenses[0].id}/pay`, payload);
       }
 
-      if (paymentMethod === 'credito') {
-        toast.success(
-          isBatch
-            ? `${targetExpenses.length} dívidas liquidadas no cartão de crédito (${parsedInstallments}x)!`
-            : parsedInstallments > 1
-              ? `Liquidado no crédito! ${parsedInstallments} parcelas geradas no Cartão de Crédito.`
-              : 'Liquidado no crédito! Fatura 1/1 gerada no Cartão de Crédito.',
-        );
-      } else if (paymentMethod === 'va' || paymentMethod === 'vr') {
-        toast.success(
-          `Pagamento registrado no ${paymentMethod.toUpperCase()} e descontado do seu Vale Alimentação/Refeição!`,
-        );
-      } else {
-        toast.success(
-          isBatch
-            ? `${targetExpenses.length} dívidas liquidadas e debitadas do saldo disponível!`
-            : 'Pagamento registrado e debitado do saldo disponível!',
-        );
-      }
+      toast.success(
+        isBatch
+          ? t('modals.payExpense.paidBatchToast', { count: targetExpenses.length })
+          : t('modals.payExpense.paidSingleToast'),
+      );
 
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao registrar pagamento'));
+      toast.error(extractApiErrorMessage(error, t('modals.expense.validationError')));
     } finally {
       setLoading(false);
     }
@@ -200,28 +179,28 @@ const PayExpenseModal: React.FC<Props> = ({
     <div className="exec-modal-overlay z-50">
       <div className="exec-modal-container max-w-lg">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center">
               {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-base' })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                {isBatch ? 'Pagar Dívidas em Lote' : 'Liquidar Despesa'}
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                {isBatch ? t('modals.payExpense.batchTitle') : t('modals.payExpense.singleTitle')}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isBatch
-                  ? `Selecione a forma de pagamento para quitar ${targetExpenses.length} ${
-                      targetExpenses.length === 1 ? 'dívida selecionada' : 'dívidas selecionadas'
-                    }`
-                  : 'Selecione como este pagamento foi realizado'}
+                  ? targetExpenses.length === 1
+                    ? t('modals.payExpense.batchSubtitleSingle')
+                    : t('modals.payExpense.batchSubtitle', { count: targetExpenses.length })
+                  : t('modals.payExpense.singleSubtitle')}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors p-2 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-2 rounded-lg"
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
@@ -231,31 +210,32 @@ const PayExpenseModal: React.FC<Props> = ({
           {/* Expense Summary */}
           {isBatch ? (
             <div className="space-y-2.5">
-              <div className="rounded-xl bg-slate-950 text-white px-4 py-3.5 flex items-center justify-between gap-4">
+              <div className="rounded-xl bg-slate-950 dark:bg-slate-950/90 border border-slate-800 text-white px-4 py-3.5 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] text-slate-400 uppercase tracking-wider">
-                    Total selecionado ({targetExpenses.length}{' '}
-                    {targetExpenses.length === 1 ? 'item' : 'itens'})
+                    {t('modals.payExpense.batchTotalLabel', { count: targetExpenses.length })}
                   </p>
                   <p className="text-xl font-semibold tabular-nums mt-0.5">
                     {formatCurrency(numericValue)}
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-emerald-300">
-                  Lote
+                  {t('modals.payExpense.batchBadge')}
                 </span>
               </div>
-              <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+              <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
                 {targetExpenses.map((item) => (
                   <div
                     key={item.id}
-                    className="px-3.5 py-2 flex items-center justify-between gap-2 text-xs bg-white"
+                    className="px-3.5 py-2 flex items-center justify-between gap-2 text-xs bg-white dark:bg-slate-900"
                   >
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{item.name}</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                        {item.name}
+                      </p>
                       <p className="text-[11px] text-slate-400">{formatDateBr(item.dueDate)}</p>
                     </div>
-                    <span className="font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                    <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
                       {formatCurrency(Number(item.value))}
                     </span>
                   </div>
@@ -263,16 +243,20 @@ const PayExpenseModal: React.FC<Props> = ({
               </div>
             </div>
           ) : (
-            <div className="rounded-xl bg-slate-50 border border-slate-200/80 px-4 py-3.5 flex items-center justify-between gap-4">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 px-4 py-3.5 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs text-slate-500">Despesa selecionada</p>
-                <p className="text-sm font-semibold text-slate-900 truncate">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('modals.payExpense.selectedExpenseLabel')}
+                </p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                   {targetExpenses[0].name}
                 </p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-xs text-slate-500">Valor</p>
-                <p className="text-base font-semibold text-slate-900 tabular-nums">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('modals.payExpense.amountToPay')}
+                </p>
+                <p className="text-base font-semibold text-slate-900 dark:text-white tabular-nums">
                   {formatCurrency(numericValue)}
                 </p>
               </div>
@@ -281,7 +265,7 @@ const PayExpenseModal: React.FC<Props> = ({
 
           {/* Payment Method Grid */}
           <div>
-            <label className="exec-label">Forma de pagamento</label>
+            <label className="exec-label">{t('modals.payExpense.methodLabel')}</label>
             <div className="grid grid-cols-2 gap-2.5">
               {methods.map((m) => {
                 const isSelected = paymentMethod === m.id;
@@ -293,24 +277,27 @@ const PayExpenseModal: React.FC<Props> = ({
                       setPaymentMethod(m.id);
                       setErrorMsg('');
                     }}
-                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${isSelected
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
+                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 ${
+                      isSelected
+                        ? 'border-slate-900 dark:border-emerald-500 bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/70'
+                    }`}
                   >
                     <span
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isSelected
-                        ? 'bg-white/15 text-white'
-                        : 'bg-slate-100 text-slate-600'
-                        }`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isSelected
+                          ? 'bg-white/15 text-white dark:text-slate-950'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}
                     >
                       {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold leading-tight">{m.label}</p>
                       <p
-                        className={`text-[11px] mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'
-                          }`}
+                        className={`text-[11px] mt-0.5 ${
+                          isSelected ? 'text-slate-300 dark:text-slate-800' : 'text-slate-400'
+                        }`}
                       >
                         {m.subtitle}
                       </p>
@@ -323,28 +310,29 @@ const PayExpenseModal: React.FC<Props> = ({
 
           {/* Credit Card Details */}
           {paymentMethod === 'credito' ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-4 space-y-4">
               <div className="flex items-center gap-2">
                 {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, {
-                  className: 'text-xs text-slate-700',
+                  className: 'text-xs text-slate-700 dark:text-slate-300',
                 })}
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                  Parcelamento no Cartão de Crédito
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                  {t('paymentMethods.creditoFull')}
                 </h4>
               </div>
 
               <div>
-                <label className="exec-label">Em quantas vezes foi?</label>
+                <label className="exec-label">{t('modals.payExpense.installmentsLabel')}</label>
                 <div className="flex flex-wrap gap-1.5 mb-2.5">
                   {QUICK_INSTALLMENTS.map((qty) => (
                     <button
                       key={qty}
                       type="button"
                       onClick={() => setInstallments(String(qty))}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${parsedInstallments === qty
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                        }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        parsedInstallments === qty
+                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                      }`}
                     >
                       {qty}x
                     </button>
@@ -357,7 +345,7 @@ const PayExpenseModal: React.FC<Props> = ({
                   value={installments}
                   onChange={(e) => setInstallments(e.target.value)}
                   className="exec-input tabular-nums font-semibold"
-                  placeholder="Número de parcelas (ex: 3)"
+                  placeholder="Ex: 3"
                 />
               </div>
 
@@ -366,7 +354,7 @@ const PayExpenseModal: React.FC<Props> = ({
                   {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                     className: 'text-[10px] text-slate-400',
                   })}
-                  Data de vencimento da 1ª parcela
+                  {t('modals.payExpense.firstDueLabel')}
                 </label>
                 <input
                   type="date"
@@ -377,52 +365,35 @@ const PayExpenseModal: React.FC<Props> = ({
               </div>
 
               {/* Preview Box */}
-              <div className="rounded-xl bg-white border border-slate-200 px-4 py-3 space-y-1">
-                <p className="text-xs font-semibold text-slate-900">
-                  Nova conta no Cartão de Crédito:{' '}
-                  <span className="tabular-nums text-emerald-700">
-                    {validInstallments}x de {formatCurrency(perInstallment)}
+              <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-1">
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                  {t('paymentMethods.creditoFull')}:{' '}
+                  <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {validInstallments}x {formatCurrency(perInstallment)}
                   </span>
                 </p>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  1º vencimento em <strong>{formatDateBr(firstInstallmentDate)}</strong>. O valor
-                  original será marcado como <strong>Pago no Crédito</strong> (sem debitar o saldo
-                  agora) e cada parcela debitará o saldo quando você liquidá-la.
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {formatDateBr(firstInstallmentDate)}
                 </p>
               </div>
             </div>
-          ) : paymentMethod === 'va' || paymentMethod === 'vr' ? (
-            <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-4 py-3">
-              <p className="text-xs text-amber-900 leading-relaxed">
-                O valor de <strong className="tabular-nums">{formatCurrency(numericValue)}</strong>{' '}
-                será descontado diretamente do seu saldo de{' '}
-                <strong>Vale Alimentação / Refeição ({paymentMethod.toUpperCase()})</strong>.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/70 px-4 py-3">
-              <p className="text-xs text-emerald-900 leading-relaxed">
-                O valor de <strong className="tabular-nums">{formatCurrency(numericValue)}</strong>{' '}
-                será debitado imediatamente do seu <strong>Patrimônio Disponível</strong>.
-              </p>
-            </div>
-          )}
+          ) : null}
 
           {errorMsg && (
-            <p className="text-xs text-rose-600 font-medium">{errorMsg}</p>
+            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{errorMsg}</p>
           )}
 
           {/* Footer */}
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="exec-btn-secondary">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button type="submit" disabled={loading} className="exec-btn-primary">
               {loading
-                ? 'Processando...'
+                ? t('common.processing')
                 : paymentMethod === 'credito'
-                  ? `Confirmar Crédito (${validInstallments}x)`
-                  : 'Confirmar Pagamento'}
+                  ? t('modals.payExpense.confirmCreditBtn', { count: validInstallments })
+                  : t('modals.payExpense.confirmSingleBtn')}
             </button>
           </div>
         </form>

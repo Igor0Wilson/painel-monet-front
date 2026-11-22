@@ -1,5 +1,5 @@
-const CACHE_NAME = 'financas-shell-v5';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/favicon.png', '/logo192.png', '/logo512.png'];
+const CACHE_NAME = 'financas-shell-v6';
+const APP_SHELL = ['/', '/index.html', '/manifest.json?v=5', '/favicon.png?v=5', '/logo192.png?v=5', '/logo512.png?v=5'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

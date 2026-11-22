@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FaArrowLeft,
   FaCheckCircle,
@@ -10,6 +11,7 @@ import {
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../api';
+import ThemeAndLangControls from '../components/ThemeAndLangControls';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import { formatCpfInput, onlyDigits } from '../utils/formatters';
 
@@ -19,6 +21,7 @@ interface ForgotPasswordLocationState {
 }
 
 const ForgotPassword: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const state = (location.state as ForgotPasswordLocationState | null) || {};
 
@@ -40,7 +43,7 @@ const ForgotPassword: React.FC = () => {
     e.preventDefault();
     const trimmed = identifier.trim();
     if (!trimmed) {
-      toast.error('Informe seu e-mail ou CPF cadastrado.');
+      toast.error(t('auth.validation.required'));
       return;
     }
 
@@ -60,17 +63,9 @@ const ForgotPassword: React.FC = () => {
         setIsDeactivated(response.data.isDeactivated);
       }
       setSent(true);
-      toast.success(
-        response.data?.message ||
-          'E-mail oficial do Firebase enviado! Verifique sua caixa de entrada.',
-      );
+      toast.success(response.data?.message || t('auth.forgot.successToast'));
     } catch (error: unknown) {
-      toast.error(
-        extractApiErrorMessage(
-          error,
-          'Não foi possível enviar o e-mail de recuperação/reativação.',
-        ),
-      );
+      toast.error(extractApiErrorMessage(error, t('auth.forgot.errorToast')));
     } finally {
       setLoading(false);
     }
@@ -79,7 +74,7 @@ const ForgotPassword: React.FC = () => {
   const isReactivateFlow = state.reason === 'reactivate' || isDeactivated;
 
   return (
-    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-slate-50 flex flex-col lg:flex-row">
+    <div className="min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden bg-slate-50 dark:bg-slate-950 flex flex-col lg:flex-row transition-colors duration-300">
       <div className="hidden lg:flex lg:w-[46%] bg-slate-950 text-white p-12 flex-col justify-between relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -93,96 +88,87 @@ const ForgotPassword: React.FC = () => {
 
         <div className="relative z-10 flex items-center gap-3">
           <img
-            src="/logo192.png?v=4"
-            alt="Finanças"
+            src="/logo192.png?v=5"
+            alt={t('common.appName')}
             className="w-10 h-10 rounded-xl shadow-sm object-cover"
           />
           <div>
             <p className="text-sm font-semibold tracking-tight text-white">
-              Finanças
+              {t('common.appName')}
             </p>
-            <p className="text-[11px] text-slate-400">Executive Wealth Suite</p>
+            <p className="text-[11px] text-slate-400">{t('common.suiteName')}</p>
           </div>
         </div>
 
         <div className="relative z-10 max-w-md space-y-5">
           <h1 className="text-3xl font-semibold tracking-tight leading-tight text-white">
-            {isReactivateFlow
-              ? 'Reative sua conta definindo uma nova senha pelo e-mail oficial do Firebase.'
-              : 'Recuperação segura de senha via e-mail oficial do Firebase.'}
+            {t('auth.forgot.title')}
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Como cada CPF é uma chave única protegida no banco, você pode informar seu
-            CPF ou e-mail e receber o link oficial do Google/Firebase para redefinir sua senha
-            e liberar o acesso.
+            {t('auth.forgot.subtitle')}
           </p>
           <div className="flex items-center gap-3 text-xs text-slate-300 pt-2">
             <span className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-emerald-400">
               {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
-            Disparo oficial Google Firebase com link seguro de uso único
+            {t('auth.heroBullet3')}
           </div>
         </div>
 
         <p className="relative z-10 text-xs text-slate-500">
-          &copy; {new Date().getFullYear()} Controle Financeiro. Todos os direitos reservados.
+          &copy; {new Date().getFullYear()} {t('auth.heroCopyright')}
         </p>
       </div>
 
       <div className="w-full min-w-0 flex-1 flex flex-col justify-center items-center px-5 py-8 sm:px-10 lg:px-16">
         <div className="mx-auto w-full max-w-md min-w-0">
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between gap-3">
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               {React.createElement(FaArrowLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-              Voltar para o login
+              {t('auth.forgot.backToLogin')}
             </Link>
+            <ThemeAndLangControls />
           </div>
 
           <div className="mb-6">
-            <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center mb-4">
+            <div className="w-11 h-11 rounded-2xl bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 flex items-center justify-center mb-4">
               {React.createElement((sent ? FaEnvelopeOpenText : FaKey) as unknown as React.ComponentType<{ className?: string }>, {
                 className: 'text-base',
               })}
             </div>
-            <h2 className="text-2xl font-semibold text-slate-900 tracking-tight">
-              {isReactivateFlow ? 'Reativar conta / Nova senha' : 'Recuperar senha'}
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">
+              {t('auth.forgot.title')}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
               {sent
-                ? 'Siga as instruções enviadas para o seu e-mail cadastrado.'
-                : 'Informe o CPF ou e-mail da sua conta para receber o link oficial do Firebase.'}
+                ? t('auth.forgot.sentSubtitle', { email: maskedEmail || identifier })
+                : t('auth.forgot.subtitle')}
             </p>
           </div>
 
           {state.reason === 'cpf_exists' && !sent && (
-            <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+            <div className="mb-5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-4 flex items-start gap-3">
               {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
-                className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+                className: 'text-amber-600 dark:text-amber-400 text-sm mt-0.5 flex-shrink-0',
               })}
-              <div className="text-xs text-amber-900 leading-relaxed">
-                <p className="font-semibold">CPF já cadastrado no sistema</p>
-                <p className="mt-0.5">
-                  Cada CPF é uma chave única e não pode ser duplicado. Solicite abaixo o e-mail
-                  do Firebase para redefinir a senha da sua conta existente.
-                </p>
+              <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                <p className="font-semibold">{t('auth.register.cpfExistsRedirect')}</p>
               </div>
             </div>
           )}
 
           {state.reason === 'reactivate' && !sent && (
-            <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+            <div className="mb-5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-4 flex items-start gap-3">
               {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, {
-                className: 'text-amber-600 text-sm mt-0.5 flex-shrink-0',
+                className: 'text-amber-600 dark:text-amber-400 text-sm mt-0.5 flex-shrink-0',
               })}
-              <div className="text-xs text-amber-900 leading-relaxed">
-                <p className="font-semibold">Reativação de conta desativada</p>
+              <div className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                <p className="font-semibold">{t('auth.deactivatedBannerTitle')}</p>
                 <p className="mt-0.5">
-                  Enviaremos um e-mail oficial do Firebase com o botão/link para definir sua
-                  nova senha. Assim que você salvar a nova senha e fizer login, sua conta será
-                  reativada automaticamente com todos os dados preservados.
+                  {t('auth.deactivatedBannerBody', { email: identifier || 'seu e-mail' })}
                 </p>
               </div>
             </div>
@@ -193,7 +179,7 @@ const ForgotPassword: React.FC = () => {
               <form className="space-y-5" onSubmit={handleSendFirebaseEmail}>
                 <div>
                   <label htmlFor="identifier" className="exec-label">
-                    CPF ou E-mail cadastrado
+                    {t('auth.emailLabel')} / CPF
                   </label>
                   <input
                     id="identifier"
@@ -202,7 +188,7 @@ const ForgotPassword: React.FC = () => {
                     value={identifier}
                     onChange={(e) => handleIdentifierChange(e.target.value)}
                     className="exec-input"
-                    placeholder="000.000.000-00 ou nome@gmail.com"
+                    placeholder={`000.000.000-00 ${t('common.or')} ${t('auth.emailPlaceholder')}`}
                   />
                 </div>
 
@@ -212,30 +198,22 @@ const ForgotPassword: React.FC = () => {
                   className="exec-btn-primary w-full py-3"
                 >
                   {loading
-                    ? 'Disparando e-mail...'
+                    ? t('auth.forgot.sending')
                     : isReactivateFlow
-                      ? 'Enviar e-mail de reativação'
-                      : 'Enviar e-mail de recuperação'}
+                      ? t('auth.deactivatedButtonSend')
+                      : t('auth.forgot.sendButton')}
                 </button>
               </form>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3 text-xs text-emerald-950">
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 p-4 flex items-start gap-3 text-xs text-emerald-950 dark:text-emerald-200">
                   {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
-                    className: 'text-emerald-600 text-base mt-0.5 flex-shrink-0',
+                    className: 'text-emerald-600 dark:text-emerald-400 text-base mt-0.5 flex-shrink-0',
                   })}
                   <div className="space-y-1.5 leading-relaxed">
-                    <p className="font-semibold">E-mail enviado pelo Firebase!</p>
-                    <p>
-                      {maskedEmail
-                        ? `Disparamos o link oficial para ${maskedEmail} (verifique também a caixa de Spam/Promoções).`
-                        : 'Se a conta existir, disparamos o link oficial para o e-mail vinculado.'}
-                    </p>
-                    <p>
-                      {isReactivateFlow
-                        ? '1. Abra o e-mail e clique no link para definir sua nova senha.\n2. Volte para a tela de login e entre com a nova senha — sua conta será reativada automaticamente!'
-                        : 'Abra o e-mail, clique no link para definir sua nova senha e depois volte para fazer login.'}
-                    </p>
+                    <p className="font-semibold">{t('auth.forgot.sentTitle')}</p>
+                    <p>{t('auth.forgot.sentSubtitle', { email: maskedEmail || identifier })}</p>
+                    <p>{t('auth.forgot.sentWarning')}</p>
                   </div>
                 </div>
 
@@ -243,15 +221,15 @@ const ForgotPassword: React.FC = () => {
                   to="/login"
                   className="exec-btn-primary w-full py-3 inline-flex items-center justify-center"
                 >
-                  Ir para a tela de login
+                  {t('auth.action.goToLogin')}
                 </Link>
 
                 <button
                   type="button"
                   onClick={() => setSent(false)}
-                  className="w-full text-xs font-semibold text-slate-500 hover:text-slate-800"
+                  className="w-full text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                 >
-                  Enviar novamente ou informar outro CPF/e-mail
+                  {t('auth.forgot.resendButton')}
                 </button>
               </div>
             )}

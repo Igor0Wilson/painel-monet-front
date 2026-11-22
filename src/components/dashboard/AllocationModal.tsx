@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaCalendarAlt, FaSeedling, FaShieldAlt, FaTimes, FaUtensils } from 'react-icons/fa';
 import {
   formatCurrency,
@@ -58,6 +59,8 @@ const AllocationModal: React.FC<Props> = ({
   onClose,
   onSubmit,
 }) => {
+  const { t } = useTranslation();
+
   if (!isOpen) return null;
 
   const isEmergency = variant === 'emergency';
@@ -74,25 +77,25 @@ const AllocationModal: React.FC<Props> = ({
   const headerBadgeClass = isFood
     ? 'bg-amber-500 text-slate-950'
     : isEmergency
-      ? 'bg-slate-900 text-emerald-400'
+      ? 'bg-slate-900 dark:bg-slate-100 text-emerald-400 dark:text-emerald-600'
       : 'bg-emerald-600 text-white';
 
   const titleText = isFood
-    ? 'Vale Alimentação / Refeição (VA / VR)'
+    ? t('modals.allocation.foodTitle')
     : isEmergency
-      ? 'Reserva de Emergência'
-      : 'Investimentos';
+      ? t('modals.allocation.emergencyTitle')
+      : t('modals.allocation.investmentTitle');
 
   const subtitleText = isFood
-    ? 'Defina o valor total do seu benefício VA/VR (individual e somado na família)'
+    ? t('modals.allocation.foodSubtitle')
     : isEmergency
-      ? 'Registre reserva já existente ou separe/resgate do saldo do mês'
-      : 'Registre investimentos já existentes ou separe/resgate do saldo do mês';
+      ? t('modals.allocation.emergencySubtitle')
+      : t('modals.allocation.investmentSubtitle');
 
   return (
     <div className="exec-modal-overlay z-[60]">
       <div className="exec-modal-container max-w-md">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center ${headerBadgeClass}`}
@@ -102,14 +105,17 @@ const AllocationModal: React.FC<Props> = ({
               })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">{titleText}</h3>
-              <p className="text-xs text-slate-500">{subtitleText}</p>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {titleText}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{subtitleText}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label={t('common.close')}
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
@@ -118,48 +124,52 @@ const AllocationModal: React.FC<Props> = ({
         <form onSubmit={onSubmit} className="p-6 space-y-5">
           {!isFood && (
             <div className="space-y-2">
-              <label className="exec-label">Origem do registro</label>
+              <label className="exec-label">{t('modals.allocation.sourceLabel')}</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => onChangeSavingsFromBalance?.(false)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    !savingsFromBalance
-                      ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
+                  className={`p-3 rounded-xl border text-left transition-all ${!savingsFromBalance
+                    ? 'border-emerald-600 bg-emerald-50/70 dark:bg-emerald-950/50 text-emerald-950 dark:text-emerald-200 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
                 >
                   <p className="text-xs font-semibold">
-                    {isEmergency ? 'Reserva já existente' : 'Carteira já existente'}
+                    {isEmergency
+                      ? t('modals.allocation.existingReserve')
+                      : t('modals.allocation.existingPortfolio')}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Sem limite e sem descontar do saldo do mês
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {t('modals.allocation.unlimitedSub')}
                   </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => onChangeSavingsFromBalance?.(true)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    savingsFromBalance
-                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  <p className="text-xs font-semibold">Alocar / Resgatar do mês</p>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      savingsFromBalance ? 'text-slate-300' : 'text-slate-500'
+                  className={`p-3 rounded-xl border text-left transition-all ${savingsFromBalance
+                    ? 'border-slate-900 dark:border-slate-100 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
+                >
+                  <p className="text-xs font-semibold">
+                    {t('modals.allocation.monthlySourceTitle')}
+                  </p>
+                  <p
+                    className={`text-[11px] mt-0.5 ${savingsFromBalance
+                      ? 'text-slate-300 dark:text-slate-600'
+                      : 'text-slate-500 dark:text-slate-400'
+                      }`}
                   >
-                    Vinculado ao saldo disponível para gastar
+                    {t('modals.allocation.monthlySourceSub')}
                   </p>
                 </button>
               </div>
               {(allocatedSavings > 0 || externalSavings > 0) && (
-                <p className="text-[11px] text-slate-500 pt-0.5">
-                  Total atual: <strong>{formatCurrency(allocatedSavings + externalSavings)}</strong>{' '}
-                  (Já existente: {formatCurrency(externalSavings)} · Do mês:{' '}
-                  {formatCurrency(allocatedSavings)})
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                  {t('modals.allocation.currentTotalPrefix')}{' '}
+                  <strong>{formatCurrency(allocatedSavings + externalSavings)}</strong> (
+                  {t('modals.allocation.existingBreakdown')} {formatCurrency(externalSavings)} ·{' '}
+                  {t('modals.allocation.monthlyBreakdown')} {formatCurrency(allocatedSavings)})
                 </p>
               )}
             </div>
@@ -168,14 +178,14 @@ const AllocationModal: React.FC<Props> = ({
           <div>
             <label className="exec-label">
               {isFood
-                ? 'Valor total do seu Vale Alimentação / Refeição (R$)'
+                ? t('modals.allocation.foodAmountLabel')
                 : isEmergency
                   ? savingsFromBalance
-                    ? 'Valor na reserva alocado do mês (R$)'
-                    : 'Valor da reserva já existente (R$)'
+                    ? t('modals.allocation.emergencyMonthlyLabel')
+                    : t('modals.allocation.emergencyExistingLabel')
                   : savingsFromBalance
-                    ? 'Valor investido a partir do saldo do mês (R$)'
-                    : 'Valor da carteira já existente (R$)'}
+                    ? t('modals.allocation.investmentMonthlyLabel')
+                    : t('modals.allocation.investmentExistingLabel')}
             </label>
             <input
               autoFocus
@@ -191,9 +201,9 @@ const AllocationModal: React.FC<Props> = ({
                 <div>
                   <label className="exec-label flex items-center gap-1.5">
                     {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
-                      className: 'text-[10px] text-slate-400',
+                      className: 'text-[10px] text-slate-400 dark:text-slate-500',
                     })}
-                    Data em que o VA / VR vai cair
+                    {t('modals.allocation.foodDateLabel')}
                   </label>
                   <input
                     type="date"
@@ -213,92 +223,109 @@ const AllocationModal: React.FC<Props> = ({
                       className="sr-only"
                     />
                     <div
-                      className={`w-10 h-5 rounded-full transition-colors ${
-                        isRecurring ? 'bg-amber-500' : 'bg-slate-200'
-                      }`}
+                      className={`w-10 h-5 rounded-full transition-colors ${isRecurring ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'
+                        }`}
                     />
                     <div
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
-                        isRecurring ? 'translate-x-5' : ''
-                      }`}
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isRecurring ? 'translate-x-5' : ''
+                        }`}
                     />
                   </div>
-                  <span className="text-xs font-medium text-slate-700">
-                    Benefício fixo mensal (cai todo mês nesse dia)
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t('modals.allocation.foodRecurringLabel')}
                   </span>
                 </label>
 
                 <div
-                  className={`rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed ${
-                    isFutureDate
-                      ? 'bg-amber-50/80 border-amber-200 text-amber-900'
-                      : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                  }`}
+                  className={`rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed ${isFutureDate
+                    ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-200'
+                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200'
+                    }`}
                 >
                   {isFutureDate ? (
                     <>
-                      <strong>Agendado para {formatDateBr(creditDate)}:</strong> o valor ficará como{' '}
-                      <strong>A cair</strong> e só será somado ao saldo lá em cima quando chegar o dia{' '}
-                      <strong>{formatDateBr(creditDate)}</strong> (igual ao salário).
+                      <strong>
+                        {t('modals.allocation.foodScheduledFuture', {
+                          date: formatDateBr(creditDate),
+                        })}
+                      </strong>{' '}
+                      {t('modals.allocation.foodScheduledFutureBody1')}{' '}
+                      <strong>{t('modals.allocation.foodScheduledFuturePending')}</strong>{' '}
+                      {t('modals.allocation.foodScheduledFutureBody2', {
+                        date: formatDateBr(creditDate),
+                      })}
                     </>
                   ) : (
                     <>
-                      Como a data <strong>{formatDateBr(creditDate)}</strong> já chegou, o valor será
-                      contabilizado imediatamente no seu saldo de{' '}
-                      <strong>Vale Alimentação / Refeição</strong>
-                      {usedAmount > 0 ? ` (já utilizado: ${formatCurrency(usedAmount)})` : ''}.
+                      {t('modals.allocation.foodCreditedPrefix')}{' '}
+                      <strong>{formatDateBr(creditDate)}</strong>{' '}
+                      {t('modals.allocation.foodCreditedMiddle')}{' '}
+                      <strong>{t('modals.allocation.foodCreditedTitle')}</strong>
+                      {usedAmount > 0
+                        ? t('modals.allocation.foodAlreadyUsed', {
+                          amount: formatCurrency(usedAmount),
+                        })
+                        : ''}
+                      .
                     </>
                   )}
                 </div>
               </div>
             ) : !savingsFromBalance ? (
               <div className="space-y-2 mt-2">
-                <p className="text-[11px] text-emerald-700 bg-emerald-50/70 border border-emerald-200/80 rounded-lg px-3 py-2">
-                  Modo ilimitado: você pode registrar qualquer saldo guardado anteriormente sem
-                  afetar seu saldo disponível do mês.
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 rounded-lg px-3 py-2">
+                  {t('modals.allocation.unlimitedModeHint')}
                 </p>
                 {allocatedSavings > 0 && onReclassifyToExternal && (
                   <button
                     type="button"
                     disabled={loading}
                     onClick={onReclassifyToExternal}
-                    className="w-full text-left text-[11px] font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
+                    className="w-full text-left text-[11px] font-semibold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
                   >
-                    Mover {formatCurrency(allocatedSavings)} alocados do mês para cá (libera{' '}
-                    {formatCurrency(allocatedSavings)} no seu saldo disponível)
+                    {t('modals.allocation.reclassifyMonthlyToHere', {
+                      amount: formatCurrency(allocatedSavings),
+                    })}
                   </button>
                 )}
               </div>
             ) : (
               <div className="space-y-2 mt-2">
-                <div className="rounded-lg bg-slate-50 border border-slate-200/80 px-3 py-2 text-[11px] text-slate-600 space-y-1">
+                <div className="rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700 px-3 py-2 text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
                   <p>
-                    {isEmergency
-                      ? 'Máximo alocável com seu saldo:'
-                      : 'Máximo alocável com seu saldo:'}{' '}
-                    <span className="font-semibold text-slate-900 tabular-nums">
+                    {t('modals.allocation.maxAllocatable')}{' '}
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                       {formatCurrency(Math.max(0, maxLimit))}
                     </span>
                   </p>
                   <p>
-                    Saldo disponível após salvar:{' '}
+                    {t('modals.allocation.balanceAfterSave')}{' '}
                     <span
-                      className={`font-semibold tabular-nums ${
-                        projectedBalance >= 0 ? 'text-emerald-700' : 'text-rose-600'
-                      }`}
+                      className={`font-semibold tabular-nums ${projectedBalance >= 0
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                        }`}
                     >
                       {formatCurrency(projectedBalance)}
                     </span>
                     {allocationDelta < 0 && (
-                      <span className="text-emerald-700 font-semibold">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
                         {' '}
-                        (+{formatCurrency(Math.abs(allocationDelta))} liberado para gastar)
+                        (
+                        {t('modals.allocation.releasedToSpend', {
+                          amount: formatCurrency(Math.abs(allocationDelta)),
+                        })}
+                        )
                       </span>
                     )}
                     {allocationDelta > 0 && (
-                      <span className="text-slate-500">
+                      <span className="text-slate-500 dark:text-slate-400">
                         {' '}
-                        (-{formatCurrency(allocationDelta)} reservado)
+                        (
+                        {t('modals.allocation.reservedDelta', {
+                          amount: formatCurrency(allocationDelta),
+                        })}
+                        )
                       </span>
                     )}
                   </p>
@@ -309,20 +336,22 @@ const AllocationModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => onChangeValue('0')}
-                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-semibold text-slate-700 transition-colors"
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition-colors"
                     >
-                      Resgatar tudo para o saldo ({formatCurrency(allocatedSavings)})
+                      {t('modals.allocation.redeemAllBtn', {
+                        amount: formatCurrency(allocatedSavings),
+                      })}
                     </button>
                     {onReclassifyToExternal && (
                       <button
                         type="button"
                         disabled={loading}
                         onClick={onReclassifyToExternal}
-                        className="px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[11px] font-semibold text-emerald-800 transition-colors disabled:opacity-50"
+                        className="px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 transition-colors disabled:opacity-50"
                       >
                         {isInvestment
-                          ? 'Mover para carteira já existente'
-                          : 'Mover para reserva já existente'}
+                          ? t('modals.allocation.moveToExistingPortfolio')
+                          : t('modals.allocation.moveToExistingReserve')}
                       </button>
                     )}
                   </div>
@@ -331,9 +360,9 @@ const AllocationModal: React.FC<Props> = ({
             )}
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="exec-btn-secondary">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -347,12 +376,12 @@ const AllocationModal: React.FC<Props> = ({
               }
             >
               {loading
-                ? 'Salvando...'
+                ? t('common.saving')
                 : isFood
-                  ? 'Salvar VA / VR'
+                  ? t('modals.allocation.submitFood')
                   : isEmergency
-                    ? 'Confirmar valor'
-                    : 'Confirmar investimento'}
+                    ? t('modals.allocation.submitEmergency')
+                    : t('modals.allocation.submitInvestment')}
             </button>
           </div>
         </form>

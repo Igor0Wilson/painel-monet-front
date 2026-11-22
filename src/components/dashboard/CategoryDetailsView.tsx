@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FaArrowLeft,
   FaCalendarAlt,
@@ -6,12 +7,15 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaCreditCard,
+  FaImage,
+  FaTimes,
   FaUser,
 } from 'react-icons/fa';
 import { ExpenseItem } from '../../types/finance';
 import {
   computeRealtimeCategoriesForMonth,
   OfficialCategoryName,
+  translateCategoryName,
 } from '../../utils/categories';
 import {
   formatCurrency,
@@ -38,9 +42,14 @@ const CategoryDetailsView: React.FC<Props> = ({
   onSelectMonth,
   onBack,
 }) => {
+  const { t } = useTranslation();
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>(
     initialCategory || 'all',
   );
+  const [previewReceipt, setPreviewReceipt] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
 
   const { allCategories, activeCategories, totalMonthExpenses, monthExpenses } = useMemo(
     () => computeRealtimeCategoriesForMonth(expenses, selectedMonth),
@@ -56,7 +65,6 @@ const CategoryDetailsView: React.FC<Props> = ({
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com botão Voltar e seletor de mês na mesma linha */}
       <div className="exec-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5">
           <button
@@ -65,14 +73,16 @@ const CategoryDetailsView: React.FC<Props> = ({
             className="exec-btn-secondary px-3 py-2 text-xs gap-1.5 flex-shrink-0"
           >
             {React.createElement(FaArrowLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-            <span>Voltar</span>
+            <span>{t('common.back')}</span>
           </button>
           <div>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Detalhamento de Gastos por Categoria {isFamilyMode ? '· Família' : '· Individual'}
+              {t('charts.categoryTitle')}{' '}
+              {isFamilyMode ? `· ${t('navbar.familyScope')}` : `· ${t('navbar.individualScope')}`}
             </p>
-            <h2 className="text-xl font-semibold text-slate-900 mt-0.5">
-              {formatMonthLabel(selectedMonth)} — Total: {formatCurrency(totalMonthExpenses)}
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mt-0.5">
+              {formatMonthLabel(selectedMonth)} — {t('common.total')}:{' '}
+              {formatCurrency(totalMonthExpenses)}
             </h2>
           </div>
         </div>
@@ -84,7 +94,7 @@ const CategoryDetailsView: React.FC<Props> = ({
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
             {React.createElement(FaChevronLeft as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-            <span>Anterior</span>
+            <span>{t('charts.prevMonth')}</span>
           </button>
 
           <input
@@ -99,26 +109,24 @@ const CategoryDetailsView: React.FC<Props> = ({
             onClick={() => onSelectMonth(shiftMonthKey(selectedMonth, 1))}
             className="exec-btn-secondary px-2.5 sm:px-3 py-2 text-xs gap-1 flex-shrink-0 whitespace-nowrap"
           >
-            <span>Próximo</span>
+            <span>{t('charts.nextMonth')}</span>
             {React.createElement(FaChevronRight as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
           </button>
         </div>
       </div>
 
-      {/* Cards de gasto total em cada uma das 6 categorias */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Gasto Total em Cada Categoria ({monthExpenses.length}{' '}
-            {monthExpenses.length === 1 ? 'lançamento' : 'lançamentos'})
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            {t('charts.totalMonthLabel')} ({monthExpenses.length})
           </h3>
           {selectedCategoryFilter !== 'all' && (
             <button
               type="button"
               onClick={() => setSelectedCategoryFilter('all')}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline"
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 underline"
             >
-              Mostrar todas as categorias
+              {t('common.all')}
             </button>
           )}
         </div>
@@ -135,11 +143,10 @@ const CategoryDetailsView: React.FC<Props> = ({
                     prev === cat.name ? 'all' : (cat.name as OfficialCategoryName),
                   )
                 }
-                className={`exec-card p-4 text-left transition-all border ${
-                  isSelected
-                    ? 'ring-2 ring-slate-900 border-slate-900 shadow-md'
-                    : 'hover:border-slate-300'
-                }`}
+                className={`exec-card p-4 text-left transition-all border ${isSelected
+                  ? 'ring-2 ring-slate-900 dark:ring-emerald-400 border-slate-900 dark:border-emerald-400 shadow-md'
+                  : 'hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-3 mb-2.5">
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -149,10 +156,10 @@ const CategoryDetailsView: React.FC<Props> = ({
                       {React.createElement(cat.meta.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{cat.name}</p>
-                      <p className="text-[11px] text-slate-400">
-                        {cat.count} {cat.count === 1 ? 'item no mês' : 'itens no mês'}
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {translateCategoryName(cat.name)}
                       </p>
+                      <p className="text-[11px] text-slate-400">{cat.count}</p>
                     </div>
                   </div>
                   <span
@@ -162,11 +169,11 @@ const CategoryDetailsView: React.FC<Props> = ({
                   </span>
                 </div>
 
-                <p className="text-xl font-bold text-slate-900 tabular-nums">
+                <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {formatCurrency(cat.value)}
                 </p>
 
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2.5">
+                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2.5">
                   <div
                     className="h-full rounded-full transition-all duration-300"
                     style={{
@@ -181,25 +188,20 @@ const CategoryDetailsView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Lista detalhada de cada gasto por item e por data em cada categoria */}
       {monthExpenses.length === 0 ? (
         <div className="exec-card p-10 text-center space-y-2">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto">
             {React.createElement(FaChartPie as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </div>
-          <p className="text-sm font-semibold text-slate-700">
-            Nenhum gasto registrado em {formatMonthLabel(selectedMonth)}
-          </p>
-          <p className="text-xs text-slate-400">
-            Adicione uma despesa ou selecione outro mês acima para visualizar cada item por data e
-            categoria.
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            {t('modals.categoryDetails.empty')}
           </p>
         </div>
       ) : (
         <div className="space-y-5">
           {displayedCategories.map((cat) => (
             <div key={cat.name} className="exec-card overflow-hidden">
-              <div className="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
+              <div className="px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span
                     className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cat.meta.iconBgClass}`}
@@ -208,24 +210,24 @@ const CategoryDetailsView: React.FC<Props> = ({
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold text-slate-900">{cat.name}</h4>
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {translateCategoryName(cat.name)}
+                      </h4>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cat.meta.bgClass} ${cat.meta.textClass} ${cat.meta.borderClass}`}
                       >
-                        {cat.percentage}% do mês
+                        {cat.percentage}%
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400">
-                      {cat.count} {cat.count === 1 ? 'gasto registrado' : 'gastos registrados'}
-                    </p>
+                    <p className="text-xs text-slate-400">{cat.count}</p>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Total da Categoria
+                    {t('modals.categoryDetails.totalSpent')}
                   </span>
-                  <span className="text-base font-bold text-slate-900 tabular-nums">
+                  <span className="text-base font-bold text-slate-900 dark:text-white tabular-nums">
                     {formatCurrency(cat.value)}
                   </span>
                 </div>
@@ -233,58 +235,73 @@ const CategoryDetailsView: React.FC<Props> = ({
 
               {cat.items.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">
-                  Nenhum lançamento nesta categoria em {formatMonthLabel(selectedMonth)}.
+                  {t('modals.categoryDetails.empty')}
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {cat.items.map((item) => (
                     <div
                       key={item.id}
-                      className="px-5 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50/70 transition-colors"
+                      className="px-5 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-900 truncate">
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                             {item.name}
                           </span>
                           <StatusBadge
                             status={item.status}
                             paymentMethod={item.paymentMethod}
                           />
+                          {item.receiptUrl && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewReceipt({
+                                  url: item.receiptUrl!,
+                                  name: item.name,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
+                            >
+                              {React.createElement(FaImage as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                              <span>{t('expenses.receiptAttached')}</span>
+                            </button>
+                          )}
                           {isFamilyMode && item.ownerName && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 text-white">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-900 dark:bg-slate-700 text-white">
                               {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[8px]' })}
                               {item.ownerName.split(' ')[0]}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                        <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
                             {React.createElement(FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>, {
                               className: 'text-[10px] text-slate-400',
                             })}
-                            Data: {formatDateBr(item.dueDate)}
+                            {t('incomes.dateLabel', { date: formatDateBr(item.dueDate) })}
                           </span>
                           {item.isCreditCard && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                               {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, {
                                 className: 'text-[10px]',
                               })}
-                              Fatura Cartão
+                              {t('expenses.creditCardBadge')}
                             </span>
                           )}
                           {item.isRecurring && (
-                            <span className="text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                              Fixa mensal
+                            <span className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                              {t('expenses.recurringBadge')}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-1.5 sm:pt-0 border-t sm:border-0 border-slate-100">
-                        <span className="text-xs text-slate-400 sm:hidden">Valor do item</span>
-                        <span className="text-sm font-bold text-slate-900 tabular-nums">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-1.5 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 sm:hidden">{t('common.total')}</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                           {formatCurrency(Number(item.value))}
                         </span>
                       </div>
@@ -294,6 +311,41 @@ const CategoryDetailsView: React.FC<Props> = ({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {previewReceipt && (
+        <div
+          className="exec-modal-overlay z-[130]"
+          onClick={() => setPreviewReceipt(null)}
+        >
+          <div
+            className="exec-modal-container max-w-lg p-4 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {t('expenses.receiptModalTitle')}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {previewReceipt.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewReceipt(null)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
+              </button>
+            </div>
+            <img
+              src={previewReceipt.url}
+              alt={previewReceipt.name}
+              className="w-full max-h-[70vh] object-contain rounded-xl bg-slate-100 dark:bg-slate-800"
+            />
+          </div>
         </div>
       )}
     </div>

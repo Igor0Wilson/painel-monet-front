@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FaArrowDown,
   FaArrowUp,
@@ -28,6 +29,7 @@ const KpiGrid: React.FC<Props> = ({
   onOpenInvestmentModal,
   onOpenFoodAllowanceModal,
 }) => {
+  const { t } = useTranslation();
   const netFlow = balance.totalIncome - balance.totalExpenses;
   const totalPatrimony = Number(
     ((balance.balance || 0) + (balance.emergencyFund || 0) + (balance.investments || 0)).toFixed(2),
@@ -42,7 +44,7 @@ const KpiGrid: React.FC<Props> = ({
           <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-slate-800" />
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-medium text-slate-400">
-              {isFamilyMode ? 'Patrimônio Disponível da Família' : 'Patrimônio Disponível'}
+              {isFamilyMode ? t('kpi.balanceTitleFamily') : t('kpi.balanceTitle')}
             </span>
             <span className="w-8 h-8 rounded-lg bg-white/10 text-emerald-400 flex items-center justify-center">
               {React.createElement(FaLandmark as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
@@ -53,62 +55,59 @@ const KpiGrid: React.FC<Props> = ({
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
             {(balance.emergencyFund || 0) > 0 || (balance.investments || 0) > 0
-              ? `Patrimônio total (livre + guardado): ${formatCurrency(totalPatrimony)}`
-              : 'Saldo livre para gastar após despesas pagas e reservas do mês'}
+              ? t('kpi.totalPatrimonyHint', { amount: formatCurrency(totalPatrimony) })
+              : t('kpi.balanceSubIndividual')}
           </p>
           {balance.balance < 0 && hasMonthlyAllocatedSavings && (
             <p className="text-[11px] text-amber-300 mt-1.5 leading-snug">
-              Parte do saldo foi retida em guardado do mês. Resgate ou reclassifique para carteira
-              já existente em Reserva / Investimentos.
+              {t('kpi.balanceRetainedHint')}
             </p>
           )}
         </div>
 
         <div className="exec-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-medium text-slate-500">
-              {isFamilyMode ? 'Receitas Totais da Família' : 'Receitas Creditadas'}
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {isFamilyMode ? t('kpi.incomeTitleFamily') : t('kpi.incomeTitle')}
             </span>
-            <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center">
               {React.createElement(FaArrowUp as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
           </div>
-          <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+          <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {formatCurrency(balance.totalIncome)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
             {balance.scheduledIncome > 0 ? (
               <>
-                A receber:{' '}
-                <span className="font-semibold text-amber-700 tabular-nums">
+                {t('kpi.incomeScheduledNote')}{' '}
+                <span className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
                   {formatCurrency(balance.scheduledIncome)}
                 </span>
               </>
             ) : (
-              <>
-                {incomesCount} {incomesCount === 1 ? 'fonte registrada' : 'fontes registradas'}
-              </>
+              <>{t('kpi.incomeSourcesCount', { count: incomesCount })}</>
             )}
           </p>
         </div>
 
         <div className="exec-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-xs font-medium text-slate-500">
-              {isFamilyMode ? 'Despesas Liquidadas da Família' : 'Despesas Liquidadas'}
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              {isFamilyMode ? t('kpi.expensesTitleFamily') : t('kpi.expensesTitle')}
             </span>
-            <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/60 flex items-center justify-center">
               {React.createElement(FaArrowDown as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
             </span>
           </div>
-          <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+          <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {formatCurrency(balance.totalExpenses)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
-            Fluxo líquido:{' '}
+            {t('kpi.netFlowLabel')}{' '}
             <span
               className={`font-semibold tabular-nums ${
-                netFlow >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                netFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
               }`}
             >
               {formatCurrency(netFlow)}
@@ -121,106 +120,113 @@ const KpiGrid: React.FC<Props> = ({
         <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">
+              <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center">
                 {React.createElement(FaShieldAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {isFamilyMode ? 'Reserva de Emergência da Família' : 'Reserva de Emergência'}
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {isFamilyMode ? t('kpi.reserveTitleFamily') : t('kpi.reserveTitle')}
               </span>
             </div>
-            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
               {formatCurrency(balance.emergencyFund)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
-                ? `Sua parte alocada: ${formatCurrency(balance.ownEmergencyFund || 0)}`
+                ? t('kpi.reserveOwnPart', { amount: formatCurrency(balance.ownEmergencyFund || 0) })
                 : (balance.externalEmergencyFund || 0) > 0 &&
                     (balance.allocatedEmergencyFund || 0) > 0
-                  ? `Reserva anterior: ${formatCurrency(balance.externalEmergencyFund || 0)} · Do saldo: ${formatCurrency(balance.allocatedEmergencyFund || 0)}`
+                  ? t('kpi.reservePrevHint', {
+                      reserve: formatCurrency(balance.externalEmergencyFund || 0),
+                      allocated: formatCurrency(balance.allocatedEmergencyFund || 0),
+                    })
                   : (balance.externalEmergencyFund || 0) > 0
-                    ? 'Reserva já existente (sem limite do saldo mensal)'
-                    : 'Proteção patrimonial separada do saldo livre'}
+                    ? t('kpi.reserveUnlimitedHint')
+                    : t('kpi.reserveDefaultHint')}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onOpenEmergencyModal}
-            aria-label="Guardar na reserva de emergência"
-            className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
+            aria-label={t('kpi.reserveAddAria')}
+            className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
             {React.createElement(FaPiggyBank as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm text-emerald-400' })}
-            <span>Guardar</span>
+            <span>{t('kpi.guardBtn')}</span>
           </button>
         </div>
 
         <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/60 flex items-center justify-center">
                 {React.createElement(FaSeedling as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {isFamilyMode ? 'Investimentos da Família' : 'Investimentos'}
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {isFamilyMode ? t('kpi.investmentsTitleFamily') : t('kpi.investmentsTitle')}
               </span>
             </div>
-            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
               {formatCurrency(balance.investments || 0)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
-                ? `Sua parte investida: ${formatCurrency(balance.ownInvestments || 0)}`
+                ? t('kpi.investmentsOwnPart', { amount: formatCurrency(balance.ownInvestments || 0) })
                 : (balance.externalInvestments || 0) > 0 &&
                     (balance.allocatedInvestments || 0) > 0
-                  ? `Carteira anterior: ${formatCurrency(balance.externalInvestments || 0)} · Do saldo: ${formatCurrency(balance.allocatedInvestments || 0)}`
+                  ? t('kpi.investmentsPrevHint', {
+                      external: formatCurrency(balance.externalInvestments || 0),
+                      allocated: formatCurrency(balance.allocatedInvestments || 0),
+                    })
                   : (balance.externalInvestments || 0) > 0
-                    ? 'Carteira já existente (sem limite do saldo mensal)'
-                    : 'Capital alocado para rentabilidade e metas'}
+                    ? t('kpi.investmentsUnlimitedHint')
+                    : t('kpi.investmentsDefaultHint')}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onOpenInvestmentModal}
-            aria-label="Guardar em investimentos"
+            aria-label={t('kpi.investmentsAddAria')}
             className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm active:scale-[0.99] transition-all"
           >
             {React.createElement(FaSeedling as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
-            <span>Guardar</span>
+            <span>{t('kpi.guardBtn')}</span>
           </button>
         </div>
 
         <div className="exec-card p-6 flex flex-col sm:flex-row lg:flex-col xl:flex-row sm:items-center lg:items-start xl:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center">
+              <span className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 flex items-center justify-center">
                 {React.createElement(FaUtensils as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
               </span>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {isFamilyMode
-                  ? 'Vale Alimentação / Refeição (Família)'
-                  : 'Vale Alimentação / Refeição'}
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {isFamilyMode ? t('kpi.foodTitleFamily') : t('kpi.foodTitle')}
               </span>
             </div>
-            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+            <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
               {formatCurrency(balance.foodAllowance || 0)}
             </p>
             <div className="text-xs text-slate-400 mt-1 space-y-0.5">
               {(balance.foodAllowanceScheduled || 0) > 0 && (
-                <p className="text-amber-700 font-semibold tabular-nums">
-                  A cair
+                <p className="text-amber-700 dark:text-amber-400 font-semibold tabular-nums">
+                  {t('kpi.foodScheduledHint')}
                   {balance.ownFoodAllowanceNextDate
-                    ? ` em ${formatDateBr(balance.ownFoodAllowanceNextDate).slice(0, 5)}`
+                    ? ` (${formatDateBr(balance.ownFoodAllowanceNextDate).slice(0, 5)})`
                     : ''}
                   : {formatCurrency(balance.foodAllowanceScheduled || 0)}
                 </p>
               )}
               <p>
                 {isFamilyMode
-                  ? `Seu saldo VA/VR: ${formatCurrency(balance.ownFoodAllowance || 0)}`
+                  ? t('kpi.foodFamilyOwnSub', { amount: formatCurrency(balance.ownFoodAllowance || 0) })
                   : (balance.foodAllowanceUsed || 0) > 0
-                    ? `Creditado: ${formatCurrency(balance.foodAllowanceTotal || 0)} · Usado: ${formatCurrency(balance.foodAllowanceUsed || 0)}`
-                    : 'Entra no saldo na data informada (VA / VR)'}
+                    ? t('kpi.foodUsageHint', {
+                        total: formatCurrency(balance.foodAllowanceTotal || 0),
+                        used: formatCurrency(balance.foodAllowanceUsed || 0),
+                      })
+                    : t('kpi.foodDefaultHint')}
               </p>
             </div>
           </div>
@@ -229,11 +235,11 @@ const KpiGrid: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenFoodAllowanceModal}
-              aria-label="Inserir Vale Alimentação ou Refeição"
+              aria-label={t('kpi.foodAddAria')}
               className="w-full sm:w-auto lg:w-full xl:w-auto min-w-[136px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold shadow-sm active:scale-[0.99] transition-all"
             >
               {React.createElement(FaUtensils as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-              <span>Inserir VA/VR</span>
+              <span>{t('kpi.insertFoodBtn')}</span>
             </button>
           )}
         </div>

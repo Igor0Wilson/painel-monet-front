@@ -1,4 +1,5 @@
 import { PendingFamilyInvite } from '../components/FamilyInviteModal';
+import i18n from '../i18n';
 
 const NOTIFIED_INVITES_STORAGE_KEY = 'pm_notified_invite_ids';
 
@@ -48,8 +49,11 @@ export async function notifyFamilyInviteOnDevice(
   }
   markInviteAsNotified(invite.id);
 
-  const title = 'Convite para Painel Família — Finanças';
-  const body = `${invite.inviterName} (CPF ${invite.inviterMaskedCpf}) convidou você para unificar o painel financeiro. Toque para confirmar.`;
+  const title = i18n.t('modals.notifications.familyInviteTitle');
+  const body = i18n.t('modals.notifications.familyInviteBody', {
+    name: invite.inviterName,
+    cpf: invite.inviterMaskedCpf,
+  });
 
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {

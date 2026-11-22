@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { IconType } from 'react-icons';
 import {
   FaTimes,
@@ -12,6 +13,7 @@ import api from '../api';
 import { toast } from 'react-toastify';
 import type { ExpenseItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
+import { formatCurrency, formatDateBr } from '../utils/formatters';
 
 export interface CreditCardInvoiceGroup {
   month: string;
@@ -30,42 +32,31 @@ interface Props {
 type CashMethod = 'pix' | 'debito' | 'dinheiro';
 
 const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [paymentMethod, setPaymentMethod] = useState<CashMethod>('pix');
   const [loading, setLoading] = useState(false);
 
   if (!invoice) return null;
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    const [y, m, d] = dateStr.split('-');
-    return `${d}/${m}/${y}`;
-  };
-
   const methods: { id: CashMethod; label: string; icon: IconType }[] = [
-    { id: 'pix', label: 'Pix', icon: FaQrcode },
-    { id: 'debito', label: 'Débito', icon: FaUniversity },
-    { id: 'dinheiro', label: 'Dinheiro', icon: FaMoneyBillWave },
+    { id: 'pix', label: t('paymentMethods.pix'), icon: FaQrcode },
+    { id: 'debito', label: t('paymentMethods.debito'), icon: FaUniversity },
+    { id: 'dinheiro', label: t('paymentMethods.dinheiro'), icon: FaMoneyBillWave },
   ];
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const res = await api.post('/expenses/credit-card/pay-invoice', {
+      await api.post('/expenses/credit-card/pay-invoice', {
         month: invoice.month,
         paymentMethod,
       });
-      toast.success(
-        `Fatura de ${invoice.shortLabel} quitada! ${res.data.paidCount} ${res.data.paidCount === 1 ? 'lançamento liquidado' : 'lançamentos liquidados'
-        }.`,
-      );
+      toast.success(t('modals.payCard.paidToast'));
       onSuccess();
       onClose();
     } catch (error: unknown) {
-      toast.error(extractApiErrorMessage(error, 'Erro ao pagar fatura do cartão'));
+      toast.error(extractApiErrorMessage(error, t('modals.expense.validationError')));
     } finally {
       setLoading(false);
     }
@@ -74,24 +65,24 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
   return (
     <div className="exec-modal-overlay z-50">
       <div className="exec-modal-container max-w-lg">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 flex items-center justify-center">
               {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Pagar Fatura — {invoice.label}
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                {t('modals.payCard.title')} — {invoice.label}
               </h3>
-              <p className="text-xs text-slate-500">
-                Todas as compras e parcelas do cartão deste mês serão liquidadas
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t('modals.payCard.openCount', { count: invoice.items.length })}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-lg"
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
@@ -99,11 +90,10 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
 
         <form onSubmit={handleConfirm} className="p-6 space-y-5">
           {/* Resumo Total */}
-          <div className="rounded-xl bg-slate-950 text-white px-5 py-4 flex items-center justify-between">
+          <div className="rounded-xl bg-slate-950 border border-slate-800 text-white px-5 py-4 flex items-center justify-between">
             <div>
               <p className="text-[11px] text-slate-400 uppercase tracking-wider">
-                Total da fatura ({invoice.items.length}{' '}
-                {invoice.items.length === 1 ? 'item' : 'itens'})
+                {t('modals.payCard.totalLabel')} ({invoice.items.length})
               </p>
               <p className="text-2xl font-semibold tabular-nums mt-0.5">
                 {formatCurrency(invoice.total)}
@@ -114,23 +104,25 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
             </span>
           </div>
 
-          {/* Lista de itens que serão marcados como pagos */}
+          {/* Lista de itens */}
           <div>
-            <label className="exec-label">Lançamentos incluídos nesta fatura</label>
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+            <label className="exec-label">{t('modals.payCard.openCount', { count: invoice.items.length })}</label>
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
               {invoice.items.map((item) => (
                 <div
                   key={item.id}
-                  className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white text-xs"
+                  className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white dark:bg-slate-900 text-xs"
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 truncate">{item.name}</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                      {item.name}
+                    </p>
                     <p className="text-[11px] text-slate-400">
-                      {item.accountType?.name || 'Cartão de Crédito'} · Venc.{' '}
-                      {formatDate(item.dueDate)}
+                      {item.accountType?.name || t('paymentMethods.creditoFull')} ·{' '}
+                      {formatDateBr(item.dueDate)}
                     </p>
                   </div>
-                  <span className="font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                  <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
                     {formatCurrency(Number(item.value))}
                   </span>
                 </div>
@@ -138,9 +130,9 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
             </div>
           </div>
 
-          {/* Forma de pagamento da fatura */}
+          {/* Forma de pagamento */}
           <div>
-            <label className="exec-label">Como a fatura foi paga?</label>
+            <label className="exec-label">{t('modals.payCard.methodLabel')}</label>
             <div className="grid grid-cols-3 gap-2.5">
               {methods.map((m) => {
                 const isSelected = paymentMethod === m.id;
@@ -149,10 +141,11 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id)}
-                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${isSelected
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
+                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${
+                      isSelected
+                        ? 'border-slate-900 dark:border-emerald-500 bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/70'
+                    }`}
                   >
                     {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                     <span className="text-xs font-semibold">{m.label}</span>
@@ -162,9 +155,9 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="exec-btn-secondary">
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -172,7 +165,11 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium shadow-sm hover:bg-emerald-700 transition-all disabled:opacity-50"
             >
               {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-              <span>{loading ? 'Liquidando...' : `Quitar Fatura (${formatCurrency(invoice.total)})`}</span>
+              <span>
+                {loading
+                  ? t('modals.payCard.paying')
+                  : `${t('modals.payCard.confirmBtn')} (${formatCurrency(invoice.total)})`}
+              </span>
             </button>
           </div>
         </form>

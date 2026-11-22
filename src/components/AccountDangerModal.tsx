@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   FaDownload,
   FaExclamationTriangle,
@@ -25,6 +26,7 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
   onDownloadBackup,
   downloading,
 }) => {
+  const { t } = useTranslation();
   const [selectedAction, setSelectedAction] = useState<'deactivate' | 'delete' | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [confirmChecked, setConfirmChecked] = useState(false);
@@ -52,12 +54,12 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
 
   const handleConfirmAction = async () => {
     if (!selectedAction || !confirmChecked) {
-      toast.error('Marque a confirmação de segurança para continuar.');
+      toast.error(t('modals.danger.errorCheckRequired'));
       return;
     }
 
     if (selectedAction === 'delete' && confirmText.trim().toUpperCase() !== 'EXCLUIR') {
-      toast.error('Digite EXCLUIR para confirmar a exclusão permanente.');
+      toast.error(t('modals.danger.errorTypeDelete'));
       return;
     }
 
@@ -65,26 +67,19 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
       setSubmitting(true);
       if (selectedAction === 'deactivate') {
         const res = await api.post('/users/me/deactivate', { confirmed: true });
-        toast.info(
-          res.data?.message ||
-            'Conta desativada. Para reativar, solicite o e-mail de reativação na tela de login.',
-        );
+        toast.info(res.data?.message || t('modals.danger.deactivatedDefaultMsg'));
       } else {
         const res = await api.delete('/users/me', {
           data: { confirmed: true, confirmText: confirmText.trim().toUpperCase() },
         });
-        toast.success(
-          res.data?.message || 'Conta e login no Firebase excluídos permanentemente.',
-        );
+        toast.success(res.data?.message || t('modals.danger.deletedDefaultMsg'));
       }
 
       logout();
       resetAndClose();
       navigate('/login');
     } catch (error: unknown) {
-      toast.error(
-        extractApiErrorMessage(error, 'Não foi possível concluir a solicitação'),
-      );
+      toast.error(extractApiErrorMessage(error, t('modals.danger.genericError')));
     } finally {
       setSubmitting(false);
     }
@@ -99,64 +94,54 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
               {React.createElement(FaExclamationTriangle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
             </div>
             <div>
-              <h3 className="text-sm font-semibold">
-                {step === 1
-                  ? 'Gerenciar Desativação ou Exclusão (1/2)'
-                  : selectedAction === 'deactivate'
-                    ? 'Dupla Confirmação — Desativar Conta (2/2)'
-                    : 'Dupla Confirmação — Excluir Conta (2/2)'}
-              </h3>
-              <p className="text-[11px] text-rose-200/80">
-                Recomendamos baixar seus dados antes de continuar
-              </p>
+              <h3 className="text-sm font-semibold">{t('modals.danger.title')}</h3>
+              <p className="text-[11px] text-rose-200/80">{t('modals.danger.subtitle')}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={resetAndClose}
             className="text-rose-200 hover:text-white p-1.5 rounded-lg"
-            aria-label="Fechar"
+            aria-label={t('common.close')}
           >
             {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold text-slate-900">
-                Backup completo dos seus dados
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                {t('modals.danger.downloadBackupBtn')}
               </p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Baixe um arquivo JSON com receitas, despesas, categorias e saldos.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {t('modals.danger.step1Warning')}
               </p>
             </div>
             <button
               type="button"
               onClick={onDownloadBackup}
               disabled={downloading}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex-shrink-0 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-emerald-400 transition-colors flex-shrink-0 disabled:opacity-60"
             >
               {React.createElement(FaDownload as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-              {downloading ? 'Baixando...' : 'Baixar meus dados'}
+              {downloading ? t('modals.userEdit.backupGenerating') : t('modals.danger.downloadBackupBtn')}
             </button>
           </div>
 
           {step === 1 ? (
             <div className="space-y-3">
-              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-amber-950 flex items-center gap-2">
+                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-200 flex items-center gap-2">
                       {React.createElement(FaPauseCircle as unknown as React.ComponentType<{ className?: string }>, {
-                        className: 'text-amber-600 text-sm',
+                        className: 'text-amber-600 dark:text-amber-400 text-sm',
                       })}
-                      Desativar conta temporariamente (Recomendado)
+                      {t('modals.danger.deactivateTitle')}
                     </p>
-                    <p className="text-xs text-amber-900/90 mt-1 leading-relaxed">
-                      Seus dados ficam guardados com segurança e o acesso é bloqueado.
-                      Para voltar no futuro, basta solicitar o <strong>e-mail oficial de reativação</strong>,
-                      definir uma nova senha e a conta será reativada automaticamente.
+                    <p className="text-xs text-amber-900/90 dark:text-amber-200/80 mt-1 leading-relaxed">
+                      {t('modals.danger.deactivateDesc')}
                     </p>
                   </div>
                 </div>
@@ -165,28 +150,26 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
                   onClick={() => handleProceedToSecondConfirmation('deactivate')}
                   className="mt-3 w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors"
                 >
-                  Escolher desativar conta
+                  {t('modals.danger.deactivateBtn')}
                 </button>
               </div>
 
-              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4">
-                <p className="text-sm font-semibold text-rose-950 flex items-center gap-2">
+              <div className="rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50/70 dark:bg-rose-950/30 p-4">
+                <p className="text-sm font-semibold text-rose-950 dark:text-rose-200 flex items-center gap-2">
                   {React.createElement(FaTrashAlt as unknown as React.ComponentType<{ className?: string }>, {
-                    className: 'text-rose-600 text-sm',
+                    className: 'text-rose-600 dark:text-rose-400 text-sm',
                   })}
-                  Excluir conta permanentemente
+                  {t('modals.danger.deleteTitle')}
                 </p>
-                <p className="text-xs text-rose-900/90 mt-1 leading-relaxed">
-                  Apaga <strong>irreversivelmente</strong> todos os seus dados financeiros,
-                  seu cadastro no banco e <strong>seu login no Firebase</strong> (liberando seu
-                  e-mail e CPF caso queira criar uma nova conta no futuro).
+                <p className="text-xs text-rose-900/90 dark:text-rose-200/80 mt-1 leading-relaxed">
+                  {t('modals.danger.deleteDesc')}
                 </p>
                 <button
                   type="button"
                   onClick={() => handleProceedToSecondConfirmation('delete')}
                   className="mt-3 w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors"
                 >
-                  Escolher excluir permanentemente
+                  {t('modals.danger.deleteBtn')}
                 </button>
               </div>
             </div>
@@ -195,30 +178,26 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
               <div
                 className={`rounded-xl p-4 border text-xs leading-relaxed ${
                   selectedAction === 'deactivate'
-                    ? 'bg-amber-50 border-amber-200 text-amber-950'
-                    : 'bg-rose-50 border-rose-200 text-rose-950'
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-950 dark:text-amber-200'
+                    : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200'
                 }`}
               >
-                {selectedAction === 'deactivate' ? (
-                  <p>
-                    <strong>Segunda confirmação:</strong> sua sessão será encerrada agora e sua
-                    senha atual será invalidada. Você só poderá reativar clicando em{' '}
-                    <strong>&quot;Esqueci minha senha / Reativar conta&quot;</strong> e
-                    confirmando o link enviado pelo Firebase no seu e-mail.
-                  </p>
-                ) : (
-                  <p>
-                    <strong>Ação irreversível:</strong> todos os lançamentos, categorias, reserva,
-                    investimentos, vínculos de família e o login no Firebase serão removidos
-                    definitivamente agora.
-                  </p>
-                )}
+                <p className="font-semibold mb-1">
+                  {selectedAction === 'deactivate'
+                    ? t('modals.danger.step2DeactivateTitle')
+                    : t('modals.danger.step2DeleteTitle')}
+                </p>
+                <p>
+                  {selectedAction === 'deactivate'
+                    ? t('modals.danger.deactivateDesc')
+                    : t('modals.danger.deleteDesc')}
+                </p>
               </div>
 
               {selectedAction === 'delete' && (
                 <div>
                   <label htmlFor="delete-confirm-text" className="exec-label">
-                    Digite <strong>EXCLUIR</strong> para confirmar
+                    {t('modals.danger.typeDeletePrompt')}
                   </label>
                   <input
                     id="delete-confirm-text"
@@ -226,23 +205,19 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
                     value={confirmText}
                     onChange={(e) => setConfirmText(e.target.value)}
                     className="exec-input uppercase font-mono tracking-wider"
-                    placeholder="EXCLUIR"
+                    placeholder={t('modals.danger.typeDeletePlaceholder')}
                   />
                 </div>
               )}
 
-              <label className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={confirmChecked}
                   onChange={(e) => setConfirmChecked(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                  className="mt-0.5 rounded border-slate-300 dark:border-slate-600 text-rose-600 focus:ring-rose-500"
                 />
-                <span>
-                  {selectedAction === 'deactivate'
-                    ? 'Confirmo que desejo desativar minha conta e estou ciente de que a reativação exige disparo de e-mail.'
-                    : 'Confirmo que baixei meus dados (se desejar) e quero excluir permanentemente minha conta e meu login no Firebase.'}
-                </span>
+                <span>{t('modals.danger.confirmCheckboxText')}</span>
               </label>
 
               <div className="flex items-center gap-3 pt-2">
@@ -250,9 +225,9 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
                   type="button"
                   onClick={() => setStep(1)}
                   disabled={submitting}
-                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                  className="flex-1 exec-btn-secondary py-2.5 text-xs"
                 >
-                  Voltar
+                  {t('common.back')}
                 </button>
                 <button
                   type="button"
@@ -265,10 +240,10 @@ const AccountDangerModal: React.FC<AccountDangerModalProps> = ({
                   }`}
                 >
                   {submitting
-                    ? 'Processando...'
+                    ? t('common.processing')
                     : selectedAction === 'deactivate'
-                      ? 'Confirmar desativação'
-                      : 'Confirmar exclusão definitiva'}
+                      ? t('modals.danger.confirmDeactivateBtn')
+                      : t('modals.danger.confirmDeleteBtn')}
                 </button>
               </div>
             </div>
