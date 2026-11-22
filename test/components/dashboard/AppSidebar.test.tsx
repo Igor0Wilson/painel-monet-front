@@ -141,4 +141,105 @@ describe('AppSidebar (Installed Android & iPhone App Menu)', () => {
     expect(onSelectFamilyPanel).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('tracks finger touch gestures smoothly to open from left edge and close by swiping left, without hijacking vertical scroll', () => {
+    const onOpen = jest.fn();
+    const onClose = jest.fn();
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+
+    const { rerender } = render(
+      <ThemeProvider>
+        <AppSidebar
+          isOpen={false}
+          onOpen={onOpen}
+          onClose={onClose}
+          userId="u-1"
+          userName="Igor"
+          userInitials="IG"
+          activeTab="overview"
+          panelScope="individual"
+          isCategoryDetailOpen={false}
+          inFamily={false}
+          familyMembersCount={0}
+          pendingInvitesCount={0}
+          onSelectIndividualPanel={jest.fn()}
+          onSelectFamilyPanel={jest.fn()}
+          onSelectHistory={jest.fn()}
+          onOpenFamilyModal={jest.fn()}
+          onOpenProfileModal={jest.fn()}
+          onRequestLogout={jest.fn()}
+        />
+      </ThemeProvider>,
+    );
+
+    const edgeHandle = screen.getByTestId('sidebar-edge-handle');
+    const sidebar = screen.getByTestId('app-sidebar');
+
+    // Vertical scroll gesture must NOT trigger drawer drag
+    fireEvent.touchStart(edgeHandle, {
+      touches: [{ identifier: 1, clientX: 12, clientY: 120 }],
+    });
+    fireEvent.touchMove(edgeHandle, {
+      touches: [{ identifier: 1, clientX: 15, clientY: 180 }],
+    });
+    expect(sidebar).toHaveAttribute('data-dragging', 'false');
+    fireEvent.touchEnd(edgeHandle, {
+      changedTouches: [{ identifier: 1, clientX: 15, clientY: 180 }],
+    });
+    expect(onOpen).not.toHaveBeenCalled();
+
+    // Horizontal swipe from left edge tracks finger via translate3d and opens past threshold
+    fireEvent.touchStart(edgeHandle, {
+      touches: [{ identifier: 2, clientX: 10, clientY: 200 }],
+    });
+    fireEvent.touchMove(edgeHandle, {
+      touches: [{ identifier: 2, clientX: 100, clientY: 202 }],
+    });
+    expect(sidebar).toHaveAttribute('data-dragging', 'true');
+    expect(sidebar.style.transform).toContain('translate3d(-195px, 0, 0)');
+    fireEvent.touchEnd(edgeHandle, {
+      changedTouches: [{ identifier: 2, clientX: 190, clientY: 202 }],
+    });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    // When open, swipe left tracks finger and closes when past threshold
+    rerender(
+      <ThemeProvider>
+        <AppSidebar
+          isOpen={true}
+          onOpen={onOpen}
+          onClose={onClose}
+          userId="u-1"
+          userName="Igor"
+          userInitials="IG"
+          activeTab="overview"
+          panelScope="individual"
+          isCategoryDetailOpen={false}
+          inFamily={false}
+          familyMembersCount={0}
+          pendingInvitesCount={0}
+          onSelectIndividualPanel={jest.fn()}
+          onSelectFamilyPanel={jest.fn()}
+          onSelectHistory={jest.fn()}
+          onOpenFamilyModal={jest.fn()}
+          onOpenProfileModal={jest.fn()}
+          onRequestLogout={jest.fn()}
+        />
+      </ThemeProvider>,
+    );
+
+    const openSidebar = screen.getByTestId('app-sidebar');
+    fireEvent.touchStart(openSidebar, {
+      touches: [{ identifier: 3, clientX: 250, clientY: 180 }],
+    });
+    fireEvent.touchMove(openSidebar, {
+      touches: [{ identifier: 3, clientX: 150, clientY: 182 }],
+    });
+    expect(openSidebar).toHaveAttribute('data-dragging', 'true');
+    expect(openSidebar.style.transform).toContain('translate3d(-100px, 0, 0)');
+    fireEvent.touchEnd(openSidebar, {
+      changedTouches: [{ identifier: 3, clientX: 90, clientY: 182 }],
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

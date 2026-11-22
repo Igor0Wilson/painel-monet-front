@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaCalendarAlt, FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { IncomeItem } from '../../types/finance';
-import { formatCurrency, formatDateBr, formatShortDate } from '../../utils/formatters';
+import { formatDateBr, formatShortDate } from '../../utils/formatters';
 
 interface Props {
   incomes: IncomeItem[];
@@ -20,6 +21,7 @@ const IncomesListSection: React.FC<Props> = ({
   onDeleteIncome,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
 
   return (
     <section className="lg:col-span-4 exec-card overflow-hidden">
@@ -122,7 +124,7 @@ const IncomesListSection: React.FC<Props> = ({
                     : 'text-emerald-700 dark:text-emerald-400'
                 }`}
               >
-                + {formatCurrency(income.value)}
+                + {formatProtectedCurrency(income.value)}
               </p>
             </div>
           ))

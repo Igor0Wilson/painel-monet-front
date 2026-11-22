@@ -16,11 +16,13 @@ import {
   FaTimes,
   FaUser,
 } from 'react-icons/fa';
+import { usePrivacyMode } from '../context/PrivacyModeContext';
 import { useTheme } from '../context/ThemeContext';
 import { ChartDataResponse, ExpenseItem, IncomeItem } from '../types/finance';
 import {
   computeRealtimeCategoriesForMonth,
   getCategoryMeta,
+  getEffectiveExpenseAmount,
   translateCategoryName,
 } from '../utils/categories';
 import {
@@ -30,7 +32,6 @@ import {
   getExecutiveLineOptions,
 } from '../utils/chartConfig';
 import {
-  formatCurrency,
   formatDateBr,
   formatExpenseDisplayName,
   formatMonthLabel,
@@ -60,6 +61,7 @@ const HistoryTab: React.FC<Props> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
+  const { hideValues, formatProtectedCurrency } = usePrivacyMode();
   const [previewReceipt, setPreviewReceipt] = useState<{
     url: string;
     name: string;
@@ -116,13 +118,13 @@ const HistoryTab: React.FC<Props> = ({
   );
 
   const lineOptions = useMemo(
-    () => getExecutiveLineOptions(isDark, i18n.language),
-    [isDark, i18n.language],
+    () => getExecutiveLineOptions(isDark, i18n.language, hideValues),
+    [isDark, i18n.language, hideValues],
   );
 
   const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
-      ...getExecutiveDoughnutOptions(isDark),
+      ...getExecutiveDoughnutOptions(isDark, hideValues, i18n.language),
       onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
         if (elements && elements.length > 0) {
           const clickedIndex = elements[0].index;
@@ -133,7 +135,7 @@ const HistoryTab: React.FC<Props> = ({
         }
       },
     }),
-    [activeCategories, onOpenCategoryDetail, isDark],
+    [activeCategories, onOpenCategoryDetail, isDark, hideValues, i18n.language],
   );
 
   const summary = chartData?.monthSummary || {
@@ -216,11 +218,11 @@ const HistoryTab: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
-            {formatCurrency(summary.totalIncome)}
+            {formatProtectedCurrency(summary.totalIncome)}
           </p>
           {summary.scheduledIncome > 0 && (
             <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
-              {t('kpi.incomeScheduledNote')} {formatCurrency(summary.scheduledIncome)}
+              {t('kpi.incomeScheduledNote')} {formatProtectedCurrency(summary.scheduledIncome)}
             </p>
           )}
         </div>
@@ -235,7 +237,7 @@ const HistoryTab: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
-            {formatCurrency(summary.totalExpenses)}
+            {formatProtectedCurrency(summary.totalExpenses)}
           </p>
           <p className="text-[11px] text-slate-400 mt-1">{monthExpenses.length}</p>
         </div>
@@ -252,7 +254,7 @@ const HistoryTab: React.FC<Props> = ({
                 : 'text-rose-600 dark:text-rose-400'
               }`}
           >
-            {formatCurrency(summary.netFlow)}
+            {formatProtectedCurrency(summary.netFlow)}
           </p>
           <p className="text-[11px] text-slate-400 mt-1">{t('charts.monthlySubtitle')}</p>
         </div>
@@ -313,7 +315,7 @@ const HistoryTab: React.FC<Props> = ({
                     </span>
                   </div>
                   <span className="text-[11px] font-bold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                    {formatCurrency(cat.value)}
+                    {formatProtectedCurrency(cat.value)}
                   </span>
                 </button>
               ))}
@@ -428,11 +430,36 @@ const HistoryTab: React.FC<Props> = ({
                           {t('expenses.creditCardBadge')}
                         </span>
                       )}
+                      {exp.isPaid &&
+                        exp.isEarlyPayment &&
+                        Number(exp.paidAmount || 0) > 0 &&
+                        Number(exp.paidAmount) < Number(exp.value) - 0.009 && (
+                          <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                            {t('expenses.earlyDiscountNote', {
+                              original: formatProtectedCurrency(Number(exp.value)),
+                              paid: formatProtectedCurrency(getEffectiveExpenseAmount(exp)),
+                            })}
+                          </span>
+                        )}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                    {formatCurrency(Number(exp.value))}
-                  </span>
+                  {exp.isPaid &&
+                  exp.isEarlyPayment &&
+                  Number(exp.paidAmount || 0) > 0 &&
+                  Number(exp.paidAmount) < Number(exp.value) - 0.009 ? (
+                    <div className="text-right tabular-nums flex-shrink-0">
+                      <span className="block text-[11px] text-slate-400 line-through">
+                        {formatProtectedCurrency(Number(exp.value))}
+                      </span>
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                        {formatProtectedCurrency(getEffectiveExpenseAmount(exp))}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
+                      {formatProtectedCurrency(Number(exp.value))}
+                    </span>
+                  )}
                 </div>
               ))
             )}
@@ -480,7 +507,7 @@ const HistoryTab: React.FC<Props> = ({
                       )}
                     </div>
                     <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums flex-shrink-0">
-                      + {formatCurrency(Number(inc.value))}
+                      + {formatProtectedCurrency(Number(inc.value))}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">

@@ -9,8 +9,9 @@ import {
   FaShieldAlt,
   FaUtensils,
 } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { BalanceData } from '../../types/finance';
-import { formatCurrency, formatShortDate } from '../../utils/formatters';
+import { formatShortDate } from '../../utils/formatters';
 
 interface Props {
   balance: BalanceData;
@@ -30,6 +31,7 @@ const KpiGrid: React.FC<Props> = ({
   onOpenFoodAllowanceModal,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const netFlow = balance.totalIncome - balance.totalExpenses;
   const totalPatrimony = Number(
     ((balance.balance || 0) + (balance.emergencyFund || 0) + (balance.investments || 0)).toFixed(2),
@@ -51,11 +53,11 @@ const KpiGrid: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums">
-            {formatCurrency(balance.balance)}
+            {formatProtectedCurrency(balance.balance)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
             {(balance.emergencyFund || 0) > 0 || (balance.investments || 0) > 0
-              ? t('kpi.totalPatrimonyHint', { amount: formatCurrency(totalPatrimony) })
+              ? t('kpi.totalPatrimonyHint', { amount: formatProtectedCurrency(totalPatrimony) })
               : t('kpi.balanceSubIndividual')}
           </p>
           {balance.balance < 0 && hasMonthlyAllocatedSavings && (
@@ -75,14 +77,14 @@ const KpiGrid: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
-            {formatCurrency(balance.totalIncome)}
+            {formatProtectedCurrency(balance.totalIncome)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
             {balance.scheduledIncome > 0 ? (
               <>
                 {t('kpi.incomeScheduledNote')}{' '}
                 <span className="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
-                  {formatCurrency(balance.scheduledIncome)}
+                  {formatProtectedCurrency(balance.scheduledIncome)}
                 </span>
               </>
             ) : (
@@ -101,16 +103,15 @@ const KpiGrid: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
-            {formatCurrency(balance.totalExpenses)}
+            {formatProtectedCurrency(balance.totalExpenses)}
           </p>
           <p className="text-[11px] text-slate-400 mt-2">
             {t('kpi.netFlowLabel')}{' '}
             <span
-              className={`font-semibold tabular-nums ${
-                netFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-              }`}
+              className={`font-semibold tabular-nums ${netFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                }`}
             >
-              {formatCurrency(netFlow)}
+              {formatProtectedCurrency(netFlow)}
             </span>
           </p>
         </div>
@@ -128,17 +129,17 @@ const KpiGrid: React.FC<Props> = ({
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
-              {formatCurrency(balance.emergencyFund)}
+              {formatProtectedCurrency(balance.emergencyFund)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
-                ? t('kpi.reserveOwnPart', { amount: formatCurrency(balance.ownEmergencyFund || 0) })
+                ? t('kpi.reserveOwnPart', { amount: formatProtectedCurrency(balance.ownEmergencyFund || 0) })
                 : (balance.externalEmergencyFund || 0) > 0 &&
-                    (balance.allocatedEmergencyFund || 0) > 0
+                  (balance.allocatedEmergencyFund || 0) > 0
                   ? t('kpi.reservePrevHint', {
-                      reserve: formatCurrency(balance.externalEmergencyFund || 0),
-                      allocated: formatCurrency(balance.allocatedEmergencyFund || 0),
-                    })
+                    reserve: formatProtectedCurrency(balance.externalEmergencyFund || 0),
+                    allocated: formatProtectedCurrency(balance.allocatedEmergencyFund || 0),
+                  })
                   : (balance.externalEmergencyFund || 0) > 0
                     ? t('kpi.reserveUnlimitedHint')
                     : t('kpi.reserveDefaultHint')}
@@ -167,17 +168,17 @@ const KpiGrid: React.FC<Props> = ({
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
-              {formatCurrency(balance.investments || 0)}
+              {formatProtectedCurrency(balance.investments || 0)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {isFamilyMode
-                ? t('kpi.investmentsOwnPart', { amount: formatCurrency(balance.ownInvestments || 0) })
+                ? t('kpi.investmentsOwnPart', { amount: formatProtectedCurrency(balance.ownInvestments || 0) })
                 : (balance.externalInvestments || 0) > 0 &&
-                    (balance.allocatedInvestments || 0) > 0
+                  (balance.allocatedInvestments || 0) > 0
                   ? t('kpi.investmentsPrevHint', {
-                      external: formatCurrency(balance.externalInvestments || 0),
-                      allocated: formatCurrency(balance.allocatedInvestments || 0),
-                    })
+                    external: formatProtectedCurrency(balance.externalInvestments || 0),
+                    allocated: formatProtectedCurrency(balance.allocatedInvestments || 0),
+                  })
                   : (balance.externalInvestments || 0) > 0
                     ? t('kpi.investmentsUnlimitedHint')
                     : t('kpi.investmentsDefaultHint')}
@@ -206,7 +207,7 @@ const KpiGrid: React.FC<Props> = ({
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight tabular-nums">
-              {formatCurrency(balance.foodAllowance || 0)}
+              {formatProtectedCurrency(balance.foodAllowance || 0)}
             </p>
             <div className="text-xs text-slate-400 mt-1 space-y-0.5">
               {(balance.foodAllowanceScheduled || 0) > 0 && (
@@ -215,17 +216,17 @@ const KpiGrid: React.FC<Props> = ({
                   {balance.ownFoodAllowanceNextDate
                     ? ` (${formatShortDate(balance.ownFoodAllowanceNextDate)})`
                     : ''}
-                  : {formatCurrency(balance.foodAllowanceScheduled || 0)}
+                  : {formatProtectedCurrency(balance.foodAllowanceScheduled || 0)}
                 </p>
               )}
               <p>
                 {isFamilyMode
-                  ? t('kpi.foodFamilyOwnSub', { amount: formatCurrency(balance.ownFoodAllowance || 0) })
+                  ? t('kpi.foodFamilyOwnSub', { amount: formatProtectedCurrency(balance.ownFoodAllowance || 0) })
                   : (balance.foodAllowanceUsed || 0) > 0
                     ? t('kpi.foodUsageHint', {
-                        total: formatCurrency(balance.foodAllowanceTotal || 0),
-                        used: formatCurrency(balance.foodAllowanceUsed || 0),
-                      })
+                      total: formatProtectedCurrency(balance.foodAllowanceTotal || 0),
+                      used: formatProtectedCurrency(balance.foodAllowanceUsed || 0),
+                    })
                     : t('kpi.foodDefaultHint')}
               </p>
             </div>

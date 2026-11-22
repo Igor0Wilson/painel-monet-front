@@ -11,14 +11,15 @@ import {
   FaTimes,
   FaUser,
 } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { ExpenseItem } from '../../types/finance';
 import {
   computeRealtimeCategoriesForMonth,
+  getEffectiveExpenseAmount,
   OfficialCategoryName,
   translateCategoryName,
 } from '../../utils/categories';
 import {
-  formatCurrency,
   formatDateBr,
   formatExpenseDisplayName,
   formatMonthLabel,
@@ -45,6 +46,7 @@ const CategoryDetailsView: React.FC<Props> = ({
   onBack,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>(
     initialCategory || 'all',
   );
@@ -84,7 +86,7 @@ const CategoryDetailsView: React.FC<Props> = ({
             </p>
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white mt-0.5">
               {formatMonthLabel(selectedMonth)} — {t('common.total')}:{' '}
-              {formatCurrency(totalMonthExpenses)}
+              {formatProtectedCurrency(totalMonthExpenses)}
             </h2>
           </div>
         </div>
@@ -172,7 +174,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                 </div>
 
                 <p className="text-xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {formatCurrency(cat.value)}
+                  {formatProtectedCurrency(cat.value)}
                 </p>
 
                 <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-2.5">
@@ -230,7 +232,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                     {t('modals.categoryDetails.totalSpent')}
                   </span>
                   <span className="text-base font-bold text-slate-900 dark:text-white tabular-nums">
-                    {formatCurrency(cat.value)}
+                    {formatProtectedCurrency(cat.value)}
                   </span>
                 </div>
               </div>
@@ -304,9 +306,31 @@ const CategoryDetailsView: React.FC<Props> = ({
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 pt-1.5 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-slate-800">
                         <span className="text-xs text-slate-400 sm:hidden">{t('common.total')}</span>
-                        <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
-                          {formatCurrency(Number(item.value))}
-                        </span>
+                        <div className="text-right tabular-nums">
+                          {item.isPaid &&
+                            item.isEarlyPayment &&
+                            Number(item.paidAmount || 0) > 0 &&
+                            Number(item.paidAmount) < Number(item.value) - 0.009 ? (
+                            <>
+                              <span className="block text-[11px] text-slate-400 line-through">
+                                {formatProtectedCurrency(Number(item.value))}
+                              </span>
+                              <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                                {formatProtectedCurrency(getEffectiveExpenseAmount(item))}
+                              </span>
+                              <span className="block text-[10px] text-emerald-700 dark:text-emerald-400">
+                                {t('expenses.earlyDiscountNote', {
+                                  original: formatProtectedCurrency(Number(item.value)),
+                                  paid: formatProtectedCurrency(getEffectiveExpenseAmount(item)),
+                                })}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {formatProtectedCurrency(Number(item.value))}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

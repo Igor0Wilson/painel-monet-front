@@ -11,11 +11,11 @@ import {
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import { usePrivacyMode } from '../context/PrivacyModeContext';
 import type { ExpenseItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import { translateCategoryName } from '../utils/categories';
 import {
-  formatCurrency,
   formatDateBr,
   formatExpenseDisplayName,
 } from '../utils/formatters';
@@ -40,6 +40,7 @@ type CashMethod = 'pix' | 'debito' | 'dinheiro';
 
 const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [paymentMethod, setPaymentMethod] = useState<CashMethod>('pix');
   const [loading, setLoading] = useState(false);
 
@@ -122,7 +123,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                 {t('modals.payCard.totalLabel')} ({invoice.items.length})
               </p>
               <p className="text-2xl font-semibold tabular-nums mt-0.5">
-                {formatCurrency(invoice.total)}
+                {formatProtectedCurrency(invoice.total)}
               </p>
             </div>
             <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-medium text-emerald-300">
@@ -151,7 +152,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                     </p>
                   </div>
                   <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                    {formatCurrency(Number(item.value))}
+                    {formatProtectedCurrency(Number(item.value))}
                   </span>
                 </div>
               ))}
@@ -169,11 +170,10 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                     key={m.id}
                     type="button"
                     onClick={() => setPaymentMethod(m.id)}
-                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${
-                      isSelected
-                        ? 'border-slate-900 dark:border-emerald-500 bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/70'
-                    }`}
+                    className={`py-3 px-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${isSelected
+                      ? 'border-slate-900 dark:border-emerald-500 bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/70'
+                      }`}
                   >
                     {React.createElement(m.icon as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
                     <span className="text-xs font-semibold">{m.label}</span>
@@ -196,7 +196,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
               <span>
                 {loading
                   ? t('modals.payCard.paying')
-                  : `${t('modals.payCard.confirmBtn')} (${formatCurrency(invoice.total)})`}
+                  : `${t('modals.payCard.confirmBtn')} (${formatProtectedCurrency(invoice.total)})`}
               </span>
             </button>
           </div>

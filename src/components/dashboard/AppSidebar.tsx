@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FaBars,
@@ -14,6 +14,7 @@ import {
 import { ActiveTab, PanelScope } from '../../types/finance';
 import { downloadUserFinancialData } from '../../utils/downloadUserData';
 import EncryptedImage from '../EncryptedImage';
+import PrivacyToggleButton from '../PrivacyToggleButton';
 import ThemeAndLangControls from '../ThemeAndLangControls';
 
 function renderIcon(
@@ -83,29 +84,33 @@ export const MobileAppHeader: React.FC<MobileAppHeaderProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenProfileModal}
-          aria-label={t('navbar.profileTooltip')}
-          className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
-        >
-          {userAvatarUrl ? (
-            <EncryptedImage
-              src={userAvatarUrl}
-              alt={userName || t('common.photoAltProfile')}
-              className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
-              fallback={
-                <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold flex items-center justify-center flex-shrink-0">
-                  {userInitials}
-                </div>
-              }
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold flex items-center justify-center flex-shrink-0">
-              {userInitials}
-            </div>
-          )}
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <PrivacyToggleButton />
+
+          <button
+            type="button"
+            onClick={onOpenProfileModal}
+            aria-label={t('navbar.profileTooltip')}
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+          >
+            {userAvatarUrl ? (
+              <EncryptedImage
+                src={userAvatarUrl}
+                alt={userName || t('common.photoAltProfile')}
+                className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                fallback={
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                    {userInitials}
+                  </div>
+                }
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                {userInitials}
+              </div>
+            )}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -113,6 +118,7 @@ export const MobileAppHeader: React.FC<MobileAppHeaderProps> = ({
 
 interface AppSidebarProps {
   isOpen: boolean;
+  onOpen?: () => void;
   onClose: () => void;
   userId?: string;
   userName?: string;
@@ -132,8 +138,33 @@ interface AppSidebarProps {
   onRequestLogout: () => void;
 }
 
+const DEFAULT_DRAWER_WIDTH = 285;
+const EDGE_SWIPE_THRESHOLD_PX = 36;
+const AXIS_LOCK_THRESHOLD_PX = 6;
+const OPEN_PROGRESS_THRESHOLD = 0.35;
+const CLOSE_PROGRESS_THRESHOLD = 0.65;
+const SWIPE_VELOCITY_THRESHOLD = 0.35;
+
+function extractTouchPoint(
+  event: TouchEvent | React.TouchEvent,
+  preferChanged = false,
+): { clientX: number; clientY: number; identifier: number } | null {
+  const list = preferChanged ? event.changedTouches : event.touches;
+  const fallback = event.changedTouches;
+  const touch =
+    (list && list.length > 0 ? list[0] : null) ||
+    (fallback && fallback.length > 0 ? fallback[0] : null);
+  if (!touch) return null;
+  return {
+    clientX: Number(touch.clientX || 0),
+    clientY: Number(touch.clientY || 0),
+    identifier: Number(touch.identifier ?? 0),
+  };
+}
+
 const AppSidebar: React.FC<AppSidebarProps> = ({
   isOpen,
+  onOpen,
   onClose,
   userId,
   userName,
@@ -154,6 +185,233 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 }) => {
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
+  const asideRef = useRef<HTMLDivElement | null>(null);
+  const [dragState, setDragState] = useState<{
+    active: boolean;
+    translateX: number;
+    drawerWidth: number;
+  }>({
+    active: false,
+    translateX: 0,
+    drawerWidth: DEFAULT_DRAWER_WIDTH,
+  });
+
+  const gestureRef = useRef<{
+    tracking: boolean;
+    source: 'element' | 'window' | null;
+    mode: 'open' | 'close' | null;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastTime: number;
+    velocityX: number;
+    lockedAxis: 'x' | 'y' | null;
+    drawerWidth: number;
+    touchId: number | null;
+    isHorizontalDrag: boolean;
+    currentTranslateX: number;
+  }>({
+    tracking: false,
+    source: null,
+    mode: null,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastTime: 0,
+    velocityX: 0,
+    lockedAxis: null,
+    drawerWidth: DEFAULT_DRAWER_WIDTH,
+    touchId: null,
+    isHorizontalDrag: false,
+    currentTranslateX: -DEFAULT_DRAWER_WIDTH,
+  });
+
+  const isDrawerViewport = useCallback(
+    () => typeof window === 'undefined' || window.innerWidth < 1024,
+    [],
+  );
+
+  const beginGesture = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+      identifier: number,
+      mode: 'open' | 'close',
+      source: 'element' | 'window',
+    ) => {
+      if (!isDrawerViewport()) return;
+      if (mode === 'open' && !onOpen) return;
+
+      const width = asideRef.current?.offsetWidth || DEFAULT_DRAWER_WIDTH;
+      const initialTranslate = mode === 'open' ? -width : 0;
+
+      gestureRef.current = {
+        tracking: true,
+        source,
+        mode,
+        startX: clientX,
+        startY: clientY,
+        lastX: clientX,
+        lastTime: Date.now(),
+        velocityX: 0,
+        lockedAxis: null,
+        drawerWidth: width,
+        touchId: identifier,
+        isHorizontalDrag: false,
+        currentTranslateX: initialTranslate,
+      };
+    },
+    [isDrawerViewport, onOpen],
+  );
+
+  const moveGesture = useCallback(
+    (clientX: number, clientY: number, identifier: number) => {
+      const g = gestureRef.current;
+      if (!g.tracking || (g.touchId !== null && identifier !== g.touchId)) return;
+
+      const dx = clientX - g.startX;
+      const dy = clientY - g.startY;
+
+      if (!g.lockedAxis) {
+        if (
+          Math.abs(dx) < AXIS_LOCK_THRESHOLD_PX &&
+          Math.abs(dy) < AXIS_LOCK_THRESHOLD_PX
+        ) {
+          return;
+        }
+        if (Math.abs(dy) > Math.abs(dx)) {
+          g.lockedAxis = 'y';
+          g.tracking = false;
+          return;
+        }
+        if (g.mode === 'open' && dx <= 0) {
+          g.tracking = false;
+          return;
+        }
+        if (g.mode === 'close' && dx >= 0) {
+          g.tracking = false;
+          return;
+        }
+        g.lockedAxis = 'x';
+        g.isHorizontalDrag = true;
+      }
+
+      const now = Date.now();
+      const dt = Math.max(1, now - g.lastTime);
+      g.velocityX = (clientX - g.lastX) / dt;
+      g.lastX = clientX;
+      g.lastTime = now;
+
+      const base = g.mode === 'open' ? -g.drawerWidth : 0;
+      const nextTranslate = Math.max(-g.drawerWidth, Math.min(0, base + dx));
+      g.currentTranslateX = nextTranslate;
+
+      setDragState({
+        active: true,
+        translateX: nextTranslate,
+        drawerWidth: g.drawerWidth,
+      });
+    },
+    [],
+  );
+
+  const endGesture = useCallback(
+    (cancelled: boolean, finalClientX?: number) => {
+      const g = gestureRef.current;
+      const wasDragging = g.isHorizontalDrag;
+      const mode = g.mode;
+      const width = g.drawerWidth || DEFAULT_DRAWER_WIDTH;
+
+      let translateX = g.currentTranslateX;
+      let velocityX = g.velocityX;
+
+      if (typeof finalClientX === 'number' && g.tracking && wasDragging) {
+        const dt = Math.max(1, Date.now() - g.lastTime);
+        velocityX = (finalClientX - g.lastX) / dt || velocityX;
+        const base = mode === 'open' ? -width : 0;
+        translateX = Math.max(-width, Math.min(0, base + (finalClientX - g.startX)));
+      }
+
+      g.tracking = false;
+      g.source = null;
+      g.mode = null;
+      g.touchId = null;
+      g.lockedAxis = null;
+      g.isHorizontalDrag = false;
+
+      if (!wasDragging) return;
+
+      setDragState({
+        active: false,
+        translateX: 0,
+        drawerWidth: width,
+      });
+
+      if (cancelled) return;
+
+      const progress = Math.max(0, Math.min(1, (width + translateX) / width));
+      if (mode === 'open') {
+        if (velocityX > SWIPE_VELOCITY_THRESHOLD || progress >= OPEN_PROGRESS_THRESHOLD) {
+          onOpen?.();
+        }
+      } else if (mode === 'close') {
+        if (
+          velocityX < -SWIPE_VELOCITY_THRESHOLD ||
+          progress <= CLOSE_PROGRESS_THRESHOLD
+        ) {
+          onClose();
+        }
+      }
+    },
+    [onClose, onOpen],
+  );
+
+  useEffect(() => {
+    if (isOpen || !onOpen) return undefined;
+
+    const handleWindowTouchStart = (event: TouchEvent) => {
+      if (!isDrawerViewport() || gestureRef.current.tracking) return;
+      const pt = extractTouchPoint(event);
+      if (!pt || pt.clientX > EDGE_SWIPE_THRESHOLD_PX) return;
+      beginGesture(pt.clientX, pt.clientY, pt.identifier, 'open', 'window');
+    };
+
+    const handleWindowTouchMove = (event: TouchEvent) => {
+      if (!gestureRef.current.tracking || gestureRef.current.source !== 'window') {
+        return;
+      }
+      const pt = extractTouchPoint(event);
+      if (!pt) return;
+      moveGesture(pt.clientX, pt.clientY, pt.identifier);
+    };
+
+    const handleWindowTouchEnd = (event: TouchEvent) => {
+      if (!gestureRef.current.tracking || gestureRef.current.source !== 'window') {
+        return;
+      }
+      const pt = extractTouchPoint(event, true);
+      endGesture(false, pt?.clientX);
+    };
+
+    const handleWindowTouchCancel = () => {
+      if (!gestureRef.current.tracking || gestureRef.current.source !== 'window') {
+        return;
+      }
+      endGesture(true);
+    };
+
+    window.addEventListener('touchstart', handleWindowTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleWindowTouchMove, { passive: true });
+    window.addEventListener('touchend', handleWindowTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', handleWindowTouchCancel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleWindowTouchStart);
+      window.removeEventListener('touchmove', handleWindowTouchMove);
+      window.removeEventListener('touchend', handleWindowTouchEnd);
+      window.removeEventListener('touchcancel', handleWindowTouchCancel);
+    };
+  }, [beginGesture, endGesture, isDrawerViewport, isOpen, moveGesture, onOpen]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -190,24 +448,116 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     activeTab === 'overview' && panelScope === 'family' && !isCategoryDetailOpen;
   const isHistoryActive = activeTab === 'history' && !isCategoryDetailOpen;
 
+  const backdropProgress = dragState.active
+    ? Math.max(
+      0,
+      Math.min(
+        1,
+        (dragState.drawerWidth + dragState.translateX) /
+        Math.max(1, dragState.drawerWidth),
+      ),
+    )
+    : isOpen
+      ? 1
+      : 0;
+
   return (
     <>
-      {isOpen && (
+      {!isOpen && onOpen && (
+        <div
+          data-testid="sidebar-edge-handle"
+          aria-hidden="true"
+          onTouchStart={(e) => {
+            const pt = extractTouchPoint(e);
+            if (pt) beginGesture(pt.clientX, pt.clientY, pt.identifier, 'open', 'element');
+          }}
+          onTouchMove={(e) => {
+            if (gestureRef.current.source !== 'element') return;
+            const pt = extractTouchPoint(e);
+            if (pt) moveGesture(pt.clientX, pt.clientY, pt.identifier);
+          }}
+          onTouchEnd={(e) => {
+            if (gestureRef.current.source !== 'element') return;
+            const pt = extractTouchPoint(e, true);
+            endGesture(false, pt?.clientX);
+          }}
+          onTouchCancel={() => {
+            if (gestureRef.current.source !== 'element') return;
+            endGesture(true);
+          }}
+          className="fixed top-14 bottom-0 left-0 w-7 z-[75] lg:hidden touch-pan-y"
+        />
+      )}
+
+      {(isOpen || dragState.active) && (
         <div
           data-testid="sidebar-backdrop"
           onClick={onClose}
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[85] lg:hidden transition-opacity duration-300"
+          onTouchStart={(e) => {
+            if (!isOpen) return;
+            const pt = extractTouchPoint(e);
+            if (pt) beginGesture(pt.clientX, pt.clientY, pt.identifier, 'close', 'element');
+          }}
+          onTouchMove={(e) => {
+            if (gestureRef.current.source !== 'element') return;
+            const pt = extractTouchPoint(e);
+            if (pt) moveGesture(pt.clientX, pt.clientY, pt.identifier);
+          }}
+          onTouchEnd={(e) => {
+            if (gestureRef.current.source !== 'element') return;
+            const pt = extractTouchPoint(e, true);
+            endGesture(false, pt?.clientX);
+          }}
+          onTouchCancel={() => {
+            if (gestureRef.current.source !== 'element') return;
+            endGesture(true);
+          }}
+          style={
+            dragState.active
+              ? { opacity: backdropProgress }
+              : undefined
+          }
+          className={`fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[85] lg:hidden ${dragState.active ? 'transition-none' : 'transition-opacity duration-300'
+            }`}
           aria-hidden="true"
         />
       )}
 
       <aside
+        ref={asideRef}
         data-testid="app-sidebar"
         data-open={isOpen ? 'true' : 'false'}
+        data-dragging={dragState.active ? 'true' : 'false'}
         aria-label={t('sidebar.menuLabel')}
-        className={`fixed inset-y-0 left-0 z-[90] w-[285px] max-w-[85vw] lg:sticky lg:top-0 lg:h-[100dvh] lg:w-72 lg:flex-shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shadow-2xl lg:shadow-none flex flex-col safe-sidebar-panel transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        onTouchStart={(e) => {
+          if (!isOpen) return;
+          const pt = extractTouchPoint(e);
+          if (pt) beginGesture(pt.clientX, pt.clientY, pt.identifier, 'close', 'element');
+        }}
+        onTouchMove={(e) => {
+          if (gestureRef.current.source !== 'element') return;
+          const pt = extractTouchPoint(e);
+          if (pt) moveGesture(pt.clientX, pt.clientY, pt.identifier);
+        }}
+        onTouchEnd={(e) => {
+          if (gestureRef.current.source !== 'element') return;
+          const pt = extractTouchPoint(e, true);
+          endGesture(false, pt?.clientX);
+        }}
+        onTouchCancel={() => {
+          if (gestureRef.current.source !== 'element') return;
+          endGesture(true);
+        }}
+        style={
+          dragState.active
+            ? { transform: `translate3d(${dragState.translateX}px, 0, 0)` }
+            : undefined
+        }
+        className={`fixed inset-y-0 left-0 z-[90] w-[285px] max-w-[85vw] lg:sticky lg:top-0 lg:h-[100dvh] lg:w-72 lg:flex-shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 shadow-2xl lg:shadow-none flex flex-col safe-sidebar-panel touch-pan-y ${dragState.active
+          ? 'transition-none'
+          : `transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`
+          }`}
       >
         <div className="px-4 pb-3 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -304,18 +654,16 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             }}
             data-testid="sidebar-nav-individual"
             aria-current={isIndividualActive ? 'page' : undefined}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              isIndividualActive
-                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${isIndividualActive
+              ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
           >
             {renderIcon(
               FaUser,
-              `text-xs flex-shrink-0 ${
-                isIndividualActive
-                  ? 'text-emerald-400 dark:text-slate-950'
-                  : 'text-slate-500 dark:text-slate-400'
+              `text-xs flex-shrink-0 ${isIndividualActive
+                ? 'text-emerald-400 dark:text-slate-950'
+                : 'text-slate-500 dark:text-slate-400'
               }`,
             )}
             <span className="truncate">{t('sidebar.individualPanel')}</span>
@@ -330,29 +678,26 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               }}
               data-testid="sidebar-nav-family"
               aria-current={isFamilyActive ? 'page' : undefined}
-              className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                isFamilyActive
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${isFamilyActive
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
             >
               <span className="flex items-center gap-3 min-w-0">
                 {renderIcon(
                   FaUsers,
-                  `text-xs flex-shrink-0 ${
-                    isFamilyActive
-                      ? 'text-white'
-                      : 'text-emerald-600 dark:text-emerald-400'
+                  `text-xs flex-shrink-0 ${isFamilyActive
+                    ? 'text-white'
+                    : 'text-emerald-600 dark:text-emerald-400'
                   }`,
                 )}
                 <span className="truncate">{t('sidebar.familyPanel')}</span>
               </span>
               <span
-                className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums flex-shrink-0 ${
-                  isFamilyActive
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                }`}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums flex-shrink-0 ${isFamilyActive
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
               >
                 {familyMembersCount}
               </span>
@@ -367,18 +712,16 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             }}
             data-testid="sidebar-nav-history"
             aria-current={isHistoryActive ? 'page' : undefined}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              isHistoryActive
-                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${isHistoryActive
+              ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
           >
             {renderIcon(
               FaHistory,
-              `text-xs flex-shrink-0 ${
-                isHistoryActive
-                  ? 'text-emerald-400 dark:text-slate-950'
-                  : 'text-slate-500 dark:text-slate-400'
+              `text-xs flex-shrink-0 ${isHistoryActive
+                ? 'text-emerald-400 dark:text-slate-950'
+                : 'text-slate-500 dark:text-slate-400'
               }`,
             )}
             <span className="truncate">{t('dashboard.historyTab')}</span>
@@ -428,6 +771,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
         </nav>
 
         <div className="px-4 py-3.5 border-t border-slate-100 dark:border-slate-800 space-y-3">
+          <PrivacyToggleButton variant="sidebar" />
           <ThemeAndLangControls variant="sidebar" />
 
           <button

@@ -7,14 +7,24 @@ import { useTranslation } from 'react-i18next';
 import {
   FaEye,
   FaEyeSlash,
+  FaFingerprint,
   FaShieldAlt,
   FaChartLine,
   FaLayerGroup,
   FaExclamationTriangle,
+  FaUserShield,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type User } from '../context/AuthContext';
+import {
+  clearLocalBiometricPointer,
+  detectBiometricCapabilities,
+  getLocalBiometricPointer,
+  loginWithBiometricCredential,
+  type BiometricCapabilityInfo,
+  type LocalBiometricDevicePointer,
+} from '../utils/biometricAuth';
 import {
   consumeGoogleRedirectResult,
   signInWithEmailFirebase,
@@ -40,6 +50,10 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricPointer, setBiometricPointer] =
+    useState<LocalBiometricDevicePointer | null>(() => getLocalBiometricPointer());
+  const [bioCaps, setBioCaps] = useState<BiometricCapabilityInfo | null>(null);
   const [googlePending, setGooglePending] = useState<GooglePendingProfile | null>(null);
   const [deactivatedEmail, setDeactivatedEmail] = useState<string | null>(null);
   const { login } = useAuth();
@@ -62,6 +76,45 @@ const Login: React.FC = () => {
         .required(),
     [t],
   );
+
+  useEffect(() => {
+    let active = true;
+    detectBiometricCapabilities()
+      .then((caps) => {
+        if (active) setBioCaps(caps);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      setBiometricLoading(true);
+      const isApp = Boolean(bioCaps?.isInstalledApp);
+      const promptTitle = isApp
+        ? t('auth.biometric.loginBiometricApp')
+        : t('auth.biometric.loginFacialWeb');
+      const result = await loginWithBiometricCredential(promptTitle);
+      login(result.access_token, result.user as unknown as User);
+      toast.success(t('auth.biometric.loginSuccess'));
+      navigate('/dashboard', { replace: true });
+    } catch (error: unknown) {
+      const apiStatus = (error as { response?: { status?: number } })?.response?.status;
+      if (apiStatus === 401 || apiStatus === 404) {
+        clearLocalBiometricPointer();
+        setBiometricPointer(null);
+        toast.info(t('auth.biometric.loginUnavailable'));
+      } else {
+        toast.error(
+          extractApiErrorMessage(error, t('auth.biometric.loginUnavailable')),
+        );
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (searchParams.get('reactivated') === '1') {
@@ -336,6 +389,34 @@ const Login: React.FC = () => {
               label={t('auth.googleContinue')}
             />
 
+            {biometricPointer && bioCaps?.available && (
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={biometricLoading || loading || googleLoading}
+                data-testid="biometric-login-btn"
+                className="w-full mt-3 inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50"
+              >
+                {React.createElement(
+                  (bioCaps.isInstalledApp ? FaFingerprint : FaUserShield) as unknown as React.ComponentType<{
+                    className?: string;
+                  }>,
+                  { className: 'text-sm' },
+                )}
+                <span>
+                  {biometricLoading
+                    ? t('auth.biometric.verifying')
+                    : !bioCaps.isInstalledApp
+                      ? t('auth.biometric.loginFacialWeb')
+                      : biometricPointer.kind === 'fingerprint'
+                        ? t('auth.biometric.loginFingerprintApp')
+                        : biometricPointer.kind === 'facial'
+                          ? t('auth.biometric.loginFacialWeb')
+                          : t('auth.biometric.loginBiometricApp')}
+                </span>
+              </button>
+            )}
+
             <div className="relative my-5">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-slate-200 dark:border-slate-700" />
@@ -414,7 +495,10 @@ const Login: React.FC = () => {
               </button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center space-y-2">
+              <p className="text-[11px] text-slate-400">
+                {t('auth.biometric.mandatoryPasswordHint')}
+              </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t('auth.noAccountPrompt')}{' '}
                 <Link

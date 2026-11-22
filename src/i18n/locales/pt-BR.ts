@@ -249,6 +249,17 @@ export const ptBR = {
       invalidActionCode:
         'Este link é inválido ou já foi utilizado. Solicite um novo e-mail.',
     },
+    biometric: {
+      loginFacialWeb: 'Entrar com Reconhecimento Facial',
+      loginBiometricApp: 'Entrar com Digital / Facial',
+      loginFingerprintApp: 'Entrar com Digital',
+      verifying: 'Verificando biometria...',
+      loginSuccess: 'Acesso biométrico confirmado!',
+      loginUnavailable:
+        'Biometria indisponível ou desativada neste dispositivo. Entre com seu e-mail e senha obrigatórios.',
+      mandatoryPasswordHint:
+        'O login por e-mail e senha é sempre obrigatório na conta; a biometria/facial é um acesso rápido opcional.',
+    },
   },
   navbar: {
     individualScope: 'Individual',
@@ -269,6 +280,10 @@ export const ptBR = {
     connectSomeone: 'Conectar com alguém',
     connectSomeoneDesc: 'Vincular conta pelo Modo Família',
     appBadge: 'App',
+    privacyHideValues: 'Ocultar valores',
+    privacyShowValues: 'Mostrar valores',
+    privacyHiddenTag: 'Oculto',
+    privacyVisibleTag: 'Visível',
   },
   dashboard: {
     overviewTab: 'Visão Geral',
@@ -433,6 +448,9 @@ export const ptBR = {
     undoPaymentError: 'Não foi possível desfazer o pagamento.',
     partialPaidSummary: 'Pago: {{paid}}',
     partialRemainingSummary: 'Falta: {{remaining}}',
+    earlyDiscountBadge: 'Antecipado (-{{discount}})',
+    earlyDiscountNote:
+      'Conta tinha valor {{original}}, mas pagou {{paid}} devido à antecipação',
     paidOnDate: 'Pago em {{date}}',
     partialPaymentsHistory: 'Pagamentos realizados:',
     receiptAttached: 'Comprovante',
@@ -709,6 +727,14 @@ export const ptBR = {
       partialAmountInputLabel: 'Valor pago agora (R$)',
       paymentDateLabel: 'Data em que pagou esta parte',
       totalPaymentDateLabel: 'Data do pagamento',
+      earlyDiscountQuestion: 'A conta foi paga com antecedência? Teve algum desconto?',
+      earlyDiscountNoBtn: 'Não, valor integral',
+      earlyDiscountYesBtn: 'Sim, teve desconto',
+      earlyDiscountPaidLabel: 'Valor efetivamente pago (R$)',
+      earlyDiscountOriginalLabel: 'Valor original',
+      earlyDiscountSavingsPreview: 'Economia na antecipação: {{saved}} (pagará {{paid}})',
+      earlyDiscountAmountError:
+        'Informe um valor pago maior que zero e menor ou igual ao saldo restante para aplicar o desconto.',
       partialCreditBlockedHint:
         'Pagamento parcial indisponível no parcelamento de cartão; escolha Pix, Débito, Dinheiro ou VA/VR.',
       partialAmountRangeError:
@@ -868,6 +894,30 @@ export const ptBR = {
       saveError: 'Erro ao atualizar perfil',
       avatarUpdatedToast: 'Foto de perfil atualizada!',
       avatarDeletedToast: 'Foto de perfil removida com sucesso!',
+      biometricTitle: 'Autenticação Biométrica & Facial',
+      biometricWebSubtitle:
+        'No site na web utiliza Reconhecimento Facial; e-mail e senha continuam obrigatórios.',
+      biometricAppSubtitle:
+        'No app instalado (Android e iPhone) utiliza Digital e Reconhecimento Facial; e-mail e senha continuam obrigatórios.',
+      biometricActiveBadge: 'Ativada',
+      biometricInactiveBadge: 'Desativada',
+      biometricModeLabel: 'Método preferido',
+      biometricModeFacial: 'Reconhecimento Facial',
+      biometricModeFingerprint: 'Impressão Digital',
+      biometricModeBoth: 'Digital e Reconhecimento Facial',
+      biometricActivateBtn: 'Ativar e configurar',
+      biometricReconfigureBtn: 'Reconfigurar método',
+      biometricToggleEnableBtn: 'Reativar',
+      biometricToggleDisableBtn: 'Desativar',
+      biometricRemoveBtn: 'Remover',
+      biometricActivatedToast: 'Autenticação biométrica ativada neste dispositivo!',
+      biometricUpdatedToast: 'Configuração biométrica atualizada!',
+      biometricDisabledToast: 'Autenticação biométrica desativada.',
+      biometricRemovedToast: 'Credencial biométrica removida com sucesso.',
+      biometricUnsupportedHint:
+        'Este navegador ou aparelho não possui leitor facial/biométrico configurado no momento.',
+      biometricErrorToast: 'Não foi possível concluir a configuração biométrica.',
+      biometricEnrolledListTitle: 'Dispositivos configurados ({{count}})',
     },
     danger: {
       title: 'Central de Segurança da Conta',
@@ -941,6 +991,10 @@ export const ptBR = {
       familyInviteTitle: 'Convite para Painel Família — Finanças',
       familyInviteBody:
         '{{name}} (CPF {{cpf}}) convidou você para unificar o painel financeiro. Toque para confirmar.',
+      expenseDueTomorrowTitle: 'Conta vence amanhã — Painel Monet',
+      expenseDueTomorrowBody: 'Sua conta "{{name}}" ({{amount}}) vence amanhã ({{date}}).',
+      expenseDueTodayTitle: 'Conta vence hoje! — Painel Monet',
+      expenseDueTodayBody: 'Sua conta "{{name}}" ({{amount}}) vence hoje ({{date}}).',
     },
   },
 };

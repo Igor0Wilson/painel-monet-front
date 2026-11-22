@@ -1,10 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaCheckCircle, FaCreditCard } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { CreditCardInvoiceGroup } from '../PayCreditCardModal';
 import { translateCategoryName } from '../../utils/categories';
 import {
-  formatCurrency,
   formatDateBr,
   formatExpenseDisplayName,
 } from '../../utils/formatters';
@@ -23,6 +23,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
   onPayInvoice,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   if (!activeInvoice) return null;
 
   const cardBuckets = (() => {
@@ -69,7 +70,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
             {t('common.total')} {activeInvoice.shortLabel}
           </span>
           <span className="text-lg font-semibold tabular-nums text-white">
-            {formatCurrency(activeInvoice.total)}
+            {formatProtectedCurrency(activeInvoice.total)}
           </span>
         </div>
       </div>
@@ -92,7 +93,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
                 className={`tabular-nums text-[11px] ${isSelected ? 'text-emerald-300 dark:text-slate-900' : 'text-slate-400'
                   }`}
               >
-                {formatCurrency(inv.total)}
+                {formatProtectedCurrency(inv.total)}
               </span>
             </button>
           );
@@ -135,7 +136,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
                 </p>
               </div>
               <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                {formatCurrency(Number(item.value))}
+                {formatProtectedCurrency(Number(item.value))}
               </span>
             </div>
           ))}
@@ -162,7 +163,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
                     {bucketLabel}
                   </span>
                   <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                    {formatCurrency(bucket.total)}
+                    {formatProtectedCurrency(bucket.total)}
                   </span>
                   {cardBuckets.length > 1 && (
                     <button
@@ -198,7 +199,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
           >
             {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-xs' })}
-            <span>{t('creditCard.payInvoiceBtn', { amount: formatCurrency(activeInvoice.total) })}</span>
+            <span>{t('creditCard.payInvoiceBtn', { amount: formatProtectedCurrency(activeInvoice.total) })}</span>
           </button>
         </div>
       </div>

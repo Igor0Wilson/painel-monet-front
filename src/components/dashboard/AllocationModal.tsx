@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaCalendarAlt, FaSeedling, FaShieldAlt, FaTimes, FaUtensils } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import {
-  formatCurrency,
   formatCurrencyInput,
   formatDateBr,
   getCurrencyPlaceholder,
@@ -61,6 +61,7 @@ const AllocationModal: React.FC<Props> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
 
   if (!isOpen) return null;
 
@@ -168,9 +169,9 @@ const AllocationModal: React.FC<Props> = ({
               {(allocatedSavings > 0 || externalSavings > 0) && (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
                   {t('modals.allocation.currentTotalPrefix')}{' '}
-                  <strong>{formatCurrency(allocatedSavings + externalSavings)}</strong> (
-                  {t('modals.allocation.existingBreakdown')} {formatCurrency(externalSavings)} ·{' '}
-                  {t('modals.allocation.monthlyBreakdown')} {formatCurrency(allocatedSavings)})
+                  <strong>{formatProtectedCurrency(allocatedSavings + externalSavings)}</strong> (
+                  {t('modals.allocation.existingBreakdown')} {formatProtectedCurrency(externalSavings)} ·{' '}
+                  {t('modals.allocation.monthlyBreakdown')} {formatProtectedCurrency(allocatedSavings)})
                 </p>
               )}
             </div>
@@ -264,7 +265,7 @@ const AllocationModal: React.FC<Props> = ({
                       <strong>{t('modals.allocation.foodCreditedTitle')}</strong>
                       {usedAmount > 0
                         ? t('modals.allocation.foodAlreadyUsed', {
-                          amount: formatCurrency(usedAmount),
+                          amount: formatProtectedCurrency(usedAmount),
                         })
                         : ''}
                       .
@@ -285,7 +286,7 @@ const AllocationModal: React.FC<Props> = ({
                     className="w-full text-left text-[11px] font-semibold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
                   >
                     {t('modals.allocation.reclassifyMonthlyToHere', {
-                      amount: formatCurrency(allocatedSavings),
+                      amount: formatProtectedCurrency(allocatedSavings),
                     })}
                   </button>
                 )}
@@ -296,7 +297,7 @@ const AllocationModal: React.FC<Props> = ({
                   <p>
                     {t('modals.allocation.maxAllocatable')}{' '}
                     <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                      {formatCurrency(Math.max(0, maxLimit))}
+                      {formatProtectedCurrency(Math.max(0, maxLimit))}
                     </span>
                   </p>
                   <p>
@@ -307,14 +308,14 @@ const AllocationModal: React.FC<Props> = ({
                         : 'text-rose-600 dark:text-rose-400'
                         }`}
                     >
-                      {formatCurrency(projectedBalance)}
+                      {formatProtectedCurrency(projectedBalance)}
                     </span>
                     {allocationDelta < 0 && (
                       <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
                         {' '}
                         (
                         {t('modals.allocation.releasedToSpend', {
-                          amount: formatCurrency(Math.abs(allocationDelta)),
+                          amount: formatProtectedCurrency(Math.abs(allocationDelta)),
                         })}
                         )
                       </span>
@@ -324,7 +325,7 @@ const AllocationModal: React.FC<Props> = ({
                         {' '}
                         (
                         {t('modals.allocation.reservedDelta', {
-                          amount: formatCurrency(allocationDelta),
+                          amount: formatProtectedCurrency(allocationDelta),
                         })}
                         )
                       </span>
@@ -340,7 +341,7 @@ const AllocationModal: React.FC<Props> = ({
                       className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 transition-colors"
                     >
                       {t('modals.allocation.redeemAllBtn', {
-                        amount: formatCurrency(allocatedSavings),
+                        amount: formatProtectedCurrency(allocatedSavings),
                       })}
                     </button>
                     {onReclassifyToExternal && (

@@ -1,4 +1,5 @@
 import type { ChartOptions, TooltipItem } from 'chart.js';
+import { getMaskedCurrencyDisplay } from '../context/PrivacyModeContext';
 import { getCategoryMeta } from './categories';
 import {
   formatChartDayLabel,
@@ -19,11 +20,13 @@ export const EXECUTIVE_CHART_PALETTE = [
 export function getExecutiveLineOptions(
   isDark = false,
   localeOverride?: string,
+  hideValues = false,
 ): ChartOptions<'line'> {
   const tickColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? '#1e293b' : '#f1f5f9';
   const legendColor = isDark ? '#cbd5e1' : '#475569';
   const tooltipBg = isDark ? '#020617' : '#0f172a';
+  const masked = getMaskedCurrencyDisplay(localeOverride);
 
   return {
     maintainAspectRatio: false,
@@ -37,6 +40,7 @@ export function getExecutiveLineOptions(
           color: tickColor,
           font: { size: 11 },
           callback: (value: string | number) => {
+            if (hideValues) return masked;
             const { locale, currency } = getLocaleFormatting(localeOverride);
             return new Intl.NumberFormat(locale, {
               style: 'currency',
@@ -70,16 +74,22 @@ export function getExecutiveLineOptions(
         cornerRadius: 8,
         callbacks: {
           label: (ctx: TooltipItem<'line'>) =>
-            ` ${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y || 0))}`,
+            ` ${ctx.dataset.label}: ${hideValues ? masked : formatCurrency(Number(ctx.parsed.y || 0))
+            }`,
         },
       },
     },
   };
 }
 
-export function getExecutiveDoughnutOptions(isDark = false): ChartOptions<'doughnut'> {
+export function getExecutiveDoughnutOptions(
+  isDark = false,
+  hideValues = false,
+  localeOverride?: string,
+): ChartOptions<'doughnut'> {
   const legendColor = isDark ? '#cbd5e1' : '#334155';
   const tooltipBg = isDark ? '#020617' : '#0f172a';
+  const masked = getMaskedCurrencyDisplay(localeOverride);
 
   return {
     maintainAspectRatio: false,
@@ -102,7 +112,8 @@ export function getExecutiveDoughnutOptions(isDark = false): ChartOptions<'dough
         cornerRadius: 8,
         callbacks: {
           label: (ctx: TooltipItem<'doughnut'>) =>
-            ` ${ctx.label}: ${formatCurrency(Number(ctx.parsed || 0))}`,
+            ` ${ctx.label}: ${hideValues ? masked : formatCurrency(Number(ctx.parsed || 0))
+            }`,
         },
       },
     },

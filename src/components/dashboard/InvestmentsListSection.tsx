@@ -8,9 +8,9 @@ import {
   FaSeedling,
   FaTrash,
 } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { InvestmentItem, MemberBreakdown } from '../../types/finance';
 import {
-  formatCurrency,
   formatDateBr,
   translateInvestmentCategory,
 } from '../../utils/formatters';
@@ -33,6 +33,7 @@ const InvestmentsListSection: React.FC<Props> = ({
   onDeleteInvestment,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [sourceFilter, setSourceFilter] = useState<'all' | 'external' | 'balance'>('all');
 
   const isSelectedMemberRestricted = Boolean(
@@ -63,7 +64,7 @@ const InvestmentsListSection: React.FC<Props> = ({
             </h2>
             {visibleItems.length > 0 && (
               <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full tabular-nums">
-                {formatCurrency(totalVisible)}
+                {formatProtectedCurrency(totalVisible)}
               </span>
             )}
           </div>
@@ -178,7 +179,7 @@ const InvestmentsListSection: React.FC<Props> = ({
 
               <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
                 <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
-                  {formatCurrency(item.amount)}
+                  {formatProtectedCurrency(item.amount)}
                 </span>
                 {item.isOwn !== false && (
                   <div className="flex items-center gap-1">

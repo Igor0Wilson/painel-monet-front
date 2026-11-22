@@ -7,6 +7,7 @@ import {
 import { downloadUserFinancialData } from '../../utils/downloadUserData';
 import EncryptedImage from '../EncryptedImage';
 import InstallAppBanner from '../InstallAppBanner';
+import PrivacyToggleButton from '../PrivacyToggleButton';
 import ThemeAndLangControls from '../ThemeAndLangControls';
 
 interface Props {
@@ -65,6 +66,8 @@ const Navbar: React.FC<Props> = ({
               {downloading ? t('modals.userEdit.backupGenerating') : t('dashboard.exportBtn')}
             </span>
           </button>
+
+          <PrivacyToggleButton />
 
           <ThemeAndLangControls compact />
 

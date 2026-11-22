@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaLock, FaShieldAlt, FaWhatsapp } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { MemberBreakdown } from '../../types/finance';
-import { buildWhatsAppUrl, formatCurrency } from '../../utils/formatters';
+import { buildWhatsAppUrl } from '../../utils/formatters';
 import EncryptedImage from '../EncryptedImage';
 
 interface Props {
@@ -19,6 +20,7 @@ const FamilyMembersStrip: React.FC<Props> = ({
   onOpenPrivacySettings,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   if (!members.length) return null;
 
   const renderPrivateOrValue = (
@@ -40,7 +42,7 @@ const FamilyMembersStrip: React.FC<Props> = ({
     }
     return (
       <span className={`font-semibold tabular-nums ${highlightClass}`}>
-        {formatCurrency(amount)}
+        {formatProtectedCurrency(amount)}
       </span>
     );
   };

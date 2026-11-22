@@ -51,11 +51,14 @@ import {
   PanelScope,
 } from '../types/finance';
 import {
+  DueExpenseReminderItem,
+  notifyDueExpenseOnDevice,
   notifyFamilyInviteOnDevice,
   requestDeviceNotificationPermission,
 } from '../utils/deviceNotifications';
 import { extractApiErrorMessage, getApiErrorStatus } from '../utils/errorHandler';
 import {
+  formatCurrency,
   formatMonthLabel,
   formatNumberToCurrencyInput,
   getCurrentMonthKey,
@@ -264,10 +267,65 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
+  const dueReminderCheckInFlightRef = useRef(false);
+
+  const checkDueReminders = useCallback(async () => {
+    if (dueReminderCheckInFlightRef.current) return;
+    dueReminderCheckInFlightRef.current = true;
+    try {
+      const res = await api.get<{
+        serverDate: string;
+        reminders: DueExpenseReminderItem[];
+      }>('/expenses/due-reminders');
+      const list = Array.isArray(res.data?.reminders) ? res.data.reminders : [];
+      const ackIds: string[] = [];
+
+      for (const item of list) {
+        if (item.alreadyDeviceNotified) continue;
+        const notified = await notifyDueExpenseOnDevice(item);
+        if (notified) {
+          ackIds.push(item.id);
+          const msg =
+            item.kind === 'due_today'
+              ? t('modals.notifications.expenseDueTodayBody', {
+                  name: item.expenseName,
+                  amount: formatCurrency(Number(item.amount || 0)),
+                  date: item.dueDate.split('-').reverse().join('/'),
+                })
+              : t('modals.notifications.expenseDueTomorrowBody', {
+                  name: item.expenseName,
+                  amount: formatCurrency(Number(item.amount || 0)),
+                  date: item.dueDate.split('-').reverse().join('/'),
+                });
+          if (item.kind === 'due_today') {
+            toast.warn(msg);
+          } else {
+            toast.info(msg);
+          }
+        }
+      }
+
+      if (ackIds.length > 0) {
+        await api.post('/expenses/due-reminders/ack', { ids: ackIds }).catch(() => undefined);
+      }
+    } catch {
+      // Silencioso: lembretes não bloqueiam o carregamento principal
+    } finally {
+      dueReminderCheckInFlightRef.current = false;
+    }
+  }, [t]);
+
   useEffect(() => {
     fetchFamilyStatus();
     requestDeviceNotificationPermission().catch(() => undefined);
   }, [fetchFamilyStatus]);
+
+  useEffect(() => {
+    const unpaidCount = expenses.filter((e) => !e.isPaid).length;
+    if (unpaidCount > 0) {
+      checkDueReminders().catch(() => undefined);
+    }
+  }, [expenses, checkDueReminders]);
 
   useFamilyRealtimeSync({
     onDataChange: fetchData,
@@ -762,6 +820,7 @@ const Dashboard: React.FC = () => {
         {isInstalledApp && (
           <AppSidebar
             isOpen={isSidebarOpen}
+            onOpen={() => setIsSidebarOpen(true)}
             onClose={() => setIsSidebarOpen(false)}
             userId={user?.id}
             userName={user?.name}

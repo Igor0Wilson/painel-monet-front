@@ -311,6 +311,20 @@ export interface CategoryRealtimeSummary {
   items: ExpenseItem[];
 }
 
+export function getEffectiveExpenseAmount(exp: ExpenseItem): number {
+  const original = Number(exp.value || 0);
+  if (
+    exp.isPaid &&
+    exp.isEarlyPayment &&
+    exp.paidAmount !== undefined &&
+    exp.paidAmount !== null &&
+    Number(exp.paidAmount) > 0
+  ) {
+    return Number(Math.min(original, Number(exp.paidAmount)).toFixed(2));
+  }
+  return original;
+}
+
 export function getMonthExpensesForAnalytics(
   expenses: ExpenseItem[],
   monthKey: string,
@@ -363,7 +377,7 @@ export function computeRealtimeCategoriesForMonth(
     monthExpenses.forEach((exp) => {
       const cat = normalizeCategoryName(exp.accountType?.name);
       const entry = grouped.get(cat)!;
-      entry.value += Number(exp.value || 0);
+      entry.value += getEffectiveExpenseAmount(exp);
       entry.items.push(exp);
     });
   } else if (fallbackCategories && fallbackCategories.length > 0) {
@@ -396,7 +410,7 @@ export function computeRealtimeCategoriesForMonth(
       color: meta.color,
       meta,
       items: entry.items,
-  };
+    };
   }).sort((a, b) => b.value - a.value);
 
   const activeCategories = allCategories.filter((c) => c.value > 0);

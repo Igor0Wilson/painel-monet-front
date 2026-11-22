@@ -108,6 +108,8 @@ export interface ExpenseItem {
   accountType?: { id: string; name: string } | null;
   value: number;
   paidAmount?: number;
+  discountAmount?: number;
+  isEarlyPayment?: boolean;
   remainingAmount?: number;
   isPartiallyPaid?: boolean;
   paidAt?: string | null;

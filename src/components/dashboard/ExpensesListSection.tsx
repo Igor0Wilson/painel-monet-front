@@ -21,11 +21,15 @@ import {
   FaUser,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import EncryptedImage from '../EncryptedImage';
 import { ExpenseFilter, ExpenseItem } from '../../types/finance';
-import { getCategoryMeta, translateCategoryName } from '../../utils/categories';
 import {
-  formatCurrency,
+  getCategoryMeta,
+  getEffectiveExpenseAmount,
+  translateCategoryName,
+} from '../../utils/categories';
+import {
   formatDateBr,
   formatExpenseDisplayName,
   formatMonthLabel,
@@ -98,6 +102,7 @@ const ExpensesListSection: React.FC<Props> = ({
   onDeleteExpense,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [periodMode, setPeriodMode] = useState<PeriodMode>('all');
   const [selectedPeriodMonth, setSelectedPeriodMonth] = useState<string>(getCurrentMonthKey());
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -181,22 +186,26 @@ const ExpensesListSection: React.FC<Props> = ({
       periodMode === 'all'
         ? expenses
         : expenses.filter((exp) => {
-            const cleanDate = String(exp.dueDate || '').split('T')[0];
-            if (!cleanDate) return false;
-            if (periodMode === 'month') {
-              return cleanDate.startsWith(selectedPeriodMonth);
-            }
-            if (customStartDate && cleanDate < customStartDate) return false;
-            if (customEndDate && cleanDate > customEndDate) return false;
-            return true;
-          });
+          const cleanDate = String(exp.dueDate || '').split('T')[0];
+          if (!cleanDate) return false;
+          if (periodMode === 'month') {
+            return cleanDate.startsWith(selectedPeriodMonth);
+          }
+          if (customStartDate && cleanDate < customStartDate) return false;
+          if (customEndDate && cleanDate > customEndDate) return false;
+          return true;
+        });
 
     if (!selectedCardKey) return byPeriod;
     return byPeriod.filter((exp) => getExpenseCardKey(exp) === selectedCardKey);
   }, [expenses, periodMode, selectedPeriodMonth, customStartDate, customEndDate, selectedCardKey]);
 
   const periodTotalSum = useMemo(
-    () => periodFilteredExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0),
+    () =>
+      periodFilteredExpenses.reduce(
+        (sum, e) => sum + getEffectiveExpenseAmount(e),
+        0,
+      ),
     [periodFilteredExpenses],
   );
 
@@ -352,12 +361,12 @@ const ExpensesListSection: React.FC<Props> = ({
             <span className="text-slate-500 dark:text-slate-400 tabular-nums">
               {t('expenses.periodTotalLabel')}{' '}
               <strong className="text-slate-900 dark:text-white">
-                {formatCurrency(periodTotalSum)}
+                {formatProtectedCurrency(periodTotalSum)}
               </strong>
               {periodUnpaidSum > 0 && (
                 <span className="text-amber-700 dark:text-amber-400 font-semibold">
                   {' '}
-                  · {t('expenses.periodOpenSum', { amount: formatCurrency(periodUnpaidSum) })}
+                  · {t('expenses.periodOpenSum', { amount: formatProtectedCurrency(periodUnpaidSum) })}
                 </span>
               )}
             </span>
@@ -398,7 +407,7 @@ const ExpensesListSection: React.FC<Props> = ({
                   : t('expenses.batchCountPlural', { count: selectedExpenses.length })}
               </p>
               <p className="text-lg font-bold tabular-nums text-white leading-tight">
-                {t('common.total')}: {formatCurrency(selectedTotal)}
+                {t('common.total')}: {formatProtectedCurrency(selectedTotal)}
               </p>
             </div>
           </div>
@@ -421,7 +430,7 @@ const ExpensesListSection: React.FC<Props> = ({
                   FaCheckCircle as unknown as React.ComponentType<{ className?: string }>,
                   { className: 'text-xs' },
                 )}
-                <span>{t('expenses.payBatchBtn', { amount: formatCurrency(selectedTotal) })}</span>
+                <span>{t('expenses.payBatchBtn', { amount: formatProtectedCurrency(selectedTotal) })}</span>
               </button>
             )}
           </div>
@@ -451,9 +460,9 @@ const ExpensesListSection: React.FC<Props> = ({
               const cardTitle =
                 group.cardBank && group.cardLast4
                   ? t('expenses.cardHeadingWithBank', {
-                      bank: group.cardBank,
-                      last4: group.cardLast4,
-                    })
+                    bank: group.cardBank,
+                    last4: group.cardLast4,
+                  })
                   : group.cardLast4
                     ? t('expenses.cardHeadingNoBank', { last4: group.cardLast4 })
                     : group.cardBank
@@ -465,11 +474,10 @@ const ExpensesListSection: React.FC<Props> = ({
                 <div
                   key={group.key}
                   data-testid={`card-summary-${group.cardLast4 || group.key}`}
-                  className={`rounded-xl border p-3.5 bg-white dark:bg-slate-800/80 space-y-2.5 transition-all ${
-                    isCardFiltered
-                      ? 'border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'border-slate-200/80 dark:border-slate-700'
-                  }`}
+                  className={`rounded-xl border p-3.5 bg-white dark:bg-slate-800/80 space-y-2.5 transition-all ${isCardFiltered
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+                    : 'border-slate-200/80 dark:border-slate-700'
+                    }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -482,11 +490,10 @@ const ExpensesListSection: React.FC<Props> = ({
                         onClick={() =>
                           setSelectedCardKey((curr) => (curr === group.key ? null : group.key))
                         }
-                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
-                          isCardFiltered
-                            ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
-                            : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                        }`}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${isCardFiltered
+                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                          : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                          }`}
                       >
                         {isCardFiltered ? t('expenses.clearCardFilterBtn') : t('expenses.filterByCardBtn')}
                       </button>
@@ -510,7 +517,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupAutoDebit')}: </span>
                         <span>
                           {group.autoDebitItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -520,7 +527,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupPending')}: </span>
                         <span>
                           {group.pendingItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(getRemainingAmount(i) || Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(getRemainingAmount(i) || Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -530,7 +537,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupPaidWithCard')}: </span>
                         <span>
                           {group.paidWithCardItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -707,9 +714,9 @@ const ExpensesListSection: React.FC<Props> = ({
                             {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
                             {expense.cardLast4
                               ? t('expenses.cardLast4Label', {
-                                  bank: expense.cardBank || t('paymentMethods.credito'),
-                                  last4: expense.cardLast4,
-                                })
+                                bank: expense.cardBank || t('paymentMethods.credito'),
+                                last4: expense.cardLast4,
+                              })
                               : expense.cardBank}
                           </span>
                         )}
@@ -758,17 +765,44 @@ const ExpensesListSection: React.FC<Props> = ({
                         )}
                       </div>
 
+                      {expense.isPaid &&
+                        expense.isEarlyPayment &&
+                        Number(expense.paidAmount || 0) > 0 &&
+                        Number(expense.paidAmount) < Number(expense.value) - 0.009 && (
+                          <div
+                            data-testid={`early-discount-note-${expense.id}`}
+                            className="mt-2 rounded-lg border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/30 px-3 py-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-200 flex flex-wrap items-center gap-2"
+                          >
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white tabular-nums">
+                              {t('expenses.earlyDiscountBadge', {
+                                discount: formatProtectedCurrency(
+                                  Number(
+                                    expense.discountAmount ??
+                                    Number(expense.value) - Number(expense.paidAmount),
+                                  ),
+                                ),
+                              })}
+                            </span>
+                            <span>
+                              {t('expenses.earlyDiscountNote', {
+                                original: formatProtectedCurrency(Number(expense.value)),
+                                paid: formatProtectedCurrency(Number(expense.paidAmount)),
+                              })}
+                            </span>
+                          </div>
+                        )}
+
                       {!expense.isPaid && (expense.isPartiallyPaid || Number(expense.paidAmount || 0) > 0) && (
                         <div className="mt-2 rounded-lg border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-1.5">
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-semibold tabular-nums">
                             <span className="text-emerald-700 dark:text-emerald-300">
                               {t('expenses.partialPaidSummary', {
-                                paid: formatCurrency(Number(expense.paidAmount) || 0),
+                                paid: formatProtectedCurrency(Number(expense.paidAmount) || 0),
                               })}
                             </span>
                             <span className="text-amber-700 dark:text-amber-300">
                               {t('expenses.partialRemainingSummary', {
-                                remaining: formatCurrency(getRemainingAmount(expense)),
+                                remaining: formatProtectedCurrency(getRemainingAmount(expense)),
                               })}
                             </span>
                           </div>
@@ -788,7 +822,7 @@ const ExpensesListSection: React.FC<Props> = ({
                                     <span>{t(`paymentMethods.${part.paymentMethod}`)}</span>
                                     <span>·</span>
                                     <span className="font-semibold text-emerald-700 dark:text-emerald-300">
-                                      {formatCurrency(part.amount)}
+                                      {formatProtectedCurrency(part.amount)}
                                     </span>
                                   </li>
                                 ))}
@@ -801,9 +835,23 @@ const ExpensesListSection: React.FC<Props> = ({
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-slate-800">
-                    <span className="text-base font-semibold text-slate-900 dark:text-white tabular-nums">
-                      {formatCurrency(expense.value)}
-                    </span>
+                    {expense.isPaid &&
+                      expense.isEarlyPayment &&
+                      Number(expense.paidAmount || 0) > 0 &&
+                      Number(expense.paidAmount) < Number(expense.value) - 0.009 ? (
+                      <div className="text-right tabular-nums">
+                        <span className="block text-[11px] text-slate-400 line-through">
+                          {formatProtectedCurrency(expense.value)}
+                        </span>
+                        <span className="text-base font-semibold text-emerald-700 dark:text-emerald-400">
+                          {formatProtectedCurrency(Number(expense.paidAmount))}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-base font-semibold text-slate-900 dark:text-white tabular-nums">
+                        {formatProtectedCurrency(expense.value)}
+                      </span>
+                    )}
 
                     {canModify && (
                       <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -931,9 +979,29 @@ const ExpensesListSection: React.FC<Props> = ({
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
-                              {formatCurrency(child.value)}
-                            </span>
+                            {child.isPaid &&
+                              child.isEarlyPayment &&
+                              Number(child.paidAmount || 0) > 0 &&
+                              Number(child.paidAmount) < Number(child.value) - 0.009 ? (
+                              <div className="text-right tabular-nums">
+                                <span className="block text-[10px] text-slate-400 line-through">
+                                  {formatProtectedCurrency(child.value)}
+                                </span>
+                                <span
+                                  className="text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+                                  title={t('expenses.earlyDiscountNote', {
+                                    original: formatProtectedCurrency(Number(child.value)),
+                                    paid: formatProtectedCurrency(Number(child.paidAmount)),
+                                  })}
+                                >
+                                  {formatProtectedCurrency(Number(child.paidAmount))}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
+                                {formatProtectedCurrency(child.value)}
+                              </span>
+                            )}
                             {child.isOwn !== false && (
                               <div className="flex items-center gap-1">
                                 {!child.isPaid && (

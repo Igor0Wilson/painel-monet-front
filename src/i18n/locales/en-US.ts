@@ -252,6 +252,17 @@ export const enUS: TranslationResources = {
       invalidActionCode:
         'This link is invalid or already used. Please request a new email.',
     },
+    biometric: {
+      loginFacialWeb: 'Sign in with Facial Recognition',
+      loginBiometricApp: 'Sign in with Fingerprint / Face ID',
+      loginFingerprintApp: 'Sign in with Fingerprint',
+      verifying: 'Verifying biometrics...',
+      loginSuccess: 'Biometric sign-in confirmed!',
+      loginUnavailable:
+        'Biometrics disabled or unavailable on this device. Please sign in with your required email and password.',
+      mandatoryPasswordHint:
+        'Email and password remain mandatory for account access; biometric/facial sign-in is an optional convenience.',
+    },
   },
   navbar: {
     individualScope: 'Individual',
@@ -272,6 +283,10 @@ export const enUS: TranslationResources = {
     connectSomeone: 'Connect with someone',
     connectSomeoneDesc: 'Link account via Family Mode',
     appBadge: 'App',
+    privacyHideValues: 'Hide values',
+    privacyShowValues: 'Show values',
+    privacyHiddenTag: 'Hidden',
+    privacyVisibleTag: 'Visible',
   },
   dashboard: {
     overviewTab: 'Overview',
@@ -437,6 +452,9 @@ export const enUS: TranslationResources = {
     undoPaymentError: 'Could not undo payment.',
     partialPaidSummary: 'Paid: {{paid}}',
     partialRemainingSummary: 'Remaining: {{remaining}}',
+    earlyDiscountBadge: 'Early (-{{discount}})',
+    earlyDiscountNote:
+      'Original bill was {{original}}, paid {{paid}} due to early payment discount',
     paidOnDate: 'Paid on {{date}}',
     partialPaymentsHistory: 'Recorded payments:',
     receiptAttached: 'Receipt',
@@ -709,6 +727,14 @@ export const enUS: TranslationResources = {
       partialAmountInputLabel: 'Amount paid now ($)',
       paymentDateLabel: 'Date this part was paid',
       totalPaymentDateLabel: 'Payment date',
+      earlyDiscountQuestion: 'Was this bill paid early with a discount?',
+      earlyDiscountNoBtn: 'No, full amount',
+      earlyDiscountYesBtn: 'Yes, had a discount',
+      earlyDiscountPaidLabel: 'Actual amount paid ($)',
+      earlyDiscountOriginalLabel: 'Original bill',
+      earlyDiscountSavingsPreview: 'Early payment savings: {{saved}} (paying {{paid}})',
+      earlyDiscountAmountError:
+        'Enter an amount greater than 0 and up to the remaining balance to apply the discount.',
       partialCreditBlockedHint:
         'Partial payment is not supported for credit card installments; pick Pix, Debit, Cash, or VA/VR.',
       partialAmountRangeError:
@@ -868,6 +894,30 @@ export const enUS: TranslationResources = {
       saveError: 'Error updating profile',
       avatarUpdatedToast: 'Profile photo updated!',
       avatarDeletedToast: 'Profile photo removed successfully!',
+      biometricTitle: 'Biometric & Facial Authentication',
+      biometricWebSubtitle:
+        'On the website this uses Facial Recognition; email and password remain mandatory.',
+      biometricAppSubtitle:
+        'In the installed app (Android & iPhone) this supports Fingerprint & Facial Recognition; email and password remain mandatory.',
+      biometricActiveBadge: 'Active',
+      biometricInactiveBadge: 'Disabled',
+      biometricModeLabel: 'Preferred method',
+      biometricModeFacial: 'Facial Recognition',
+      biometricModeFingerprint: 'Fingerprint',
+      biometricModeBoth: 'Fingerprint & Facial',
+      biometricActivateBtn: 'Enable & configure',
+      biometricReconfigureBtn: 'Reconfigure method',
+      biometricToggleEnableBtn: 'Re-enable',
+      biometricToggleDisableBtn: 'Disable',
+      biometricRemoveBtn: 'Remove',
+      biometricActivatedToast: 'Biometric authentication enabled on this device!',
+      biometricUpdatedToast: 'Biometric settings updated!',
+      biometricDisabledToast: 'Biometric authentication disabled.',
+      biometricRemovedToast: 'Biometric credential removed.',
+      biometricUnsupportedHint:
+        'This browser or device does not currently have a configured facial or biometric sensor.',
+      biometricErrorToast: 'Could not complete biometric configuration.',
+      biometricEnrolledListTitle: 'Configured devices ({{count}})',
     },
     danger: {
       title: 'Account Security Center',
@@ -940,6 +990,10 @@ export const enUS: TranslationResources = {
       familyInviteTitle: 'Family Mode Invite — Finance',
       familyInviteBody:
         '{{name}} (CPF {{cpf}}) invited you to share a financial dashboard. Tap to review.',
+      expenseDueTomorrowTitle: 'Bill due tomorrow — Painel Monet',
+      expenseDueTomorrowBody: 'Your bill "{{name}}" ({{amount}}) is due tomorrow ({{date}}).',
+      expenseDueTodayTitle: 'Bill due today! — Painel Monet',
+      expenseDueTodayBody: 'Your bill "{{name}}" ({{amount}}) is due today ({{date}}).',
     },
   },
 };

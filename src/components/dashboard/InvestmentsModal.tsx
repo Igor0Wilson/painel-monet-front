@@ -10,10 +10,10 @@ import {
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../../api';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import type { InvestmentItem, InvestmentSource } from '../../types/finance';
 import { extractApiErrorMessage } from '../../utils/errorHandler';
 import {
-  formatCurrency,
   formatCurrencyInput,
   formatDateBr,
   formatNumberToCurrencyInput,
@@ -62,6 +62,7 @@ const InvestmentsModal: React.FC<Props> = ({
   onRefresh,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [editingItem, setEditingItem] = useState<InvestmentItem | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Renda Fixa');
@@ -233,7 +234,7 @@ const InvestmentsModal: React.FC<Props> = ({
                 {t('modals.investments.totalPortfolioLabel')}
               </p>
               <p className="text-lg font-semibold tabular-nums mt-0.5">
-                {formatCurrency(totalPortfolio)}
+                {formatProtectedCurrency(totalPortfolio)}
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 p-3.5">
@@ -241,7 +242,7 @@ const InvestmentsModal: React.FC<Props> = ({
                 {t('modals.investments.existingPortfolioLabel')}
               </p>
               <p className="text-lg font-semibold text-emerald-950 dark:text-emerald-200 tabular-nums mt-0.5">
-                {formatCurrency(externalInvestments)}
+                {formatProtectedCurrency(externalInvestments)}
               </p>
             </div>
             <div className="rounded-xl bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 p-3.5">
@@ -249,7 +250,7 @@ const InvestmentsModal: React.FC<Props> = ({
                 {t('modals.investments.monthlyAllocatedLabel')}
               </p>
               <p className="text-lg font-semibold text-slate-900 dark:text-slate-100 tabular-nums mt-0.5">
-                {formatCurrency(allocatedInvestments)}
+                {formatProtectedCurrency(allocatedInvestments)}
               </p>
             </div>
           </div>
@@ -262,7 +263,7 @@ const InvestmentsModal: React.FC<Props> = ({
               className="w-full text-left text-xs font-semibold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/70 rounded-xl px-4 py-2.5 transition-colors disabled:opacity-50"
             >
               {t('modals.investments.reclassifyAllBtn', {
-                amount: formatCurrency(allocatedInvestments),
+                amount: formatProtectedCurrency(allocatedInvestments),
               })}
             </button>
           )}
@@ -399,8 +400,8 @@ const InvestmentsModal: React.FC<Props> = ({
                       }`}
                   >
                     {t('modals.investments.sourceBalanceSub', {
-                      current: formatCurrency(ownAvailableBalance),
-                      after: formatCurrency(projectedBalance),
+                      current: formatProtectedCurrency(ownAvailableBalance),
+                      after: formatProtectedCurrency(projectedBalance),
                     })}
                   </p>
                 </button>
@@ -476,7 +477,7 @@ const InvestmentsModal: React.FC<Props> = ({
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
                       <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                        {formatCurrency(item.amount)}
+                        {formatProtectedCurrency(item.amount)}
                       </span>
                       <div className="flex items-center gap-1">
                         <button

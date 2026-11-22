@@ -16,11 +16,11 @@ import {
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
+import { usePrivacyMode } from '../context/PrivacyModeContext';
 import type { ExpenseItem, ExpensePaymentPart } from '../types/finance';
 import { isFoodCategory } from '../utils/categories';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import {
-  formatCurrency,
   formatCurrencyInput,
   formatDateBr,
   formatExpenseDisplayName,
@@ -73,8 +73,11 @@ const PayExpenseModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { t } = useTranslation();
+  const { formatProtectedCurrency } = usePrivacyMode();
   const [settlementMode, setSettlementMode] = useState<'total' | 'partial'>('total');
   const [partialAmountInput, setPartialAmountInput] = useState<string>('');
+  const [hasEarlyDiscount, setHasEarlyDiscount] = useState<boolean>(false);
+  const [discountedPaidInput, setDiscountedPaidInput] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<string>(getTodayIso());
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [installments, setInstallments] = useState<string>('1');
@@ -95,6 +98,8 @@ const PayExpenseModal: React.FC<Props> = ({
     if (targetKey) {
       setSettlementMode('total');
       setPartialAmountInput('');
+      setHasEarlyDiscount(false);
+      setDiscountedPaidInput('');
       setPaymentDate(getTodayIso());
       setPaymentMethod('pix');
       setInstallments('1');
@@ -124,17 +129,34 @@ const PayExpenseModal: React.FC<Props> = ({
 
   const numericValue = isBatch
     ? targetExpenses.reduce((sum, item) => {
-        const rem =
-          item.remainingAmount !== undefined
-            ? Number(item.remainingAmount)
-            : Math.max(0, Number(item.value || 0) - Number(item.paidAmount || 0));
-        return sum + rem;
-      }, 0)
+      const rem =
+        item.remainingAmount !== undefined
+          ? Number(item.remainingAmount)
+          : Math.max(0, Number(item.value || 0) - Number(item.paidAmount || 0));
+      return sum + rem;
+    }, 0)
     : singleRemaining;
 
   const parsedPartialValue = Number(parseCurrencyInput(partialAmountInput).toFixed(2));
+  const parsedDiscountedPaidValue = Number(
+    parseCurrencyInput(discountedPaidInput).toFixed(2),
+  );
+  const effectiveTotalPayNow =
+    !isBatch && settlementMode === 'total' && hasEarlyDiscount
+      ? parsedDiscountedPaidValue
+      : numericValue;
+  const earlySavedAmount =
+    !isBatch &&
+      settlementMode === 'total' &&
+      hasEarlyDiscount &&
+      parsedDiscountedPaidValue > 0 &&
+      parsedDiscountedPaidValue < singleRemaining
+      ? Number((singleRemaining - parsedDiscountedPaidValue).toFixed(2))
+      : 0;
   const amountToPayNow =
-    !isBatch && settlementMode === 'partial' ? parsedPartialValue : numericValue;
+    !isBatch && settlementMode === 'partial'
+      ? parsedPartialValue
+      : effectiveTotalPayNow;
   const projectedPaidAfter = Number((alreadyPaid + (amountToPayNow || 0)).toFixed(2));
   const projectedRemainingAfter = Number(
     Math.max(0, totalBillValue - projectedPaidAfter).toFixed(2),
@@ -142,7 +164,7 @@ const PayExpenseModal: React.FC<Props> = ({
 
   const parsedInstallments = parseInt(installments, 10);
   const validInstallments = !isNaN(parsedInstallments) && parsedInstallments >= 1 ? parsedInstallments : 1;
-  const perInstallment = numericValue / validInstallments;
+  const perInstallment = effectiveTotalPayNow / validInstallments;
 
   const showFoodVoucherOptions = targetExpenses.every((item) =>
     isFoodCategory(item.accountType?.name, item.name),
@@ -205,6 +227,7 @@ const PayExpenseModal: React.FC<Props> = ({
     setSettlementMode(mode);
     setErrorMsg('');
     if (mode === 'partial') {
+      setHasEarlyDiscount(false);
       if (paymentMethod === 'credito') {
         setPaymentMethod('pix');
       }
@@ -258,6 +281,17 @@ const PayExpenseModal: React.FC<Props> = ({
       }
     }
 
+    if (!isBatch && settlementMode === 'total' && hasEarlyDiscount) {
+      if (
+        Number.isNaN(parsedDiscountedPaidValue) ||
+        parsedDiscountedPaidValue <= 0 ||
+        parsedDiscountedPaidValue > singleRemaining + 0.009
+      ) {
+        setErrorMsg(t('modals.payExpense.earlyDiscountAmountError'));
+        return;
+      }
+    }
+
     if (paymentMethod === 'credito') {
       if (isNaN(parsedInstallments) || parsedInstallments < 1 || parsedInstallments > 60) {
         setErrorMsg(t('modals.payExpense.installmentsLabel'));
@@ -279,6 +313,7 @@ const PayExpenseModal: React.FC<Props> = ({
       const payload: {
         paymentMethod: PaymentMethod;
         amount?: number;
+        isEarlyPayment?: boolean;
         paidAt?: string;
         installments?: number;
         firstInstallmentDate?: string;
@@ -289,8 +324,22 @@ const PayExpenseModal: React.FC<Props> = ({
         payload.paidAt = paymentDate;
         if (settlementMode === 'partial') {
           payload.amount = parsedPartialValue;
+        } else if (hasEarlyDiscount && parsedDiscountedPaidValue > 0) {
+          payload.isEarlyPayment = true;
+          payload.amount = parsedDiscountedPaidValue;
         }
       }
+      if (!isBatch && settlementMode === 'total' && hasEarlyDiscount) {
+        if (
+          Number.isNaN(parsedDiscountedPaidValue) ||
+          parsedDiscountedPaidValue <= 0 ||
+          parsedDiscountedPaidValue > singleRemaining + 0.009
+        ) {
+          setErrorMsg(t('modals.payExpense.earlyDiscountAmountError'));
+          return;
+        }
+      }
+
       if (paymentMethod === 'credito') {
         payload.installments = parsedInstallments;
         payload.firstInstallmentDate = firstInstallmentDate;
@@ -310,8 +359,8 @@ const PayExpenseModal: React.FC<Props> = ({
         if (settlementMode === 'partial') {
           toast.success(
             t('modals.payExpense.paidPartialToast', {
-              paid: formatCurrency(projectedPaidAfter),
-              remaining: formatCurrency(projectedRemainingAfter),
+              paid: formatProtectedCurrency(projectedPaidAfter),
+              remaining: formatProtectedCurrency(projectedRemainingAfter),
             }),
           );
         } else {
@@ -369,7 +418,7 @@ const PayExpenseModal: React.FC<Props> = ({
                     {t('modals.payExpense.batchTotalLabel', { count: targetExpenses.length })}
                   </p>
                   <p className="text-xl font-semibold tabular-nums mt-0.5">
-                    {formatCurrency(numericValue)}
+                    {formatProtectedCurrency(numericValue)}
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-lg bg-white/10 text-xs font-semibold text-emerald-300">
@@ -389,7 +438,7 @@ const PayExpenseModal: React.FC<Props> = ({
                       <p className="text-[11px] text-slate-400">{formatDateBr(item.dueDate)}</p>
                     </div>
                     <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                      {formatCurrency(Number(item.value))}
+                      {formatProtectedCurrency(Number(item.value))}
                     </span>
                   </div>
                 ))}
@@ -414,7 +463,7 @@ const PayExpenseModal: React.FC<Props> = ({
                         : t('modals.payExpense.amountToPay')}
                     </p>
                     <p className="text-base font-semibold text-slate-900 dark:text-white tabular-nums">
-                      {formatCurrency(numericValue)}
+                      {formatProtectedCurrency(numericValue)}
                     </p>
                   </div>
                 </div>
@@ -426,7 +475,7 @@ const PayExpenseModal: React.FC<Props> = ({
                         {t('modals.payExpense.totalBillLabel')}
                       </span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
-                        {formatCurrency(totalBillValue)}
+                        {formatProtectedCurrency(totalBillValue)}
                       </span>
                     </div>
                     <div>
@@ -434,7 +483,7 @@ const PayExpenseModal: React.FC<Props> = ({
                         {t('modals.payExpense.alreadyPaidLabel')}
                       </span>
                       <span className="font-semibold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                        {formatCurrency(alreadyPaid)}
+                        {formatProtectedCurrency(alreadyPaid)}
                       </span>
                     </div>
                     <div className="text-right">
@@ -442,7 +491,7 @@ const PayExpenseModal: React.FC<Props> = ({
                         {t('modals.payExpense.remainingLabel')}
                       </span>
                       <span className="font-semibold text-sky-700 dark:text-sky-300 tabular-nums">
-                        {formatCurrency(numericValue)}
+                        {formatProtectedCurrency(numericValue)}
                       </span>
                     </div>
                   </div>
@@ -470,7 +519,7 @@ const PayExpenseModal: React.FC<Props> = ({
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                            {formatCurrency(part.amount)}
+                            {formatProtectedCurrency(part.amount)}
                           </span>
                           <button
                             type="button"
@@ -498,22 +547,20 @@ const PayExpenseModal: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => handleSelectSettlementMode('total')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                      settlementMode === 'total'
-                        ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${settlementMode === 'total'
+                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                   >
-                    {t('modals.payExpense.totalModeBtn')} ({formatCurrency(numericValue)})
+                    {t('modals.payExpense.totalModeBtn')} ({formatProtectedCurrency(numericValue)})
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSelectSettlementMode('partial')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
-                      settlementMode === 'partial'
-                        ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${settlementMode === 'partial'
+                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                   >
                     {t('modals.payExpense.partialModeBtn')}
                   </button>
@@ -563,33 +610,116 @@ const PayExpenseModal: React.FC<Props> = ({
                     <span className="font-semibold tabular-nums text-slate-900 dark:text-white">
                       <span className="text-emerald-700 dark:text-emerald-400">
                         {t('expenses.partialPaidSummary', {
-                          paid: formatCurrency(projectedPaidAfter),
+                          paid: formatProtectedCurrency(projectedPaidAfter),
                         })}
                       </span>
                       {' · '}
                       <span className="text-sky-700 dark:text-sky-400">
                         {t('expenses.partialRemainingSummary', {
-                          remaining: formatCurrency(projectedRemainingAfter),
+                          remaining: formatProtectedCurrency(projectedRemainingAfter),
                         })}
                       </span>
                     </span>
                   </div>
                 </div>
               ) : (
-                <div>
-                  <label className="exec-label flex items-center gap-1.5">
-                    {React.createElement(
-                      FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>,
-                      { className: 'text-[10px] text-slate-400' },
+                <div className="space-y-3">
+                  <div>
+                    <label className="exec-label flex items-center gap-1.5">
+                      {React.createElement(
+                        FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>,
+                        { className: 'text-[10px] text-slate-400' },
+                      )}
+                      {t('modals.payExpense.totalPaymentDateLabel')}
+                    </label>
+                    <input
+                      type="date"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      className="exec-input"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-3.5 space-y-3">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                      {t('modals.payExpense.earlyDiscountQuestion')}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasEarlyDiscount(false);
+                          setDiscountedPaidInput('');
+                          setErrorMsg('');
+                        }}
+                        className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all ${!hasEarlyDiscount
+                          ? 'border-slate-900 dark:border-slate-100 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300'
+                          }`}
+                      >
+                        {t('modals.payExpense.earlyDiscountNoBtn')}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="early-payment-discount-toggle"
+                        onClick={() => {
+                          setHasEarlyDiscount(true);
+                          if (!discountedPaidInput && singleRemaining > 0) {
+                            setDiscountedPaidInput(
+                              formatNumberToCurrencyInput(singleRemaining),
+                            );
+                          }
+                          setErrorMsg('');
+                        }}
+                        className={`py-2 px-3 rounded-lg text-xs font-semibold border transition-all ${hasEarlyDiscount
+                          ? 'border-emerald-600 bg-emerald-600 text-white shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-emerald-300'
+                          }`}
+                      >
+                        {t('modals.payExpense.earlyDiscountYesBtn')}
+                      </button>
+                    </div>
+
+                    {hasEarlyDiscount && (
+                      <div className="space-y-2.5 pt-1">
+                        <div>
+                          <label className="exec-label">
+                            {t('modals.payExpense.earlyDiscountPaidLabel')}
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            data-testid="early-discount-paid-input"
+                            value={discountedPaidInput}
+                            onChange={(e) => {
+                              setDiscountedPaidInput(
+                                formatCurrencyInput(e.target.value, discountedPaidInput),
+                              );
+                              setErrorMsg('');
+                            }}
+                            placeholder={getCurrencyPlaceholder()}
+                            className="exec-input tabular-nums font-semibold"
+                          />
+                        </div>
+                        <div className="rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 px-3 py-2 text-xs space-y-1">
+                          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 tabular-nums">
+                            <span>{t('modals.payExpense.earlyDiscountOriginalLabel')}:</span>
+                            <span className="font-semibold">
+                              {formatProtectedCurrency(totalBillValue)}
+                            </span>
+                          </div>
+                          {earlySavedAmount > 0 && (
+                            <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              {t('modals.payExpense.earlyDiscountSavingsPreview', {
+                                saved: formatProtectedCurrency(earlySavedAmount),
+                                paid: formatProtectedCurrency(projectedPaidAfter),
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    {t('modals.payExpense.totalPaymentDateLabel')}
-                  </label>
-                  <input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    className="exec-input"
-                  />
+                  </div>
                 </div>
               )}
             </div>
@@ -780,7 +910,7 @@ const PayExpenseModal: React.FC<Props> = ({
                 <p className="text-xs font-semibold text-slate-900 dark:text-white">
                   {t('paymentMethods.creditoFull')}:{' '}
                   <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
-                    {validInstallments}x {formatCurrency(perInstallment)}
+                    {validInstallments}x {formatProtectedCurrency(perInstallment)}
                   </span>
                 </p>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">

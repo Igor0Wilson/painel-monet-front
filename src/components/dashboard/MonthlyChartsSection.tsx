@@ -3,6 +3,7 @@ import type { ActiveElement, ChartEvent, ChartOptions } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
 import { useTranslation } from 'react-i18next';
 import { FaChartLine, FaChartPie, FaExternalLinkAlt } from 'react-icons/fa';
+import { usePrivacyMode } from '../../context/PrivacyModeContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ChartDataResponse, ExpenseItem } from '../../types/finance';
 import {
@@ -15,7 +16,6 @@ import {
   getExecutiveDoughnutOptions,
   getExecutiveLineOptions,
 } from '../../utils/chartConfig';
-import { formatCurrency } from '../../utils/formatters';
 
 interface Props {
   periodLabel: string;
@@ -34,6 +34,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
+  const { hideValues, formatProtectedCurrency } = usePrivacyMode();
 
   const { activeCategories } = useMemo(
     () =>
@@ -73,13 +74,13 @@ const MonthlyChartsSection: React.FC<Props> = ({
   );
 
   const lineOptions = useMemo(
-    () => getExecutiveLineOptions(isDark, i18n.language),
-    [isDark, i18n.language],
+    () => getExecutiveLineOptions(isDark, i18n.language, hideValues),
+    [isDark, i18n.language, hideValues],
   );
 
   const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
-      ...getExecutiveDoughnutOptions(isDark),
+      ...getExecutiveDoughnutOptions(isDark, hideValues, i18n.language),
       onClick: (_event: ChartEvent, elements: ActiveElement[]) => {
         if (elements && elements.length > 0) {
           const clickedIndex = elements[0].index;
@@ -90,7 +91,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
         }
       },
     }),
-    [activeCategories, onOpenCategoryDetail, isDark],
+    [activeCategories, onOpenCategoryDetail, isDark, hideValues, i18n.language],
   );
 
   return (
@@ -160,7 +161,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
                   </span>
                 </div>
                 <span className="text-[11px] font-bold text-slate-900 dark:text-white tabular-nums flex-shrink-0">
-                  {formatCurrency(cat.value)}
+                  {formatProtectedCurrency(cat.value)}
                 </span>
               </button>
             ))}

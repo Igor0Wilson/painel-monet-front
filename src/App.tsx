@@ -4,6 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PrivacyModeProvider } from './context/PrivacyModeContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -66,25 +67,27 @@ const AppShell: React.FC = () => {
   const { isDark } = useTheme();
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 ease-in-out">
-          <AppRoutes />
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme={isDark ? 'dark' : 'light'}
-          />
-        </div>
-      </BrowserRouter>
-    </AuthProvider>
+    <PrivacyModeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 ease-in-out">
+            <AppRoutes />
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme={isDark ? 'dark' : 'light'}
+            />
+          </div>
+        </BrowserRouter>
+      </AuthProvider>
+    </PrivacyModeProvider>
   );
 };
 

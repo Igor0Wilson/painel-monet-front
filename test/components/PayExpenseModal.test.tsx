@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import ExpensesListSection from '../../src/components/dashboard/ExpensesListSection';
 import PayExpenseModal from '../../src/components/PayExpenseModal';
 import api from '../../src/api';
 import { ExpenseItem } from '../../src/types/finance';
@@ -225,5 +226,95 @@ describe('PayExpenseModal batch flow', () => {
 
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks about early payment discount, submits discounted paid value, and displays original vs paid on listing', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    const expense: ExpenseItem = {
+      id: 'exp-early-1',
+      name: 'Parcela Financiamento',
+      accountTypeId: 'cat-moradia',
+      accountType: { id: 'cat-moradia', name: 'Moradia' },
+      value: 200,
+      dueDate: '2026-11-28',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'pendente',
+    };
+
+    mockedApi.patch.mockResolvedValue({
+      data: {
+        ...expense,
+        isPaid: true,
+        isEarlyPayment: true,
+        paidAmount: 170,
+        discountAmount: 30,
+        status: 'pago',
+      },
+    });
+
+    render(
+      <PayExpenseModal
+        expense={expense}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    expect(
+      screen.getByText('A conta foi paga com antecedência? Teve algum desconto?'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('early-payment-discount-toggle'));
+    const paidInput = screen.getByTestId(
+      'early-discount-paid-input',
+    ) as HTMLInputElement;
+    fireEvent.change(paidInput, { target: { value: '170,00' } });
+
+    expect(screen.getByText(/Economia na antecipação/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Pagamento' }));
+
+    await waitFor(() => {
+      expect(mockedApi.patch).toHaveBeenCalledWith(
+        '/expenses/exp-early-1/pay',
+        expect.objectContaining({
+          paymentMethod: 'pix',
+          isEarlyPayment: true,
+          amount: 170,
+        }),
+      );
+    });
+
+    const paidListItem: ExpenseItem = {
+      ...expense,
+      isPaid: true,
+      isEarlyPayment: true,
+      paidAmount: 170,
+      discountAmount: 30,
+      remainingAmount: 0,
+      status: 'pago',
+    };
+
+    render(
+      <ExpensesListSection
+        expenses={[paidListItem]}
+        expenseFilter="todas"
+        isFamilyMode={false}
+        openInstallments={[]}
+        onChangeFilter={jest.fn()}
+        onToggleInstallment={jest.fn()}
+        onPayExpense={jest.fn()}
+        onEditExpense={jest.fn()}
+        onDeleteExpense={jest.fn()}
+      />,
+    );
+
+    const earlyNote = screen.getByTestId('early-discount-note-exp-early-1');
+    expect(earlyNote).toHaveTextContent(/200,00/);
+    expect(earlyNote).toHaveTextContent(/170,00/);
+    expect(earlyNote).toHaveTextContent(/devido à antecipação/i);
   });
 });
