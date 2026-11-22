@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api';
+import { clearEncryptedImageCache } from '../components/EncryptedImage';
 import { signOutFirebase } from '../services/firebaseAuth';
 
 export interface User {
@@ -104,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearEncryptedImageCache();
     setUser(null);
     Promise.resolve(signOutFirebase()).catch(() => undefined);
   };

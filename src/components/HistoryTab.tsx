@@ -35,6 +35,7 @@ import {
   formatMonthLabel,
   shiftMonthKey,
 } from '../utils/formatters';
+import EncryptedImage from './EncryptedImage';
 import StatusBadge from './dashboard/StatusBadge';
 
 interface Props {
@@ -368,7 +369,11 @@ const HistoryTab: React.FC<Props> = ({
                       <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {exp.name}
                       </span>
-                      <StatusBadge status={exp.status} paymentMethod={exp.paymentMethod} />
+                      <StatusBadge
+                        status={exp.status}
+                        paymentMethod={exp.paymentMethod}
+                        isPartiallyPaid={exp.isPartiallyPaid}
+                      />
                       {exp.receiptUrl && (
                         <button
                           type="button"
@@ -505,7 +510,7 @@ const HistoryTab: React.FC<Props> = ({
                 {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </button>
             </div>
-            <img
+            <EncryptedImage
               src={previewReceipt.url}
               alt={previewReceipt.name}
               className="w-full max-h-[70vh] object-contain rounded-xl bg-slate-100 dark:bg-slate-800"

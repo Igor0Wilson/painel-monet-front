@@ -1,8 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  FaAdjust,
   FaCheckCircle,
-  FaClock,
   FaCreditCard,
   FaExclamationCircle,
 } from 'react-icons/fa';
@@ -10,11 +10,16 @@ import {
 interface Props {
   status: string;
   paymentMethod?: string | null;
+  isPartiallyPaid?: boolean;
 }
 
 const VALID_METHODS = new Set(['pix', 'debito', 'dinheiro', 'va', 'vr']);
 
-const StatusBadge: React.FC<Props> = ({ status, paymentMethod }) => {
+const StatusBadge: React.FC<Props> = ({
+  status,
+  paymentMethod,
+  isPartiallyPaid = false,
+}) => {
   const { t } = useTranslation();
 
   if (status === 'pago') {
@@ -39,19 +44,25 @@ const StatusBadge: React.FC<Props> = ({ status, paymentMethod }) => {
     );
   }
 
-  if (status === 'em_atraso') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60">
-        {React.createElement(FaExclamationCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-        {t('status.em_atraso')}
-      </span>
-    );
-  }
-
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60">
-      {React.createElement(FaClock as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-      {t('status.pendente')}
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {status === 'em_atraso' ? (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60">
+          {React.createElement(FaExclamationCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+          {t('status.em_atraso')}
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-800/60">
+          {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+          {t('status.pendente')}
+        </span>
+      )}
+      {isPartiallyPaid && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/60">
+          {React.createElement(FaAdjust as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+          {t('status.partialPaid')}
+        </span>
+      )}
     </span>
   );
 };

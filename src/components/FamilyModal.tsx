@@ -24,6 +24,7 @@ import type {
 } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
 import { buildWhatsAppUrl, formatCpfInput, onlyDigits } from '../utils/formatters';
+import EncryptedImage from './EncryptedImage';
 
 interface Props {
   isOpen: boolean;
@@ -327,10 +328,11 @@ const FamilyModal: React.FC<Props> = ({
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xs font-semibold text-slate-700 dark:text-slate-200 overflow-hidden flex-shrink-0">
                           {member.avatarUrl ? (
-                            <img
+                            <EncryptedImage
                               src={member.avatarUrl}
                               alt={member.name}
                               className="w-full h-full object-cover"
+                              fallback={member.name.charAt(0).toUpperCase()}
                             />
                           ) : (
                             member.name.charAt(0).toUpperCase()

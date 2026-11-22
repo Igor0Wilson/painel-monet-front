@@ -23,6 +23,7 @@ import {
   formatMonthLabel,
   shiftMonthKey,
 } from '../../utils/formatters';
+import EncryptedImage from '../EncryptedImage';
 import StatusBadge from './StatusBadge';
 
 interface Props {
@@ -252,6 +253,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                           <StatusBadge
                             status={item.status}
                             paymentMethod={item.paymentMethod}
+                            isPartiallyPaid={item.isPartiallyPaid}
                           />
                           {item.receiptUrl && (
                             <button
@@ -340,7 +342,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                 {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </button>
             </div>
-            <img
+            <EncryptedImage
               src={previewReceipt.url}
               alt={previewReceipt.name}
               className="w-full max-h-[70vh] object-contain rounded-xl bg-slate-100 dark:bg-slate-800"

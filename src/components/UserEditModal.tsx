@@ -20,6 +20,7 @@ import {
   FaWhatsapp,
 } from 'react-icons/fa';
 import AccountDangerModal from './AccountDangerModal';
+import EncryptedImage from './EncryptedImage';
 import { downloadUserFinancialData } from '../utils/downloadUserData';
 import {
   buildWhatsAppUrl,
@@ -267,10 +268,13 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
               {avatarUrl ? (
-                <img
+                <EncryptedImage
                   src={avatarUrl}
                   alt={t('common.photoAltProfile')}
                   className="w-full h-full object-cover"
+                  fallback={React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, {
+                    className: 'text-sm',
+                  })}
                 />
               ) : (
                 React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, {
@@ -303,10 +307,13 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/50 p-3.5 flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-300/70 dark:border-slate-600">
               {avatarUrl ? (
-                <img
+                <EncryptedImage
                   src={avatarUrl}
                   alt={t('common.photoAltProfile')}
                   className="w-full h-full object-cover"
+                  fallback={React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, {
+                    className: 'text-xl',
+                  })}
                 />
               ) : (
                 React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, {

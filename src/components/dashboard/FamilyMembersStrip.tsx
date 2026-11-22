@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaLock, FaShieldAlt, FaWhatsapp } from 'react-icons/fa';
 import { MemberBreakdown } from '../../types/finance';
 import { buildWhatsAppUrl, formatCurrency } from '../../utils/formatters';
+import EncryptedImage from '../EncryptedImage';
 
 interface Props {
   members: MemberBreakdown[];
@@ -96,7 +97,7 @@ const FamilyMembersStrip: React.FC<Props> = ({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
                   {member.avatarUrl && (
-                    <img
+                    <EncryptedImage
                       src={member.avatarUrl}
                       alt={member.name}
                       className="w-8 h-8 rounded-lg object-cover border border-slate-200/70 dark:border-slate-600 flex-shrink-0"

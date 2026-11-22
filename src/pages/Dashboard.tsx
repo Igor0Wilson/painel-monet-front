@@ -137,6 +137,8 @@ const Dashboard: React.FC = () => {
     type: 'expense' | 'income' | 'investment';
   } | null>(null);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+  const [undoPayTarget, setUndoPayTarget] = useState<ExpenseItem | null>(null);
+  const [isUndoPayLoading, setIsUndoPayLoading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [openInstallments, setOpenInstallments] = useState<string[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -279,6 +281,10 @@ const Dashboard: React.FC = () => {
       setDeleteConfig(null);
       return true;
     }
+    if (undoPayTarget) {
+      setUndoPayTarget(null);
+      return true;
+    }
     if (payingExpense) {
       setPayingExpense(null);
       return true;
@@ -397,6 +403,21 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleConfirmUndoPay = async () => {
+    if (!undoPayTarget) return;
+    try {
+      setIsUndoPayLoading(true);
+      await api.patch(`/expenses/${undoPayTarget.id}/undo-pay`, {});
+      toast.success(t('expenses.undoPaymentSuccess'));
+      setUndoPayTarget(null);
+      fetchData();
+    } catch (error: unknown) {
+      toast.error(extractApiErrorMessage(error, t('expenses.undoPaymentError')));
+    } finally {
+      setIsUndoPayLoading(false);
+    }
+  };
+
   const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
     if (variant === 'investment' || variant === 'emergency') {
       const ownExternal =
@@ -509,14 +530,14 @@ const Dashboard: React.FC = () => {
           : '/balance/investments';
       const payload = isFood
         ? {
-            amount,
-            creditDate: foodCreditDate,
-            isRecurring: foodIsRecurring,
-          }
+          amount,
+          creditDate: foodCreditDate,
+          isRecurring: foodIsRecurring,
+        }
         : {
-            amount,
-            fromAvailableBalance: savingsFromBalance,
-          };
+          amount,
+          fromAvailableBalance: savingsFromBalance,
+        };
       await api.post(endpoint, payload);
       toast.success(
         isFood
@@ -691,11 +712,10 @@ const Dashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => handleScopeChange('individual')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                panelScope === 'individual'
-                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${panelScope === 'individual'
+                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300'
+                }`}
             >
               {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
               {t('dashboard.individualScopeBanner')}
@@ -703,11 +723,10 @@ const Dashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => handleScopeChange('family')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                panelScope === 'family'
-                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${panelScope === 'family'
+                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                : 'text-slate-600 dark:text-slate-300'
+                }`}
             >
               {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
               {t('navbar.familyScope')} ({familyStatus.members?.length || 2})
@@ -734,11 +753,10 @@ const Dashboard: React.FC = () => {
                   setActiveTab('overview');
                   setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
                 }}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'overview' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
+                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
               >
                 {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
                 {t('dashboard.overviewTab')}
@@ -749,11 +767,10 @@ const Dashboard: React.FC = () => {
                   setActiveTab('history');
                   setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
                 }}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'history' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
+                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
               >
                 {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
                 {t('dashboard.historyTab')}
@@ -891,6 +908,7 @@ const Dashboard: React.FC = () => {
                   }
                   onPayExpense={setPayingExpense}
                   onPayBatchExpenses={setPayingBatchExpenses}
+                  onUndoPayment={setUndoPayTarget}
                   onEditExpense={(item) => {
                     setEditingItem({ ...item, type: 'expense' });
                     setIsExpenseModalOpen(true);
@@ -1025,6 +1043,16 @@ const Dashboard: React.FC = () => {
         }
         confirmText={t('common.delete')}
         isLoading={isDeleteLoading}
+      />
+
+      <ConfirmationModal
+        isOpen={!!undoPayTarget}
+        onClose={() => setUndoPayTarget(null)}
+        onConfirm={handleConfirmUndoPay}
+        title={t('expenses.undoPaymentTitle')}
+        message={t('expenses.undoPaymentConfirmMsg', { name: undoPayTarget?.name || '' })}
+        confirmText={t('expenses.undoPaymentConfirmBtn')}
+        isLoading={isUndoPayLoading}
       />
 
       <ConfirmationModal

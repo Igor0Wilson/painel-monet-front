@@ -126,4 +126,62 @@ describe('ExpenseModal', () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('creates an expense with partial payment and custom payment date when marked paid', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    mockedApi.post.mockResolvedValue({ data: { id: 'exp-partial-new' } });
+
+    render(
+      <ExpenseModal
+        isOpen={true}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockedApi.get).toHaveBeenCalledWith('/account-types');
+    });
+
+    const categoryTriggers = screen.getAllByText('Categoria');
+    fireEvent.click(categoryTriggers[categoryTriggers.length - 1]);
+    fireEvent.click(await screen.findByText('Alimentação'));
+
+    fireEvent.change(screen.getByPlaceholderText('Ex: Aluguel, Energia, Internet'), {
+      target: { value: 'Compra Mercado Parcial' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('0,00'), {
+      target: { value: '400' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como já paga' }));
+    fireEvent.click(screen.getByTestId('expense-pay-mode-partial'));
+
+    fireEvent.change(screen.getByTestId('expense-partial-amount-input'), {
+      target: { value: '150' },
+    });
+    fireEvent.change(screen.getByTestId('expense-payment-date-input'), {
+      target: { value: '2026-11-18' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Despesa' }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        '/expenses',
+        expect.objectContaining({
+          name: 'Compra Mercado Parcial',
+          value: 400,
+          isPaid: false,
+          paidAmount: 150,
+          paidAt: '2026-11-18',
+          paymentMethod: 'pix',
+        }),
+      );
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

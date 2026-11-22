@@ -310,4 +310,74 @@ describe('Cloudinary avatar & expense photo uploads', () => {
     const img = screen.getByAltText('Fatura Energia');
     expect(img).toHaveAttribute('src', receiptUrl);
   });
+
+  it('fetches encrypted receipt path via api.get with responseType blob and renders decrypted object URL', async () => {
+    const encryptedPath = '/expenses/exp-enc-1/photo?v=1';
+    const originalCreateObjectURL = URL.createObjectURL;
+    const createObjectUrlMock = jest.fn(() => 'blob:decrypted-receipt-1');
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectUrlMock,
+    });
+
+    mockedApi.get.mockResolvedValueOnce({
+      data: new Blob(['png-binary-content'], { type: 'image/png' }),
+    });
+
+    const items: ExpenseItem[] = [
+      {
+        id: 'exp-enc-1',
+        name: 'Comprovante Cripto',
+        accountTypeId: 'cat-housing',
+        accountType: { id: 'cat-housing', name: 'Moradia' },
+        value: 250,
+        dueDate: '2026-11-20',
+        isRecurring: false,
+        isInstallment: false,
+        isPaid: true,
+        status: 'pago',
+        isOwn: true,
+        receiptUrl: encryptedPath,
+      },
+    ];
+
+    try {
+      render(
+        <ExpensesListSection
+          expenses={items}
+          expenseFilter="todas"
+          isFamilyMode={false}
+          openInstallments={[]}
+          onChangeFilter={jest.fn()}
+          onToggleInstallment={jest.fn()}
+          onPayExpense={jest.fn()}
+          onPayBatchExpenses={jest.fn()}
+          onEditExpense={jest.fn()}
+          onDeleteExpense={jest.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId('expense-receipt-btn-exp-enc-1'));
+
+      await waitFor(() => {
+        expect(mockedApi.get).toHaveBeenCalledWith(encryptedPath, {
+          responseType: 'blob',
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByAltText('Comprovante Cripto')).toHaveAttribute(
+          'src',
+          'blob:decrypted-receipt-1',
+        );
+      });
+    } finally {
+      Object.defineProperty(URL, 'createObjectURL', {
+        configurable: true,
+        writable: true,
+        value: originalCreateObjectURL,
+      });
+    }
+  });
 });

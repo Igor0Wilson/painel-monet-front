@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa';
 import { FamilyStatusData, PanelScope } from '../../types/finance';
 import { downloadUserFinancialData } from '../../utils/downloadUserData';
+import EncryptedImage from '../EncryptedImage';
 import InstallAppBanner from '../InstallAppBanner';
 import ThemeAndLangControls from '../ThemeAndLangControls';
 
@@ -138,11 +139,18 @@ const Navbar: React.FC<Props> = ({
             title={t('navbar.profileTooltip')}
           >
             {userAvatarUrl ? (
-              <img
+              <EncryptedImage
                 src={userAvatarUrl}
                 alt={userName || t('common.photoAltProfile')}
                 className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
                 data-testid="navbar-user-avatar-img"
+                fallback={
+                  <div
+                    className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 text-xs font-semibold flex items-center justify-center flex-shrink-0"
+                  >
+                    {userInitials}
+                  </div>
+                }
               />
             ) : (
               <div

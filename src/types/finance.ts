@@ -93,12 +93,25 @@ export interface BalanceData {
   memberBreakdown: MemberBreakdown[];
 }
 
+export interface ExpensePaymentPart {
+  id: string;
+  amount: number;
+  paidAt: string;
+  paymentMethod: PaymentMethod;
+  createdAt?: string;
+}
+
 export interface ExpenseItem {
   id: string;
   name: string;
   accountTypeId: string;
   accountType?: { id: string; name: string } | null;
   value: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  isPartiallyPaid?: boolean;
+  paidAt?: string | null;
+  payments?: ExpensePaymentPart[];
   dueDate: string;
   isRecurring: boolean;
   isInstallment: boolean;

@@ -112,4 +112,74 @@ describe('ExpensesListSection batch calculation and period filtering', () => {
     expect(screen.queryByText('Parcela Financiamento')).not.toBeInTheDocument();
     expect(screen.getByText(/Selecionar em aberto \(1\)/)).toBeInTheDocument();
   });
+
+  it('displays Em dia / Atrasada, partial payment breakdown, remaining sum, and undo action', () => {
+    const onUndoPayment = jest.fn();
+    const partialItem: ExpenseItem = {
+      id: 'exp-part',
+      name: 'Conta Parcial',
+      accountTypeId: 'cat-housing',
+      accountType: { id: 'cat-housing', name: 'Moradia' },
+      value: 500,
+      paidAmount: 200,
+      remainingAmount: 300,
+      isPartiallyPaid: true,
+      dueDate: '2026-12-20',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'pendente',
+      isOwn: true,
+      payments: [
+        {
+          id: 'p1',
+          amount: 200,
+          paidAt: '2026-11-10',
+          paymentMethod: 'pix',
+        },
+      ],
+    };
+    const overdueItem: ExpenseItem = {
+      id: 'exp-late',
+      name: 'Conta Vencida',
+      accountTypeId: 'cat-housing',
+      accountType: { id: 'cat-housing', name: 'Moradia' },
+      value: 100,
+      dueDate: '2026-10-01',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'em_atraso',
+      isOwn: true,
+    };
+
+    render(
+      <ExpensesListSection
+        expenses={[partialItem, overdueItem]}
+        expenseFilter="todas"
+        isFamilyMode={false}
+        openInstallments={[]}
+        onChangeFilter={jest.fn()}
+        onToggleInstallment={jest.fn()}
+        onPayExpense={jest.fn()}
+        onUndoPayment={onUndoPayment}
+        onEditExpense={jest.fn()}
+        onDeleteExpense={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Em dia' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Atrasadas' })).toBeInTheDocument();
+    expect(screen.getAllByText('Em dia').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Atrasada')).toBeInTheDocument();
+    expect(screen.getByText('Pago parcial')).toBeInTheDocument();
+    expect(screen.getByText(/Pago:.*200,00/)).toBeInTheDocument();
+    expect(screen.getByText(/Falta:.*300,00/)).toBeInTheDocument();
+    expect(screen.getByText('10/11/2026')).toBeInTheDocument();
+    expect(screen.getByText(/Em aberto:.*400,00/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('expense-undo-btn-exp-part'));
+    expect(onUndoPayment).toHaveBeenCalledTimes(1);
+    expect(onUndoPayment).toHaveBeenCalledWith(partialItem);
+  });
 });

@@ -12,8 +12,10 @@ import {
   FaImage,
   FaTimes,
   FaTrash,
+  FaUndo,
   FaUser,
 } from 'react-icons/fa';
+import EncryptedImage from '../EncryptedImage';
 import { ExpenseFilter, ExpenseItem } from '../../types/finance';
 import { getCategoryMeta, translateCategoryName } from '../../utils/categories';
 import {
@@ -33,6 +35,7 @@ interface Props {
   onToggleInstallment: (id: string) => void;
   onPayExpense: (expense: ExpenseItem) => void;
   onPayBatchExpenses?: (expenses: ExpenseItem[]) => void;
+  onUndoPayment?: (expense: ExpenseItem) => void;
   onEditExpense: (expense: ExpenseItem) => void;
   onDeleteExpense: (id: string) => void;
 }
@@ -58,6 +61,7 @@ const ExpensesListSection: React.FC<Props> = ({
   onToggleInstallment,
   onPayExpense,
   onPayBatchExpenses,
+  onUndoPayment,
   onEditExpense,
   onDeleteExpense,
 }) => {
@@ -108,13 +112,23 @@ const ExpensesListSection: React.FC<Props> = ({
     [periodFilteredExpenses],
   );
 
+  const getRemainingAmount = (exp: ExpenseItem): number => {
+    if (exp.isPaid) return 0;
+    if (typeof exp.remainingAmount === 'number') {
+      return Math.max(0, Number(exp.remainingAmount) || 0);
+    }
+    const total = Number(exp.value) || 0;
+    const paid = Number(exp.paidAmount) || 0;
+    return Math.max(0, Number((total - paid).toFixed(2)));
+  };
+
   const selectableVisibleExpenses = useMemo(
     () => periodFilteredExpenses.filter((e) => !e.isPaid && e.isOwn !== false),
     [periodFilteredExpenses],
   );
 
   const periodUnpaidSum = useMemo(
-    () => selectableVisibleExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0),
+    () => selectableVisibleExpenses.reduce((sum, e) => sum + getRemainingAmount(e), 0),
     [selectableVisibleExpenses],
   );
 
@@ -126,7 +140,7 @@ const ExpensesListSection: React.FC<Props> = ({
   );
 
   const selectedTotal = useMemo(
-    () => selectedExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0),
+    () => selectedExpenses.reduce((sum, e) => sum + getRemainingAmount(e), 0),
     [selectedExpenses],
   );
 
@@ -383,7 +397,11 @@ const ExpensesListSection: React.FC<Props> = ({
                         <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                           {isGroupHeader ? expense.name.split(' (')[0] : expense.name}
                         </h4>
-                        <StatusBadge status={expense.status} paymentMethod={expense.paymentMethod} />
+                        <StatusBadge
+                          status={expense.status}
+                          paymentMethod={expense.paymentMethod}
+                          isPartiallyPaid={expense.isPartiallyPaid}
+                        />
                         {expense.receiptUrl && (
                           <button
                             type="button"
@@ -433,6 +451,11 @@ const ExpensesListSection: React.FC<Props> = ({
                           })}
                           {formatDateBr(expense.dueDate)}
                         </span>
+                        {expense.isPaid && expense.paidAt && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
+                            {t('expenses.paidOnDate', { date: formatDateBr(expense.paidAt) })}
+                          </span>
+                        )}
                         {(() => {
                           const catMeta = getCategoryMeta(expense.accountType?.name);
                           return (
@@ -466,6 +489,46 @@ const ExpensesListSection: React.FC<Props> = ({
                           </span>
                         )}
                       </div>
+
+                      {!expense.isPaid && (expense.isPartiallyPaid || Number(expense.paidAmount || 0) > 0) && (
+                        <div className="mt-2 rounded-lg border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-semibold tabular-nums">
+                            <span className="text-emerald-700 dark:text-emerald-300">
+                              {t('expenses.partialPaidSummary', {
+                                paid: formatCurrency(Number(expense.paidAmount) || 0),
+                              })}
+                            </span>
+                            <span className="text-amber-700 dark:text-amber-300">
+                              {t('expenses.partialRemainingSummary', {
+                                remaining: formatCurrency(getRemainingAmount(expense)),
+                              })}
+                            </span>
+                          </div>
+                          {expense.payments && expense.payments.length > 0 && (
+                            <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                              <p className="font-medium text-slate-500 dark:text-slate-400">
+                                {t('expenses.partialPaymentsHistory')}
+                              </p>
+                              <ul className="flex flex-wrap gap-1.5">
+                                {expense.payments.map((part) => (
+                                  <li
+                                    key={part.id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-amber-200/70 dark:border-amber-800/50 tabular-nums"
+                                  >
+                                    <span>{formatDateBr(part.paidAt)}</span>
+                                    <span>·</span>
+                                    <span>{t(`paymentMethods.${part.paymentMethod}`)}</span>
+                                    <span>·</span>
+                                    <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                                      {formatCurrency(part.amount)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -487,6 +550,20 @@ const ExpensesListSection: React.FC<Props> = ({
                               className: 'text-[11px]',
                             })}
                             <span>{t('expenses.payBtn')}</span>
+                          </button>
+                        )}
+                        {onUndoPayment && (expense.isPaid || Number(expense.paidAmount || 0) > 0) && (
+                          <button
+                            type="button"
+                            onClick={() => onUndoPayment(expense)}
+                            data-testid={`expense-undo-btn-${expense.id}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-medium transition-colors"
+                            title={t('expenses.undoPaymentTitle')}
+                          >
+                            {React.createElement(FaUndo as unknown as React.ComponentType<{ className?: string }>, {
+                              className: 'text-[10px]',
+                            })}
+                            <span>{t('expenses.undoPaymentBtn')}</span>
                           </button>
                         )}
                         <button
@@ -539,7 +616,16 @@ const ExpensesListSection: React.FC<Props> = ({
                             <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
                               {formatDateBr(child.dueDate)}
                             </span>
-                            <StatusBadge status={child.status} paymentMethod={child.paymentMethod} />
+                            <StatusBadge
+                              status={child.status}
+                              paymentMethod={child.paymentMethod}
+                              isPartiallyPaid={child.isPartiallyPaid}
+                            />
+                            {child.isPaid && child.paidAt && (
+                              <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
+                                {t('expenses.paidOnDate', { date: formatDateBr(child.paidAt) })}
+                              </span>
+                            )}
                             {child.receiptUrl && (
                               <button
                                 type="button"
@@ -568,6 +654,19 @@ const ExpensesListSection: React.FC<Props> = ({
                                     title={t('expenses.payBtn')}
                                   >
                                     {React.createElement(FaCheckCircle as unknown as React.ComponentType<{ className?: string }>, {
+                                      className: 'text-xs',
+                                    })}
+                                  </button>
+                                )}
+                                {onUndoPayment && (child.isPaid || Number(child.paidAmount || 0) > 0) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onUndoPayment(child)}
+                                    data-testid={`expense-undo-btn-${child.id}`}
+                                    className="p-1.5 rounded-lg text-amber-600 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors"
+                                    title={t('expenses.undoPaymentTitle')}
+                                  >
+                                    {React.createElement(FaUndo as unknown as React.ComponentType<{ className?: string }>, {
                                       className: 'text-xs',
                                     })}
                                   </button>
@@ -628,7 +727,7 @@ const ExpensesListSection: React.FC<Props> = ({
                 {React.createElement(FaTimes as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
               </button>
             </div>
-            <img
+            <EncryptedImage
               src={previewReceipt.url}
               alt={previewReceipt.name}
               className="w-full max-h-[70vh] object-contain rounded-xl bg-slate-100 dark:bg-slate-800"

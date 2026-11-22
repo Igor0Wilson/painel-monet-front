@@ -19,11 +19,17 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Pago · VR')).toBeInTheDocument();
   });
 
-  it('renders Em atraso and Pendente states accurately', () => {
+  it('renders Atrasada and Em dia states accurately', () => {
     const { rerender } = render(<StatusBadge status="em_atraso" />);
-    expect(screen.getByText('Em atraso')).toBeInTheDocument();
+    expect(screen.getByText('Atrasada')).toBeInTheDocument();
 
     rerender(<StatusBadge status="pendente" />);
-    expect(screen.getByText('Pendente')).toBeInTheDocument();
+    expect(screen.getByText('Em dia')).toBeInTheDocument();
+  });
+
+  it('renders Pago parcial tag when isPartiallyPaid is true', () => {
+    render(<StatusBadge status="pendente" isPartiallyPaid={true} />);
+    expect(screen.getByText('Em dia')).toBeInTheDocument();
+    expect(screen.getByText('Pago parcial')).toBeInTheDocument();
   });
 });

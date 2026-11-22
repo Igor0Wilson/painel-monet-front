@@ -22,6 +22,7 @@ import {
 import api from '../api';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
+import EncryptedImage from './EncryptedImage';
 import type { PaymentMethod } from './PayExpenseModal';
 import type { ExpenseItem } from '../types/finance';
 import {
@@ -118,6 +119,9 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const [firstInstallmentDate, setFirstInstallmentDate] = useState<string>(getNextMonthIso());
   const [creditError, setCreditError] = useState<string>('');
   const [editIsCreditCard, setEditIsCreditCard] = useState<boolean>(false);
+  const [createPayMode, setCreatePayMode] = useState<'total' | 'partial'>('total');
+  const [partialPaidInput, setPartialPaidInput] = useState<string>('');
+  const [paymentDate, setPaymentDate] = useState<string>(getTodayIso());
 
   // Foto de comprovante / produto no Cloudinary
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -255,6 +259,9 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         setPurchasePaymentMethod(initialMethod);
         setCreditInstallments(String(initialInstallmentQty));
         setFirstInstallmentDate(normalizedDue || getNextMonthIso());
+        setCreatePayMode('total');
+        setPartialPaidInput('');
+        setPaymentDate(normalizeDateInput(initialData.paidAt));
         setReceiptFile(null);
         setReceiptPreview(initialData.receiptUrl || null);
         setRemoveExistingReceipt(false);
@@ -274,6 +281,9 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         setPurchasePaymentMethod('pix');
         setCreditInstallments('1');
         setFirstInstallmentDate(getNextMonthIso());
+        setCreatePayMode('total');
+        setPartialPaidInput('');
+        setPaymentDate(getTodayIso());
         setReceiptFile(null);
         setReceiptPreview(null);
         setRemoveExistingReceipt(false);
@@ -353,8 +363,31 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
   const onSubmit = async (data: ExpenseFormData) => {
     setCreditError('');
+    const parsedValue = Number(parseCurrencyInput(data.value).toFixed(2));
+    const alreadyPaidOnEdit = Number(initialData?.paidAmount || 0);
+    const maxPayableOnEdit = Number(Math.max(0, parsedValue - alreadyPaidOnEdit).toFixed(2));
+    const parsedPartial = Number(parseCurrencyInput(partialPaidInput).toFixed(2));
+    const isPartialFlow =
+      showPaymentFlow &&
+      purchasePaymentMethod !== 'credito' &&
+      createPayMode === 'partial';
 
     if (showPaymentFlow) {
+      if (purchasePaymentMethod !== 'credito' && !paymentDate) {
+        setCreditError(t('modals.payExpense.paymentDateRequiredError'));
+        return;
+      }
+      if (isPartialFlow) {
+        const limitVal = isMarkingPaidOnEdit ? maxPayableOnEdit : parsedValue;
+        if (
+          Number.isNaN(parsedPartial) ||
+          parsedPartial <= 0 ||
+          parsedPartial >= limitVal - 0.009
+        ) {
+          setCreditError(t('modals.expense.partialAmountInvalidError'));
+          return;
+        }
+      }
       if (purchasePaymentMethod === 'credito') {
         const parsedCount = parseInt(creditInstallments, 10);
         if (isNaN(parsedCount) || parsedCount < 1 || parsedCount > 60) {
@@ -370,7 +403,6 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
 
     try {
       setLoading(true);
-      const parsedValue = Number(parseCurrencyInput(data.value).toFixed(2));
       let savedExpenseId: string | null = initialData?.id || null;
 
       if (initialData) {
@@ -404,16 +436,34 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           });
           const payPayload: {
             paymentMethod: PaymentMethod;
+            amount?: number;
+            paidAt?: string;
             installments?: number;
             firstInstallmentDate?: string;
           } = { paymentMethod: purchasePaymentMethod };
           if (purchasePaymentMethod === 'credito') {
             payPayload.installments = parseInt(creditInstallments, 10);
             payPayload.firstInstallmentDate = firstInstallmentDate;
+          } else {
+            payPayload.paidAt = paymentDate;
+            if (isPartialFlow) {
+              payPayload.amount = parsedPartial;
+            }
           }
           await api.patch(`/expenses/${initialData.id}/pay`, payPayload);
           await syncReceiptPhoto(savedExpenseId);
-          toast.success(t('modals.payExpense.paidSingleToast'));
+          if (isPartialFlow) {
+            const nextPaid = Number((alreadyPaidOnEdit + parsedPartial).toFixed(2));
+            const nextRemaining = Number(Math.max(0, parsedValue - nextPaid).toFixed(2));
+            toast.success(
+              t('modals.payExpense.paidPartialToast', {
+                paid: formatCurrency(nextPaid),
+                remaining: formatCurrency(nextRemaining),
+              }),
+            );
+          } else {
+            toast.success(t('modals.payExpense.paidSingleToast'));
+          }
         } else {
           await api.patch(`/expenses/${initialData.id}`, payload);
           await syncReceiptPhoto(savedExpenseId);
@@ -438,19 +488,33 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           await syncReceiptPhoto(savedExpenseId);
           toast.success(t('modals.expense.createdToast'));
         } else {
-          const createdRes = await api.post('/expenses', {
+          const createPayload: Record<string, unknown> = {
             name: data.name,
             accountTypeId: data.accountTypeId,
             value: parsedValue,
             dueDate: data.dueDate,
             isRecurring: false,
             isInstallment: false,
-            isPaid: true,
+            isPaid: !isPartialFlow,
             paymentMethod: purchasePaymentMethod,
-          });
+            paidAt: paymentDate,
+          };
+          if (isPartialFlow) {
+            createPayload.paidAmount = parsedPartial;
+          }
+          const createdRes = await api.post('/expenses', createPayload);
           savedExpenseId = extractCreatedId(createdRes.data);
           await syncReceiptPhoto(savedExpenseId);
-          toast.success(t('modals.payExpense.paidSingleToast'));
+          if (isPartialFlow) {
+            toast.success(
+              t('modals.payExpense.paidPartialToast', {
+                paid: formatCurrency(parsedPartial),
+                remaining: formatCurrency(Math.max(0, parsedValue - parsedPartial)),
+              }),
+            );
+          } else {
+            toast.success(t('modals.payExpense.paidSingleToast'));
+          }
         }
       } else {
         const payload: Record<string, unknown> = {
@@ -701,13 +765,64 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             )}
           </div>
 
+          {initialData && !initialData.isPaid && Number(initialData.paidAmount || 0) > 0 && (
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 px-4 py-2.5 text-xs font-semibold text-amber-800 dark:text-amber-200 tabular-nums">
+              {t('modals.expense.partialAlreadyPaidInfo', {
+                paid: formatCurrency(Number(initialData.paidAmount) || 0),
+                remaining: formatCurrency(
+                  Math.max(0, (watchedValue || Number(initialData.value) || 0) - (Number(initialData.paidAmount) || 0)),
+                ),
+              })}
+            </div>
+          )}
+
           {/* Fluxo de Forma de Pagamento */}
           {showPaymentFlow && (
             <div className="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-4">
               <div>
+                <label className="exec-label">{t('modals.expense.paymentTypeLabel')}</label>
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700">
+                  <button
+                    type="button"
+                    data-testid="expense-pay-mode-total"
+                    onClick={() => {
+                      setCreatePayMode('total');
+                      setCreditError('');
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${createPayMode === 'total'
+                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                  >
+                    {t('modals.expense.paymentTotalBtn')}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="expense-pay-mode-partial"
+                    onClick={() => {
+                      setCreatePayMode('partial');
+                      setCreditError('');
+                      if (purchasePaymentMethod === 'credito') {
+                        setPurchasePaymentMethod('pix');
+                      }
+                    }}
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${createPayMode === 'partial'
+                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                  >
+                    {t('modals.expense.paymentPartialBtn')}
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="exec-label">{t('modals.expense.paymentMethodLabel')}</label>
                 <div className="grid grid-cols-2 gap-2.5">
-                  {paymentMethods.map((m) => {
+                  {(createPayMode === 'partial'
+                    ? paymentMethods.filter((m) => m.id !== 'credito')
+                    : paymentMethods
+                  ).map((m) => {
                     const isSelected = purchasePaymentMethod === m.id;
                     return (
                       <button
@@ -815,7 +930,94 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
                     <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{creditError}</p>
                   )}
                 </div>
-              ) : null}
+              ) : createPayMode === 'partial' ? (
+                <div className="rounded-xl border border-sky-200/80 dark:border-sky-800/60 bg-sky-50/50 dark:bg-sky-950/20 p-4 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="exec-label">
+                        {t('modals.expense.partialPaidAmountLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        data-testid="expense-partial-amount-input"
+                        value={partialPaidInput}
+                        onChange={(e) => {
+                          setPartialPaidInput(
+                            formatCurrencyInput(e.target.value, partialPaidInput),
+                          );
+                          setCreditError('');
+                        }}
+                        placeholder="0,00"
+                        className="exec-input tabular-nums font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="exec-label flex items-center gap-1.5">
+                        {React.createElement(
+                          FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>,
+                          { className: 'text-[10px] text-slate-400' },
+                        )}
+                        {t('modals.expense.paymentDateLabel')}
+                      </label>
+                      <input
+                        type="date"
+                        data-testid="expense-payment-date-input"
+                        value={paymentDate}
+                        onChange={(e) => {
+                          setPaymentDate(e.target.value);
+                          setCreditError('');
+                        }}
+                        className="exec-input"
+                      />
+                    </div>
+                  </div>
+                  {watchedValue > 0 && (
+                    <p className="text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                      {(() => {
+                        const already = isMarkingPaidOnEdit
+                          ? Number(initialData?.paidAmount || 0)
+                          : 0;
+                        const nowPaid = parseCurrencyInput(partialPaidInput) || 0;
+                        const totalPaidPreview = Number((already + nowPaid).toFixed(2));
+                        const remPreview = Number(
+                          Math.max(0, watchedValue - totalPaidPreview).toFixed(2),
+                        );
+                        return t('modals.expense.partialPaidPreview', {
+                          paid: formatCurrency(totalPaidPreview),
+                          remaining: formatCurrency(remPreview),
+                        });
+                      })()}
+                    </p>
+                  )}
+                  {creditError && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{creditError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="exec-label flex items-center gap-1.5">
+                    {React.createElement(
+                      FaCalendarAlt as unknown as React.ComponentType<{ className?: string }>,
+                      { className: 'text-[10px] text-slate-400' },
+                    )}
+                    {t('modals.expense.paymentDateLabel')}
+                  </label>
+                  <input
+                    type="date"
+                    data-testid="expense-payment-date-input"
+                    value={paymentDate}
+                    onChange={(e) => {
+                      setPaymentDate(e.target.value);
+                      setCreditError('');
+                    }}
+                    className="exec-input"
+                  />
+                  {creditError && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{creditError}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1003,7 +1205,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             <div className="rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-3.5 flex items-center gap-4">
               <div className="w-16 h-16 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-300/70 dark:border-slate-600">
                 {receiptPreview ? (
-                  <img
+                  <EncryptedImage
                     src={receiptPreview}
                     alt={t('common.photoAltExpense')}
                     className="w-full h-full object-cover"

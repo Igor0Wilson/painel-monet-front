@@ -92,4 +92,80 @@ describe('PayExpenseModal batch flow', () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('supports partial settlement with custom date and undoing an existing part', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    const expense: ExpenseItem = {
+      id: 'exp-part-1',
+      name: 'Seguro Auto',
+      accountTypeId: 'cat-transport',
+      value: 500,
+      paidAmount: 200,
+      remainingAmount: 300,
+      isPartiallyPaid: true,
+      dueDate: '2026-11-28',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'pendente',
+      payments: [
+        {
+          id: 'part-1',
+          amount: 200,
+          paidAt: '2026-11-10',
+          paymentMethod: 'pix',
+        },
+      ],
+    };
+
+    mockedApi.patch.mockResolvedValue({
+      data: {
+        ...expense,
+        payments: [],
+        paidAmount: 0,
+        remainingAmount: 500,
+      },
+    });
+
+    const { container } = render(
+      <PayExpenseModal
+        expense={expense}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    expect(screen.getByText('10/11/2026')).toBeInTheDocument();
+    expect(screen.getByText(/Partes já pagas \(1\)/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('Desfazer parte'));
+    await waitFor(() => {
+      expect(mockedApi.patch).toHaveBeenCalledWith('/expenses/exp-part-1/undo-pay', {
+        paymentId: 'part-1',
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pagamento Parcial' }));
+
+    const amountInput = screen.getByPlaceholderText('0,00');
+    fireEvent.change(amountInput, { target: { value: '150' } });
+
+    const dateInput = container.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: '2026-11-22' } });
+
+    fireEvent.click(screen.getAllByText('Dinheiro')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar Pagamento' }));
+
+    await waitFor(() => {
+      expect(mockedApi.patch).toHaveBeenCalledWith('/expenses/exp-part-1/pay', {
+        paymentMethod: 'dinheiro',
+        paidAt: '2026-11-22',
+        amount: 150,
+      });
+    });
+
+    expect(onSuccess).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
