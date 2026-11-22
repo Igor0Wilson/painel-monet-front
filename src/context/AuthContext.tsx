@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api';
 import { clearEncryptedImageCache } from '../components/EncryptedImage';
+import i18n from '../i18n';
 import { signOutFirebase } from '../services/firebaseAuth';
 
 export interface User {
@@ -72,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const sanitized = sanitizeSessionUser(JSON.parse(storagedUser));
         if (!sanitized) {
-          throw new Error('Sessão inválida');
+          throw new Error(i18n.t('auth.firebaseErrors.invalidSession'));
         }
         setUser(sanitized);
         localStorage.setItem('user', JSON.stringify(sanitized));

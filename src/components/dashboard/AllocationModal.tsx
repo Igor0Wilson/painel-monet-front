@@ -5,6 +5,7 @@ import {
   formatCurrency,
   formatCurrencyInput,
   formatDateBr,
+  getCurrencyPlaceholder,
   parseCurrencyInput,
 } from '../../utils/formatters';
 
@@ -194,7 +195,7 @@ const AllocationModal: React.FC<Props> = ({
               value={value}
               onChange={(e) => onChangeValue(formatCurrencyInput(e.target.value, value))}
               className="exec-input tabular-nums font-semibold"
-              placeholder="0,00"
+              placeholder={getCurrencyPlaceholder()}
             />
             {isFood ? (
               <div className="mt-4 space-y-4">

@@ -1,7 +1,10 @@
 import type { ChartOptions, TooltipItem } from 'chart.js';
-import { getActiveLocale } from '../i18n';
 import { getCategoryMeta } from './categories';
-import { formatCurrency } from './formatters';
+import {
+  formatChartDayLabel,
+  formatCurrency,
+  getLocaleFormatting,
+} from './formatters';
 
 export const EXECUTIVE_CHART_PALETTE = [
   '#2563eb',
@@ -13,7 +16,10 @@ export const EXECUTIVE_CHART_PALETTE = [
   '#06b6d4',
 ];
 
-export function getExecutiveLineOptions(isDark = false): ChartOptions<'line'> {
+export function getExecutiveLineOptions(
+  isDark = false,
+  localeOverride?: string,
+): ChartOptions<'line'> {
   const tickColor = isDark ? '#94a3b8' : '#64748b';
   const gridColor = isDark ? '#1e293b' : '#f1f5f9';
   const legendColor = isDark ? '#cbd5e1' : '#475569';
@@ -30,12 +36,14 @@ export function getExecutiveLineOptions(isDark = false): ChartOptions<'line'> {
         ticks: {
           color: tickColor,
           font: { size: 11 },
-          callback: (value: string | number) =>
-            new Intl.NumberFormat(getActiveLocale(), {
+          callback: (value: string | number) => {
+            const { locale, currency } = getLocaleFormatting(localeOverride);
+            return new Intl.NumberFormat(locale, {
               style: 'currency',
-              currency: 'BRL',
+              currency,
               maximumFractionDigits: 0,
-            }).format(Number(value)),
+            }).format(Number(value));
+          },
         },
       },
       x: {
@@ -128,17 +136,19 @@ export function buildDoughnutChartData(
 }
 
 export function buildLineChartData(
-  points: { month: string; income: number; expenses: number }[] = [],
+  points: { month: string; day?: number; income: number; expenses: number }[] = [],
   incomeLabel = 'Receitas do Mês',
   expenseLabel = 'Despesas Pagas do Mês',
   isDark = false,
+  monthKey?: string,
+  localeOverride?: string,
 ) {
   const expenseStroke = isDark ? '#f8fafc' : '#0f172a';
   const expenseFill = isDark ? 'rgba(248, 250, 252, 0.08)' : 'rgba(15, 23, 42, 0.05)';
   const pointBorder = isDark ? '#0f172a' : '#ffffff';
 
   return {
-    labels: points.map((p) => p.month),
+    labels: points.map((p) => formatChartDayLabel(p, monthKey, localeOverride)),
     datasets: [
       {
         label: incomeLabel,

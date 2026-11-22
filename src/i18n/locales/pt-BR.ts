@@ -224,6 +224,9 @@ export const ptBR = {
       genericError: 'Não foi possível redefinir a senha.',
     },
     firebaseErrors: {
+      notConfigured:
+        'Autenticação Firebase não configurada. Defina as variáveis REACT_APP_FIREBASE_* no ambiente.',
+      invalidSession: 'Sessão inválida',
       invalidCredential:
         'E-mail ou senha inválidos. Se sua conta estiver desativada, clique em "Esqueci minha senha / Reativar conta".',
       emailAlreadyInUse:
@@ -256,6 +259,16 @@ export const ptBR = {
     profileSubtitle: 'Perfil & CPF',
     logoutTooltip: 'Sair da conta',
     logoutAria: 'Sair da conta',
+  },
+  sidebar: {
+    menuLabel: 'Navegação',
+    openMenuAria: 'Abrir menu lateral',
+    closeMenuAria: 'Fechar menu lateral',
+    individualPanel: 'Painel Individual',
+    familyPanel: 'Painel Família',
+    connectSomeone: 'Conectar com alguém',
+    connectSomeoneDesc: 'Vincular conta pelo Modo Família',
+    appBadge: 'App',
   },
   dashboard: {
     overviewTab: 'Visão Geral',
@@ -625,6 +638,13 @@ export const ptBR = {
       photoSavedToast: 'Comprovante enviado com sucesso!',
       photoDeletedToast: 'Comprovante excluído do armazenamento.',
       validationError: 'Erro ao salvar despesa',
+      minInstallmentsError: 'Mínimo de 2 parcelas',
+      creditCountRangeError: 'Informe um número de parcelas entre 1 e 60.',
+      creditFirstDateRequiredError: 'Informe a data de vencimento da primeira parcela.',
+      loadCategoriesError: 'Erro ao carregar categorias',
+      installmentExample3Placeholder: 'Ex: 3',
+      installmentExample6Placeholder: 'Ex: 6',
+      cardLast4Placeholder: 'Ex: 4821',
     },
     income: {
       editTitle: 'Editar Receita / Salário',

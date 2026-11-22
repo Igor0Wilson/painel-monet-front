@@ -9,7 +9,11 @@ import {
   FaTrash,
 } from 'react-icons/fa';
 import { InvestmentItem, MemberBreakdown } from '../../types/finance';
-import { formatCurrency, formatDateBr } from '../../utils/formatters';
+import {
+  formatCurrency,
+  formatDateBr,
+  translateInvestmentCategory,
+} from '../../utils/formatters';
 
 interface Props {
   items: InvestmentItem[];
@@ -142,7 +146,7 @@ const InvestmentsListSection: React.FC<Props> = ({
                     {item.name}
                   </h4>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
-                    {item.category}
+                    {translateInvestmentCategory(item.category, t)}
                   </span>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${item.source === 'balance'

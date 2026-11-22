@@ -77,11 +77,13 @@ const LANGUAGE_OPTIONS: ReadonlyArray<{
 
 interface ThemeAndLangControlsProps {
   compact?: boolean;
+  variant?: 'toolbar' | 'sidebar';
   className?: string;
 }
 
 const ThemeAndLangControls: React.FC<ThemeAndLangControlsProps> = ({
   compact = false,
+  variant = 'toolbar',
   className = '',
 }) => {
   const { t, i18n } = useTranslation();
@@ -90,6 +92,79 @@ const ThemeAndLangControls: React.FC<ThemeAndLangControlsProps> = ({
     i18n.language === 'en-US' || i18n.language === 'es-ES' || i18n.language === 'pt-BR'
       ? i18n.language
       : getActiveLocale();
+
+  if (variant === 'sidebar') {
+    return (
+      <div className={`space-y-3 ${className}`}>
+        <div className="space-y-1.5">
+          <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            {t('languages.label')}
+          </span>
+          <div
+            role="group"
+            aria-label={t('languages.label')}
+            className="grid grid-cols-3 gap-1.5 bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700 rounded-xl p-1 transition-colors duration-300"
+          >
+            {LANGUAGE_OPTIONS.map(({ code, shortLabel, labelKey, Flag }) => {
+              const isActive = activeLang === code;
+              const label = t(labelKey);
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setAppLanguage(code)}
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={isActive}
+                  data-testid={`lang-btn-${code}`}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <Flag />
+                  <span>{shortLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={isDark ? t('theme.switchToLight') : t('theme.switchToDark')}
+          aria-label={isDark ? t('theme.switchToLight') : t('theme.switchToDark')}
+          aria-pressed={isDark}
+          data-testid="theme-toggle-btn"
+          className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-all duration-200"
+        >
+          <span className="flex items-center gap-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-amber-300 flex items-center justify-center flex-shrink-0">
+              {React.createElement(
+                (isDark ? FaSun : FaMoon) as unknown as React.ComponentType<{
+                  className?: string;
+                }>,
+                { className: 'text-xs' },
+              )}
+            </span>
+            <span className="text-xs font-semibold truncate">
+              {isDark ? t('theme.switchToLight') : t('theme.switchToDark')}
+            </span>
+          </span>
+          <span
+            aria-hidden="true"
+            className={`w-9 h-5 rounded-full p-0.5 flex items-center transition-colors flex-shrink-0 ${
+              isDark ? 'bg-emerald-500 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
+            }`}
+          >
+            <span className="w-4 h-4 rounded-full bg-white shadow-sm" />
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex items-center gap-1.5 sm:gap-2 ${className}`}>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaDownload, FaMobileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { isRunningInInstalledApp } from '../utils/appEnvironment';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -12,51 +13,15 @@ interface InstallAppBannerProps {
   compact?: boolean;
 }
 
-function checkIsRunningInsideApp(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  try {
-    localStorage.removeItem('pm_app_installed');
-    sessionStorage.removeItem('pm_app_installed');
-  } catch {
-    // Ignore storage errors
-  }
-
-  const win = window as unknown as {
-    __PM_RUNNING_IN_APP__?: boolean;
-    ReactNativeWebView?: unknown;
-  };
-
-  if (win.__PM_RUNNING_IN_APP__) {
-    return true;
-  }
-
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('app') === '1' || params.get('standalone') === '1') {
-    win.__PM_RUNNING_IN_APP__ = true;
-    return true;
-  }
-
-  return (
-    Boolean((window.navigator as unknown as { standalone?: boolean }).standalone) ||
-    Boolean(
-      typeof window.matchMedia === 'function' &&
-        (window.matchMedia('(display-mode: standalone)').matches ||
-          window.matchMedia('(display-mode: fullscreen)').matches),
-    ) ||
-    Boolean(win.ReactNativeWebView)
-  );
-}
-
 const InstallAppBanner: React.FC<InstallAppBannerProps> = ({ compact = false }) => {
   const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInsideApp, setIsInsideApp] = useState<boolean>(() => checkIsRunningInsideApp());
+  const [isInsideApp, setIsInsideApp] = useState<boolean>(() => isRunningInInstalledApp());
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    setIsInsideApp(checkIsRunningInsideApp());
+    setIsInsideApp(isRunningInInstalledApp());
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();

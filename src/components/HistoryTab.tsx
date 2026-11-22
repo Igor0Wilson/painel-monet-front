@@ -32,6 +32,7 @@ import {
 import {
   formatCurrency,
   formatDateBr,
+  formatExpenseDisplayName,
   formatMonthLabel,
   shiftMonthKey,
 } from '../utils/formatters';
@@ -57,7 +58,7 @@ const HistoryTab: React.FC<Props> = ({
   isFamilyMode,
   onOpenCategoryDetail,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
   const [previewReceipt, setPreviewReceipt] = useState<{
     url: string;
@@ -94,8 +95,8 @@ const HistoryTab: React.FC<Props> = ({
 
   const hasCategoryData = activeCategories.length > 0;
   const localizedCategories = useMemo(
-    () => activeCategories.map((c) => ({ ...c, name: translateCategoryName(c.name) })),
-    [activeCategories],
+    () => activeCategories.map((c) => ({ ...c, name: translateCategoryName(c.name, t) })),
+    [activeCategories, t],
   );
   const doughnutData = useMemo(
     () => buildDoughnutChartData(localizedCategories, isDark),
@@ -108,11 +109,16 @@ const HistoryTab: React.FC<Props> = ({
         t('charts.incomeDataset'),
         t('charts.expensesDataset'),
         isDark,
+        chartData?.month,
+        i18n.language,
       ),
-    [chartData?.monthlyHistory, t, isDark],
+    [chartData?.monthlyHistory, chartData?.month, t, isDark, i18n.language],
   );
 
-  const lineOptions = useMemo(() => getExecutiveLineOptions(isDark), [isDark]);
+  const lineOptions = useMemo(
+    () => getExecutiveLineOptions(isDark, i18n.language),
+    [isDark, i18n.language],
+  );
 
   const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({
@@ -367,7 +373,7 @@ const HistoryTab: React.FC<Props> = ({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                        {exp.name}
+                        {formatExpenseDisplayName(exp.name, t)}
                       </span>
                       <StatusBadge
                         status={exp.status}
@@ -378,7 +384,10 @@ const HistoryTab: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() =>
-                            setPreviewReceipt({ url: exp.receiptUrl!, name: exp.name })
+                            setPreviewReceipt({
+                              url: exp.receiptUrl!,
+                              name: formatExpenseDisplayName(exp.name, t),
+                            })
                           }
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"
                         >

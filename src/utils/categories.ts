@@ -409,7 +409,11 @@ export function computeRealtimeCategoriesForMonth(
   };
 }
 
-export function translateCategoryName(rawName?: string | null): string {
+export function translateCategoryName(
+  rawName?: string | null,
+  translator?: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const canonical = normalizeCategoryName(rawName);
-  return i18n.t(`categories.${canonical}`, { defaultValue: canonical });
+  const translate = translator || i18n.t.bind(i18n);
+  return translate(`categories.${canonical}`, { defaultValue: canonical });
 }

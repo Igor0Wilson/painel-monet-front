@@ -84,9 +84,7 @@ export function resolveFirebaseClientConfig(): ResolvedFirebaseClientConfig {
   const appId = process.env.REACT_APP_FIREBASE_APP_ID?.trim() || '';
 
   if (!apiKey || !authDomain || !projectId || !appId) {
-    throw new Error(
-      'Autenticação Firebase não configurada. Defina as variáveis REACT_APP_FIREBASE_* no ambiente.',
-    );
+    throw new Error(i18n.t('auth.firebaseErrors.notConfigured'));
   }
 
   return {

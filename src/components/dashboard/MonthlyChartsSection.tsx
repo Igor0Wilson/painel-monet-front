@@ -32,7 +32,7 @@ const MonthlyChartsSection: React.FC<Props> = ({
   chartData,
   onOpenCategoryDetail,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isDark } = useTheme();
 
   const { activeCategories } = useMemo(
@@ -50,9 +50,9 @@ const MonthlyChartsSection: React.FC<Props> = ({
     () =>
       activeCategories.map((c) => ({
         ...c,
-        name: translateCategoryName(c.name),
+        name: translateCategoryName(c.name, t),
       })),
-    [activeCategories],
+    [activeCategories, t],
   );
 
   const doughnutData = useMemo(
@@ -66,11 +66,16 @@ const MonthlyChartsSection: React.FC<Props> = ({
         t('charts.incomeDataset'),
         t('charts.expensesDataset'),
         isDark,
+        chartData?.month,
+        i18n.language,
       ),
-    [chartData?.monthlyHistory, t, isDark],
+    [chartData?.monthlyHistory, chartData?.month, t, isDark, i18n.language],
   );
 
-  const lineOptions = useMemo(() => getExecutiveLineOptions(isDark), [isDark]);
+  const lineOptions = useMemo(
+    () => getExecutiveLineOptions(isDark, i18n.language),
+    [isDark, i18n.language],
+  );
 
   const interactiveDoughnutOptions = useMemo<ChartOptions<'doughnut'>>(
     () => ({

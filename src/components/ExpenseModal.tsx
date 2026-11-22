@@ -22,6 +22,7 @@ import {
   FaLock,
 } from 'react-icons/fa';
 import api from '../api';
+import i18n from '../i18n';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import EncryptedImage from './EncryptedImage';
@@ -38,6 +39,7 @@ import {
   formatCurrencyInput,
   formatDateBr,
   formatNumberToCurrencyInput,
+  getCurrencyPlaceholder,
   normalizeCardLast4Input,
   parseCurrencyInput,
 } from '../utils/formatters';
@@ -171,7 +173,7 @@ const ExpenseModal: React.FC<Props> = ({
                 .transform((v, orig) =>
                   orig === '' || orig === null || Number.isNaN(v) ? undefined : v,
                 )
-                .min(2, 'Mínimo de 2 parcelas')
+                .min(2, t('modals.expense.minInstallmentsError'))
                 .required(t('auth.validation.required')),
             otherwise: (s) =>
               s
@@ -256,7 +258,7 @@ const ExpenseModal: React.FC<Props> = ({
           }
         })
         .catch((error: unknown) => {
-          toast.error(extractApiErrorMessage(error, 'Erro ao carregar categorias'));
+          toast.error(extractApiErrorMessage(error, i18n.t('modals.expense.loadCategoriesError')));
         });
 
       setCreditError('');
@@ -429,11 +431,11 @@ const ExpenseModal: React.FC<Props> = ({
       if (purchasePaymentMethod === 'credito') {
         const parsedCount = parseInt(creditInstallments, 10);
         if (isNaN(parsedCount) || parsedCount < 1 || parsedCount > 60) {
-          setCreditError('Informe um número de parcelas entre 1 e 60.');
+          setCreditError(t('modals.expense.creditCountRangeError'));
           return;
         }
         if (!firstInstallmentDate) {
-          setCreditError('Informe a data de vencimento da primeira parcela.');
+          setCreditError(t('modals.expense.creditFirstDateRequiredError'));
           return;
         }
       }
@@ -770,7 +772,7 @@ const ExpenseModal: React.FC<Props> = ({
                     }
                     className={`exec-input tabular-nums font-semibold ${errors.value ? 'exec-input-error' : ''
                       }`}
-                    placeholder="0,00"
+                    placeholder={getCurrencyPlaceholder()}
                   />
                 )}
               />
@@ -967,7 +969,7 @@ const ExpenseModal: React.FC<Props> = ({
                       value={creditInstallments}
                       onChange={(e) => setCreditInstallments(e.target.value)}
                       className="exec-input tabular-nums font-semibold"
-                      placeholder="Ex: 3"
+                      placeholder={t('modals.expense.installmentExample3Placeholder')}
                     />
                   </div>
 
@@ -1022,7 +1024,7 @@ const ExpenseModal: React.FC<Props> = ({
                           );
                           setCreditError('');
                         }}
-                        placeholder="0,00"
+                        placeholder={getCurrencyPlaceholder()}
                         className="exec-input tabular-nums font-semibold"
                       />
                     </div>
@@ -1207,7 +1209,7 @@ const ExpenseModal: React.FC<Props> = ({
                         {...register('installmentCount')}
                         className={`exec-input tabular-nums ${errors.installmentCount ? 'exec-input-error' : ''
                           }`}
-                        placeholder="Ex: 6"
+                        placeholder={t('modals.expense.installmentExample6Placeholder')}
                       />
                       {errors.installmentCount && (
                         <p className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
@@ -1252,7 +1254,7 @@ const ExpenseModal: React.FC<Props> = ({
                         {...register('installmentCount')}
                         className={`exec-input tabular-nums ${errors.installmentCount ? 'exec-input-error' : ''
                           }`}
-                        placeholder="Ex: 6"
+                        placeholder={t('modals.expense.installmentExample6Placeholder')}
                       />
                     </div>
                     {installmentPreview && (
@@ -1421,7 +1423,7 @@ const ExpenseModal: React.FC<Props> = ({
                         setCardLast4(normalizeCardLast4Input(e.target.value));
                         setCreditError('');
                       }}
-                      placeholder="Ex: 4821"
+                      placeholder={t('modals.expense.cardLast4Placeholder')}
                       className="exec-input tabular-nums font-semibold"
                     />
                   </div>

@@ -16,6 +16,7 @@ import {
   formatCurrency,
   formatCurrencyInput,
   formatNumberToCurrencyInput,
+  getCurrencyPlaceholder,
   parseCurrencyInput,
 } from '../utils/formatters';
 
@@ -405,7 +406,7 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                         onChange={(e) => updateEntry(entry.key, 'value', e.target.value)}
                         className={`exec-input tabular-nums font-semibold ${entryErr.value ? 'exec-input-error' : ''
                           }`}
-                        placeholder="0,00"
+                        placeholder={getCurrencyPlaceholder()}
                       />
                       {entryErr.value && (
                         <p className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium">

@@ -17,7 +17,9 @@ import {
   formatCurrencyInput,
   formatDateBr,
   formatNumberToCurrencyInput,
+  getCurrencyPlaceholder,
   parseCurrencyInput,
+  translateInvestmentCategory,
 } from '../../utils/formatters';
 
 interface Props {
@@ -110,7 +112,7 @@ const InvestmentsModal: React.FC<Props> = ({
   const projectedBalance = Number((ownAvailableBalance - deltaOnBalance).toFixed(2));
 
   const translateInvCategory = (cat: string) =>
-    t(`modals.investments.categories.${cat}`, { defaultValue: cat });
+    translateInvestmentCategory(cat, t);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,7 +330,7 @@ const InvestmentsModal: React.FC<Props> = ({
                   value={amountInput}
                   onChange={(e) => setAmountInput(formatCurrencyInput(e.target.value, amountInput))}
                   className="exec-input tabular-nums font-semibold"
-                  placeholder="0,00"
+                  placeholder={getCurrencyPlaceholder()}
                 />
               </div>
 

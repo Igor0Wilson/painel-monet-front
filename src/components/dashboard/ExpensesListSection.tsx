@@ -27,6 +27,7 @@ import { getCategoryMeta, translateCategoryName } from '../../utils/categories';
 import {
   formatCurrency,
   formatDateBr,
+  formatExpenseDisplayName,
   formatMonthLabel,
   getCurrentMonthKey,
   maskPixKey,
@@ -509,7 +510,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupAutoDebit')}: </span>
                         <span>
                           {group.autoDebitItems
-                            .map((i) => `${i.name} (${formatCurrency(Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -519,7 +520,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupPending')}: </span>
                         <span>
                           {group.pendingItems
-                            .map((i) => `${i.name} (${formatCurrency(getRemainingAmount(i) || Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(getRemainingAmount(i) || Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -529,7 +530,7 @@ const ExpensesListSection: React.FC<Props> = ({
                         <span className="font-semibold">{t('expenses.cardGroupPaidWithCard')}: </span>
                         <span>
                           {group.paidWithCardItems
-                            .map((i) => `${i.name} (${formatCurrency(Number(i.value))})`)
+                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatCurrency(Number(i.value))})`)
                             .join(', ')}
                         </span>
                       </div>
@@ -590,14 +591,19 @@ const ExpensesListSection: React.FC<Props> = ({
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleSelectId(expense.id)}
-                        aria-label={t('expenses.selectExpenseAria', { name: expense.name })}
+                        aria-label={t('expenses.selectExpenseAria', {
+                          name: formatExpenseDisplayName(expense.name, t),
+                        })}
                         className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-600 cursor-pointer flex-shrink-0"
                       />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                          {isGroupHeader ? expense.name.split(' (')[0] : expense.name}
+                          {formatExpenseDisplayName(
+                            isGroupHeader ? expense.name.split(' (')[0] : expense.name,
+                            t,
+                          )}
                         </h4>
                         <StatusBadge
                           status={expense.status}
@@ -610,7 +616,7 @@ const ExpensesListSection: React.FC<Props> = ({
                             onClick={() =>
                               setPreviewReceipt({
                                 url: expense.receiptUrl!,
-                                name: expense.name,
+                                name: formatExpenseDisplayName(expense.name, t),
                               })
                             }
                             data-testid={`expense-receipt-btn-${expense.id}`}
@@ -885,7 +891,9 @@ const ExpensesListSection: React.FC<Props> = ({
                                 type="checkbox"
                                 checked={isChildChecked}
                                 onChange={() => toggleSelectId(child.id)}
-                                aria-label={t('expenses.selectExpenseAria', { name: child.name })}
+                                aria-label={t('expenses.selectExpenseAria', {
+                                  name: formatExpenseDisplayName(child.name, t),
+                                })}
                                 className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-600 cursor-pointer flex-shrink-0"
                               />
                             )}
@@ -909,7 +917,10 @@ const ExpensesListSection: React.FC<Props> = ({
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setPreviewReceipt({ url: child.receiptUrl!, name: child.name })
+                                  setPreviewReceipt({
+                                    url: child.receiptUrl!,
+                                    name: formatExpenseDisplayName(child.name, t),
+                                  })
                                 }
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300"
                               >

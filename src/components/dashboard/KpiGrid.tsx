@@ -10,7 +10,7 @@ import {
   FaUtensils,
 } from 'react-icons/fa';
 import { BalanceData } from '../../types/finance';
-import { formatCurrency, formatDateBr } from '../../utils/formatters';
+import { formatCurrency, formatShortDate } from '../../utils/formatters';
 
 interface Props {
   balance: BalanceData;
@@ -213,7 +213,7 @@ const KpiGrid: React.FC<Props> = ({
                 <p className="text-amber-700 dark:text-amber-400 font-semibold tabular-nums">
                   {t('kpi.foodScheduledHint')}
                   {balance.ownFoodAllowanceNextDate
-                    ? ` (${formatDateBr(balance.ownFoodAllowanceNextDate).slice(0, 5)})`
+                    ? ` (${formatShortDate(balance.ownFoodAllowanceNextDate)})`
                     : ''}
                   : {formatCurrency(balance.foodAllowanceScheduled || 0)}
                 </p>

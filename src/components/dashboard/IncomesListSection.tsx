@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaCalendarAlt, FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
 import { IncomeItem } from '../../types/finance';
-import { formatCurrency, formatDateBr } from '../../utils/formatters';
+import { formatCurrency, formatDateBr, formatShortDate } from '../../utils/formatters';
 
 interface Props {
   incomes: IncomeItem[];
@@ -74,7 +74,7 @@ const IncomesListSection: React.FC<Props> = ({
                     {income.status === 'agendado' ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60 flex-shrink-0">
                         {t('status.agendado')} ·{' '}
-                        {formatDateBr(income.nextCreditDate || income.incomeDate).slice(0, 5)}
+                        {formatShortDate(income.nextCreditDate || income.incomeDate)}
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 flex-shrink-0">

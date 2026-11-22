@@ -23,7 +23,9 @@ import {
   formatCurrency,
   formatCurrencyInput,
   formatDateBr,
+  formatExpenseDisplayName,
   formatNumberToCurrencyInput,
+  getCurrencyPlaceholder,
   maskPixKey,
   normalizeCardLast4Input,
   parseCurrencyInput,
@@ -382,7 +384,7 @@ const PayExpenseModal: React.FC<Props> = ({
                   >
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                        {item.name}
+                        {formatExpenseDisplayName(item.name, t)}
                       </p>
                       <p className="text-[11px] text-slate-400">{formatDateBr(item.dueDate)}</p>
                     </div>
@@ -402,7 +404,7 @@ const PayExpenseModal: React.FC<Props> = ({
                       {t('modals.payExpense.selectedExpenseLabel')}
                     </p>
                     <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                      {targetExpenses[0].name}
+                      {formatExpenseDisplayName(targetExpenses[0].name, t)}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -534,7 +536,7 @@ const PayExpenseModal: React.FC<Props> = ({
                             formatCurrencyInput(e.target.value, partialAmountInput),
                           )
                         }
-                        placeholder="0,00"
+                        placeholder={getCurrencyPlaceholder()}
                         className="exec-input tabular-nums font-semibold"
                       />
                     </div>
@@ -724,7 +726,7 @@ const PayExpenseModal: React.FC<Props> = ({
                     maxLength={4}
                     value={cardLast4}
                     onChange={(e) => setCardLast4(normalizeCardLast4Input(e.target.value))}
-                    placeholder="Ex: 4821"
+                    placeholder={t('modals.expense.cardLast4Placeholder')}
                     className="exec-input tabular-nums font-semibold"
                   />
                 </div>
@@ -754,7 +756,7 @@ const PayExpenseModal: React.FC<Props> = ({
                   value={installments}
                   onChange={(e) => setInstallments(e.target.value)}
                   className="exec-input tabular-nums font-semibold"
-                  placeholder="Ex: 3"
+                  placeholder={t('modals.expense.installmentExample3Placeholder')}
                 />
               </div>
 

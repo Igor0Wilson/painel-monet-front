@@ -20,6 +20,7 @@ import {
 import {
   formatCurrency,
   formatDateBr,
+  formatExpenseDisplayName,
   formatMonthLabel,
   shiftMonthKey,
 } from '../../utils/formatters';
@@ -248,7 +249,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                            {item.name}
+                            {formatExpenseDisplayName(item.name, t)}
                           </span>
                           <StatusBadge
                             status={item.status}
@@ -261,7 +262,7 @@ const CategoryDetailsView: React.FC<Props> = ({
                               onClick={() =>
                                 setPreviewReceipt({
                                   url: item.receiptUrl!,
-                                  name: item.name,
+                                  name: formatExpenseDisplayName(item.name, t),
                                 })
                               }
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100"

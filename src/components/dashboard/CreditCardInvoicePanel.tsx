@@ -2,7 +2,12 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaCheckCircle, FaCreditCard } from 'react-icons/fa';
 import { CreditCardInvoiceGroup } from '../PayCreditCardModal';
-import { formatCurrency, formatDateBr } from '../../utils/formatters';
+import { translateCategoryName } from '../../utils/categories';
+import {
+  formatCurrency,
+  formatDateBr,
+  formatExpenseDisplayName,
+} from '../../utils/formatters';
 
 interface Props {
   invoices: CreditCardInvoiceGroup[];
@@ -104,7 +109,7 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
-                    {item.name}
+                    {formatExpenseDisplayName(item.name, t)}
                   </p>
                   {(item.cardBank || item.cardLast4) && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
@@ -123,8 +128,10 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  {item.accountType?.name || t('paymentMethods.creditoFull')} ·{' '}
-                  {formatDateBr(item.dueDate)}
+                  {item.accountType?.name
+                    ? translateCategoryName(item.accountType.name)
+                    : t('paymentMethods.creditoFull')}{' '}
+                  · {formatDateBr(item.dueDate)}
                 </p>
               </div>
               <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">

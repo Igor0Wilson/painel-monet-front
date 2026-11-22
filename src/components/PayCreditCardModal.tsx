@@ -13,7 +13,12 @@ import api from '../api';
 import { toast } from 'react-toastify';
 import type { ExpenseItem } from '../types/finance';
 import { extractApiErrorMessage } from '../utils/errorHandler';
-import { formatCurrency, formatDateBr } from '../utils/formatters';
+import { translateCategoryName } from '../utils/categories';
+import {
+  formatCurrency,
+  formatDateBr,
+  formatExpenseDisplayName,
+} from '../utils/formatters';
 
 export interface CreditCardInvoiceGroup {
   month: string;
@@ -136,11 +141,13 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                      {item.name}
+                      {formatExpenseDisplayName(item.name, t)}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      {item.accountType?.name || t('paymentMethods.creditoFull')} ·{' '}
-                      {formatDateBr(item.dueDate)}
+                      {item.accountType?.name
+                        ? translateCategoryName(item.accountType.name)
+                        : t('paymentMethods.creditoFull')}{' '}
+                      · {formatDateBr(item.dueDate)}
                     </p>
                   </div>
                   <span className="font-semibold text-slate-900 dark:text-white tabular-nums flex-shrink-0">

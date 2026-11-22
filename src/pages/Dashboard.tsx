@@ -35,7 +35,9 @@ import InvestmentsModal from '../components/dashboard/InvestmentsModal';
 import KpiGrid from '../components/dashboard/KpiGrid';
 import MonthlyChartsSection from '../components/dashboard/MonthlyChartsSection';
 import Navbar from '../components/dashboard/Navbar';
+import AppSidebar, { MobileAppHeader } from '../components/dashboard/AppSidebar';
 import { useAuth } from '../context/AuthContext';
+import { isRunningInInstalledApp } from '../utils/appEnvironment';
 import { useFamilyRealtimeSync } from '../hooks/useFamilyRealtimeSync';
 import {
   ActiveTab,
@@ -101,11 +103,13 @@ const INITIAL_BALANCE: BalanceData = {
 };
 
 const Dashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, logout, updateUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [panelScope, setPanelScope] = useState<PanelScope>('individual');
+  const [isInstalledApp, setIsInstalledApp] = useState<boolean>(() => isRunningInInstalledApp());
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedHistoryMonth, setSelectedHistoryMonth] = useState<string>(getCurrentMonthKey());
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
 
@@ -273,6 +277,10 @@ const Dashboard: React.FC = () => {
 
   const handleBackRequestRef = useRef<() => boolean>(() => false);
   handleBackRequestRef.current = () => {
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return true;
+    }
     if (showLogoutConfirm) {
       setShowLogoutConfirm(false);
       return true;
@@ -340,6 +348,10 @@ const Dashboard: React.FC = () => {
     setShowLogoutConfirm(true);
     return true;
   };
+
+  useEffect(() => {
+    setIsInstalledApp(isRunningInInstalledApp());
+  }, []);
 
   useEffect(() => {
     const currentState = window.history.state as { dashboardGuard?: boolean } | null;
@@ -616,7 +628,10 @@ const Dashboard: React.FC = () => {
       .join('');
   }, [user?.name]);
 
-  const currentPeriodLabel = useMemo(() => formatMonthLabel(currentMonthKey), [currentMonthKey]);
+  const currentPeriodLabel = useMemo(
+    () => formatMonthLabel(currentMonthKey, i18n.language),
+    [currentMonthKey, i18n.language],
+  );
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((e) => {
@@ -659,7 +674,7 @@ const Dashboard: React.FC = () => {
       .map(([month, items]) => {
         const [yearStr, monthStr] = month.split('-');
         const dateObj = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-        const locale = getActiveLocale();
+        const locale = i18n.language || getActiveLocale();
         const fullMonth = dateObj.toLocaleDateString(locale, {
           month: 'long',
           year: 'numeric',
@@ -677,7 +692,7 @@ const Dashboard: React.FC = () => {
           items,
         };
       });
-  }, [expenses, isFamilyMode]);
+  }, [expenses, isFamilyMode, i18n.language]);
 
   const activeInvoice = useMemo(() => {
     if (creditCardInvoices.length === 0) return null;
@@ -704,157 +719,225 @@ const Dashboard: React.FC = () => {
       ? Number(balance.ownBalance || 0) + allocatedSavingsForModal
       : 0;
 
+  const activeAppHeaderTitle = categoryDetailState.isOpen
+    ? t('charts.categoryTitle')
+    : activeTab === 'history'
+      ? t('dashboard.historyTab')
+      : isFamilyMode
+        ? t('sidebar.familyPanel')
+        : t('sidebar.individualPanel');
+
+  const handleSelectIndividualPanel = () => {
+    handleScopeChange('individual');
+    setActiveTab('overview');
+    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleSelectFamilyPanel = () => {
+    if (!familyStatus?.inFamily) return;
+    handleScopeChange('family');
+    setActiveTab('overview');
+    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleSelectHistoryTab = () => {
+    setActiveTab('history');
+    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
-      <Navbar
-        userId={user?.id}
-        userName={user?.name}
-        userInitials={userInitials}
-        userAvatarUrl={user?.avatarUrl}
-        onOpenProfileModal={() => setIsUserModalOpen(true)}
-        onRequestLogout={() => setShowLogoutConfirm(true)}
-      />
+      {!isInstalledApp && (
+        <Navbar
+          userId={user?.id}
+          userName={user?.name}
+          userInitials={userInitials}
+          userAvatarUrl={user?.avatarUrl}
+          onOpenProfileModal={() => setIsUserModalOpen(true)}
+          onRequestLogout={() => setShowLogoutConfirm(true)}
+        />
+      )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-grow w-full space-y-6 sm:space-y-8">
-        {pendingInvites.length > 0 && (
-          <div className="rounded-2xl bg-slate-950 text-white px-5 py-4 shadow-executive-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0">
-                {React.createElement(FaBell as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
-              </span>
-              <div className="text-xs sm:text-sm">
-                <p className="font-semibold">
-                  {t('dashboard.pendingInvitesTitle', { count: pendingInvites.length })}
-                </p>
-                <p className="text-slate-300 text-xs mt-0.5">
-                  {t('dashboard.pendingInvitesSubtitle', {
-                    name: pendingInvites[0].inviterName,
-                    cpf: pendingInvites[0].inviterMaskedCpf,
-                  })}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveInviteModal(pendingInvites[0])}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors self-start sm:self-center whitespace-nowrap"
-            >
-              {t('dashboard.reviewInviteButton')}
-            </button>
-          </div>
+      <div className={isInstalledApp ? 'flex-1 flex flex-col lg:flex-row min-w-0' : 'flex-1 flex flex-col'}>
+        {isInstalledApp && (
+          <AppSidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            userId={user?.id}
+            userName={user?.name}
+            userInitials={userInitials}
+            userAvatarUrl={user?.avatarUrl}
+            activeTab={activeTab}
+            panelScope={panelScope}
+            isCategoryDetailOpen={categoryDetailState.isOpen}
+            inFamily={Boolean(familyStatus?.inFamily)}
+            familyMembersCount={familyStatus?.members?.length || 2}
+            pendingInvitesCount={pendingInvites.length}
+            onSelectIndividualPanel={handleSelectIndividualPanel}
+            onSelectFamilyPanel={handleSelectFamilyPanel}
+            onSelectHistory={handleSelectHistoryTab}
+            onOpenFamilyModal={() => setIsFamilyModalOpen(true)}
+            onOpenProfileModal={() => setIsUserModalOpen(true)}
+            onRequestLogout={() => setShowLogoutConfirm(true)}
+          />
         )}
 
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                {currentPeriodLabel}{' '}
-                {isFamilyMode ? `· ${t('dashboard.familyPanelActive')}` : ''}
-              </p>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mt-0.5">
-                {isFamilyMode ? t('dashboard.familyPanelActive') : t('dashboard.overviewTab')}
-              </h1>
-            </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          {isInstalledApp && (
+            <MobileAppHeader
+              activeTitle={activeAppHeaderTitle}
+              userName={user?.name}
+              userInitials={userInitials}
+              userAvatarUrl={user?.avatarUrl}
+              pendingInvitesCount={pendingInvites.length}
+              isSidebarOpen={isSidebarOpen}
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+              onOpenProfileModal={() => setIsUserModalOpen(true)}
+            />
+          )}
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-grow w-full space-y-6 sm:space-y-8">
+            {pendingInvites.length > 0 && (
+              <div className="rounded-2xl bg-slate-950 text-white px-5 py-4 shadow-executive-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0">
+                    {React.createElement(FaBell as unknown as React.ComponentType<{ className?: string }>, { className: 'text-sm' })}
+                  </span>
+                  <div className="text-xs sm:text-sm">
+                    <p className="font-semibold">
+                      {t('dashboard.pendingInvitesTitle', { count: pendingInvites.length })}
+                    </p>
+                    <p className="text-slate-300 text-xs mt-0.5">
+                      {t('dashboard.pendingInvitesSubtitle', {
+                        name: pendingInvites[0].inviterName,
+                        cpf: pendingInvites[0].inviterMaskedCpf,
+                      })}
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab('overview');
-                    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                  }}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
+                  onClick={() => setActiveInviteModal(pendingInvites[0])}
+                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-colors self-start sm:self-center whitespace-nowrap"
                 >
-                  {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                  {t('dashboard.overviewTab')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('history');
-                    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                  }}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
-                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                >
-                  {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                  {t('dashboard.historyTab')}
+                  {t('dashboard.reviewInviteButton')}
                 </button>
               </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => setIsFamilyModalOpen(true)}
-                data-testid="dashboard-family-btn"
-                title={t('navbar.familyTooltip')}
-                className={`group relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all shadow-sm ${
-                  isFamilyMode
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-emerald-500/20'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-100 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/30'
-                }`}
-              >
-                <span
-                  className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
-                    isFamilyMode
-                      ? 'bg-white/20 text-white'
-                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/60'
-                  }`}
-                >
-                  {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                </span>
-                <span>{t('navbar.familyScope')}</span>
-                {familyStatus?.inFamily && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums ${
-                      isFamilyMode
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    {familyStatus.members?.length || 2}
-                  </span>
-                )}
-                {pendingInvites.length > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
-                    {pendingInvites.length}
-                  </span>
-                )}
-              </button>
-
-              {familyStatus?.inFamily && (
-                <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleScopeChange('individual')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'individual'
-                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                  >
-                    {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-                    {t('navbar.individualScope')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleScopeChange('family')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'family'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                  >
-                    {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                    {t('navbar.familyScope')}
-                  </button>
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {currentPeriodLabel}{' '}
+                    {isFamilyMode ? `· ${t('dashboard.familyPanelActive')}` : ''}
+                  </p>
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mt-0.5">
+                    {isFamilyMode ? t('dashboard.familyPanelActive') : t('dashboard.overviewTab')}
+                  </h1>
                 </div>
-              )}
-            </div>
-          </div>
+
+                {!isInstalledApp && (
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('overview');
+                          setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                        }}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
+                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                      >
+                        {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                        {t('dashboard.overviewTab')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('history');
+                          setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                        }}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
+                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                      >
+                        {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                        {t('dashboard.historyTab')}
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsFamilyModalOpen(true)}
+                      data-testid="dashboard-family-btn"
+                      title={t('navbar.familyTooltip')}
+                      className={`group relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all shadow-sm ${
+                        isFamilyMode
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-emerald-500/20'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-100 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/30'
+                      }`}
+                    >
+                      <span
+                        className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                          isFamilyMode
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/60'
+                        }`}
+                      >
+                        {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                      </span>
+                      <span>{t('navbar.familyScope')}</span>
+                      {familyStatus?.inFamily && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums ${
+                            isFamilyMode
+                              ? 'bg-white/20 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          {familyStatus.members?.length || 2}
+                        </span>
+                      )}
+                      {pendingInvites.length > 0 && (
+                        <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                          {pendingInvites.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {familyStatus?.inFamily && (
+                      <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => handleScopeChange('individual')}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'individual'
+                            ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                        >
+                          {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                          {t('navbar.individualScope')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleScopeChange('family')}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'family'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                        >
+                          {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                          {t('navbar.familyScope')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
           <div className="grid grid-cols-2 sm:flex items-center gap-2.5 w-full lg:w-auto">
             <button
@@ -1034,6 +1117,8 @@ const Dashboard: React.FC = () => {
           {t('dashboard.footerText')} &copy; {new Date().getFullYear()}
         </p>
       </footer>
+        </div>
+      </div>
 
       <ExpenseModal
         isOpen={isExpenseModalOpen}
