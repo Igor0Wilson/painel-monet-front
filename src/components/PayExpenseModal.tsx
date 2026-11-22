@@ -12,6 +12,7 @@ import {
   FaUtensils,
   FaHamburger,
   FaUndo,
+  FaCopy,
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
@@ -23,14 +24,22 @@ import {
   formatCurrencyInput,
   formatDateBr,
   formatNumberToCurrencyInput,
+  maskPixKey,
+  normalizeCardLast4Input,
   parseCurrencyInput,
 } from '../utils/formatters';
 
 export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
+export interface SavedCardOption {
+  cardBank?: string | null;
+  cardLast4?: string | null;
+}
+
 interface Props {
   expense: ExpenseItem | null;
   batchExpenses?: ExpenseItem[];
+  savedCards?: SavedCardOption[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -57,6 +66,7 @@ const QUICK_INSTALLMENTS = [1, 2, 3, 6, 10, 12];
 const PayExpenseModal: React.FC<Props> = ({
   expense,
   batchExpenses = [],
+  savedCards = [],
   onClose,
   onSuccess,
 }) => {
@@ -67,6 +77,8 @@ const PayExpenseModal: React.FC<Props> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [installments, setInstallments] = useState<string>('1');
   const [firstInstallmentDate, setFirstInstallmentDate] = useState<string>(getNextMonthIso());
+  const [cardBank, setCardBank] = useState<string>('');
+  const [cardLast4, setCardLast4] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [undoingPartId, setUndoingPartId] = useState<string | null>(null);
   const [localPayments, setLocalPayments] = useState<ExpensePaymentPart[] | null>(null);
@@ -85,11 +97,13 @@ const PayExpenseModal: React.FC<Props> = ({
       setPaymentMethod('pix');
       setInstallments('1');
       setFirstInstallmentDate(getNextMonthIso());
+      setCardBank(expense?.cardBank || '');
+      setCardLast4(expense?.cardLast4 || '');
       setLocalPayments(null);
       setLocalPaidAmount(null);
       setErrorMsg('');
     }
-  }, [targetKey]);
+  }, [targetKey, expense?.cardBank, expense?.cardLast4]);
 
   if (targetExpenses.length === 0) return null;
 
@@ -251,6 +265,11 @@ const PayExpenseModal: React.FC<Props> = ({
         setErrorMsg(t('modals.payExpense.firstDueLabel'));
         return;
       }
+      const cleanLast4 = normalizeCardLast4Input(cardLast4);
+      if (cleanLast4.length > 0 && cleanLast4.length !== 4) {
+        setErrorMsg(t('modals.expense.cardLast4InvalidError'));
+        return;
+      }
     }
 
     try {
@@ -261,6 +280,8 @@ const PayExpenseModal: React.FC<Props> = ({
         paidAt?: string;
         installments?: number;
         firstInstallmentDate?: string;
+        cardBank?: string;
+        cardLast4?: string;
       } = { paymentMethod };
       if (!isBatch) {
         payload.paidAt = paymentDate;
@@ -271,6 +292,9 @@ const PayExpenseModal: React.FC<Props> = ({
       if (paymentMethod === 'credito') {
         payload.installments = parsedInstallments;
         payload.firstInstallmentDate = firstInstallmentDate;
+        if (cardBank.trim()) payload.cardBank = cardBank.trim();
+        const cleanLast4 = normalizeCardLast4Input(cardLast4);
+        if (cleanLast4.length === 4) payload.cardLast4 = cleanLast4;
       }
 
       if (isBatch) {
@@ -611,6 +635,35 @@ const PayExpenseModal: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Saved Pix Key Quick Copy */}
+          {paymentMethod === 'pix' && !isBatch && singleExpense?.pixKey && (
+            <div className="rounded-xl border border-teal-200 dark:border-teal-800/60 bg-teal-50/70 dark:bg-teal-950/30 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-teal-700 dark:text-teal-300">
+                  {t('modals.payExpense.savedPixHint')}
+                </p>
+                <p className="text-xs font-mono text-slate-800 dark:text-slate-100 truncate">
+                  {maskPixKey(singleExpense.pixKey)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard?.writeText(singleExpense.pixKey || '');
+                    toast.success(t('expenses.pixCopiedToast'));
+                  } catch {
+                    toast.info(maskPixKey(singleExpense.pixKey));
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-700 text-xs font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors flex-shrink-0"
+              >
+                {React.createElement(FaCopy as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                <span>{t('expenses.copyPixBtn')}</span>
+              </button>
+            </div>
+          )}
+
           {/* Credit Card Details */}
           {paymentMethod === 'credito' ? (
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-4 space-y-4">
@@ -621,6 +674,60 @@ const PayExpenseModal: React.FC<Props> = ({
                 <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
                   {t('paymentMethods.creditoFull')}
                 </h4>
+              </div>
+
+              {savedCards.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1.5">
+                    {t('modals.expense.savedCardsLabel')}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {savedCards.map((c) => {
+                      const label = [c.cardBank, c.cardLast4 ? `•••• ${c.cardLast4}` : '']
+                        .filter(Boolean)
+                        .join(' ');
+                      return (
+                        <button
+                          key={`${c.cardBank || ''}-${c.cardLast4 || ''}`}
+                          type="button"
+                          onClick={() => {
+                            setCardBank(c.cardBank || '');
+                            setCardLast4(c.cardLast4 || '');
+                          }}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="exec-label">{t('modals.expense.cardBankLabel')}</label>
+                  <input
+                    type="text"
+                    value={cardBank}
+                    onChange={(e) => setCardBank(e.target.value)}
+                    placeholder={t('modals.expense.cardBankPlaceholder')}
+                    maxLength={60}
+                    className="exec-input"
+                  />
+                </div>
+                <div>
+                  <label className="exec-label">{t('modals.expense.cardLast4Label')}</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={cardLast4}
+                    onChange={(e) => setCardLast4(normalizeCardLast4Input(e.target.value))}
+                    placeholder="Ex: 4821"
+                    className="exec-input tabular-nums font-semibold"
+                  />
+                </div>
               </div>
 
               <div>

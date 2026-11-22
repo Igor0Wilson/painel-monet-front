@@ -184,4 +184,63 @@ describe('ExpenseModal', () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('registers recurring pixKey, auto-debit toggle, cardBank and cardLast4 cleanly', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    mockedApi.post.mockResolvedValue({ data: { id: 'exp-autodebit-new' } });
+
+    render(
+      <ExpenseModal
+        isOpen={true}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockedApi.get).toHaveBeenCalledWith('/account-types');
+    });
+
+    const categoryTriggers = screen.getAllByText('Categoria');
+    fireEvent.click(categoryTriggers[categoryTriggers.length - 1]);
+    fireEvent.click(await screen.findByText('Alimentação'));
+
+    fireEvent.change(screen.getByPlaceholderText('Ex: Aluguel, Energia, Internet'), {
+      target: { value: 'Assinatura Mensal' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('0,00'), {
+      target: { value: '89,90' },
+    });
+
+    fireEvent.change(screen.getByTestId('expense-pix-key-input'), {
+      target: { value: 'assinatura@pix.com.br' },
+    });
+    fireEvent.click(screen.getByTestId('expense-auto-debit-toggle'));
+    fireEvent.change(screen.getByTestId('expense-card-bank-input'), {
+      target: { value: 'Nubank' },
+    });
+    fireEvent.change(screen.getByTestId('expense-card-last4-input'), {
+      target: { value: '4821' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar Despesa' }));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        '/expenses',
+        expect.objectContaining({
+          name: 'Assinatura Mensal',
+          value: 89.9,
+          pixKey: 'assinatura@pix.com.br',
+          isAutoDebit: true,
+          cardBank: 'Nubank',
+          cardLast4: '4821',
+        }),
+      );
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

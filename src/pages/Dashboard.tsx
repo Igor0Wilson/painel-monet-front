@@ -418,6 +418,48 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleGenerateCardInvoice = async (targetExpenses: ExpenseItem[]) => {
+    if (targetExpenses.length === 0) return;
+    try {
+      const first = targetExpenses[0];
+      const payload: {
+        expenseIds: string[];
+        cardBank?: string;
+        cardLast4?: string;
+      } = {
+        expenseIds: targetExpenses.map((e) => e.id),
+      };
+      if (first.cardBank) payload.cardBank = first.cardBank;
+      if (first.cardLast4) payload.cardLast4 = first.cardLast4;
+      const res = await api.post<{ generatedCount?: number }>(
+        '/expenses/credit-card/generate-invoice',
+        payload,
+      );
+      toast.success(
+        t('expenses.generateCardInvoiceSuccess', {
+          count: res.data?.generatedCount ?? targetExpenses.length,
+        }),
+      );
+      fetchData();
+    } catch (error: unknown) {
+      toast.error(extractApiErrorMessage(error, t('expenses.generateCardInvoiceError')));
+    }
+  };
+
+  const savedCards = useMemo(() => {
+    const map = new Map<string, { cardBank?: string | null; cardLast4?: string | null }>();
+    expenses.forEach((exp) => {
+      const bank = (exp.cardBank || '').trim();
+      const last4 = (exp.cardLast4 || '').trim();
+      if (!bank && !last4) return;
+      const key = `${bank.toLowerCase()}::${last4}`;
+      if (!map.has(key)) {
+        map.set(key, { cardBank: bank || null, cardLast4: last4 || null });
+      }
+    });
+    return Array.from(map.values());
+  }, [expenses]);
+
   const handleOpenAllocation = (variant: 'emergency' | 'investment' | 'food') => {
     if (variant === 'investment' || variant === 'emergency') {
       const ownExternal =
@@ -669,11 +711,6 @@ const Dashboard: React.FC = () => {
         userName={user?.name}
         userInitials={userInitials}
         userAvatarUrl={user?.avatarUrl}
-        panelScope={panelScope}
-        familyStatus={familyStatus}
-        pendingInvitesCount={pendingInvites.length}
-        onChangeScope={handleScopeChange}
-        onOpenFamilyModal={() => setIsFamilyModalOpen(true)}
         onOpenProfileModal={() => setIsUserModalOpen(true)}
         onRequestLogout={() => setShowLogoutConfirm(true)}
       />
@@ -707,33 +744,6 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {familyStatus?.inFamily && (
-          <div className="md:hidden flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleScopeChange('individual')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${panelScope === 'individual'
-                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                : 'text-slate-600 dark:text-slate-300'
-                }`}
-            >
-              {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
-              {t('dashboard.individualScopeBanner')}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleScopeChange('family')}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${panelScope === 'family'
-                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                : 'text-slate-600 dark:text-slate-300'
-                }`}
-            >
-              {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-              {t('navbar.familyScope')} ({familyStatus.members?.length || 2})
-            </button>
-          </div>
-        )}
-
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="space-y-3">
             <div>
@@ -746,35 +756,103 @@ const Dashboard: React.FC = () => {
               </h1>
             </div>
 
-            <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('overview');
+                    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                  }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
+                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                >
+                  {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                  {t('dashboard.overviewTab')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('history');
+                    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+                  }}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
+                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                >
+                  {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                  {t('dashboard.historyTab')}
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('overview');
-                  setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                }}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
-                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                onClick={() => setIsFamilyModalOpen(true)}
+                data-testid="dashboard-family-btn"
+                title={t('navbar.familyTooltip')}
+                className={`group relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold border transition-all shadow-sm ${
+                  isFamilyMode
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-emerald-500/20'
+                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-100 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/30'
+                }`}
               >
-                {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                {t('dashboard.overviewTab')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('history');
-                  setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                }}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
-                  ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                <span
+                  className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                    isFamilyMode
+                      ? 'bg-white/20 text-white'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/60'
                   }`}
-              >
-                {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                {t('dashboard.historyTab')}
+                >
+                  {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                </span>
+                <span>{t('navbar.familyScope')}</span>
+                {familyStatus?.inFamily && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums ${
+                      isFamilyMode
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {familyStatus.members?.length || 2}
+                  </span>
+                )}
+                {pendingInvites.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                    {pendingInvites.length}
+                  </span>
+                )}
               </button>
+
+              {familyStatus?.inFamily && (
+                <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleScopeChange('individual')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'individual'
+                      ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                  >
+                    {React.createElement(FaUser as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                    {t('navbar.individualScope')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleScopeChange('family')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${panelScope === 'family'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                  >
+                    {React.createElement(FaUsers as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
+                    {t('navbar.familyScope')}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -909,6 +987,7 @@ const Dashboard: React.FC = () => {
                   onPayExpense={setPayingExpense}
                   onPayBatchExpenses={setPayingBatchExpenses}
                   onUndoPayment={setUndoPayTarget}
+                  onGenerateCardInvoice={handleGenerateCardInvoice}
                   onEditExpense={(item) => {
                     setEditingItem({ ...item, type: 'expense' });
                     setIsExpenseModalOpen(true);
@@ -964,6 +1043,7 @@ const Dashboard: React.FC = () => {
         }}
         onSuccess={fetchData}
         initialData={editingItem?.type === 'expense' ? editingItem : null}
+        savedCards={savedCards}
       />
 
       <IncomeModal
@@ -979,6 +1059,7 @@ const Dashboard: React.FC = () => {
       <PayExpenseModal
         expense={payingExpense}
         batchExpenses={payingBatchExpenses}
+        savedCards={savedCards}
         onClose={() => {
           setPayingExpense(null);
           setPayingBatchExpenses([]);

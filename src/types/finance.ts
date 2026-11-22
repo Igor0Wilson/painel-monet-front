@@ -121,6 +121,10 @@ export interface ExpenseItem {
   isPaid: boolean;
   isCreditCard?: boolean;
   paymentMethod?: string | null;
+  pixKey?: string | null;
+  isAutoDebit?: boolean;
+  cardBank?: string | null;
+  cardLast4?: string | null;
   receiptUrl?: string | null;
   status: 'pago' | 'em_atraso' | 'pendente';
   ownerId?: string;

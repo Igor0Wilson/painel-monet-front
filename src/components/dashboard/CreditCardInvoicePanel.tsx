@@ -20,6 +20,31 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
   const { t } = useTranslation();
   if (!activeInvoice) return null;
 
+  const cardBuckets = (() => {
+    const map = new Map<
+      string,
+      {
+        cardBank: string | null;
+        cardLast4: string | null;
+        items: typeof activeInvoice.items;
+        total: number;
+      }
+    >();
+    activeInvoice.items.forEach((item) => {
+      const bank = (item.cardBank || '').trim() || null;
+      const last4 = (item.cardLast4 || '').trim() || null;
+      if (!bank && !last4) return;
+      const key = `${(bank || '').toLowerCase()}::${last4 || ''}`;
+      if (!map.has(key)) {
+        map.set(key, { cardBank: bank, cardLast4: last4, items: [], total: 0 });
+      }
+      const b = map.get(key)!;
+      b.items.push(item);
+      b.total = Number((b.total + Number(item.value)).toFixed(2));
+    });
+    return Array.from(map.values());
+  })();
+
   return (
     <section className="exec-card overflow-hidden">
       <div className="px-6 py-4 bg-slate-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -77,9 +102,26 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
               className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
             >
               <div className="min-w-0">
-                <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
-                  {item.name}
-                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="font-medium text-slate-800 dark:text-slate-100 truncate">
+                    {item.name}
+                  </p>
+                  {(item.cardBank || item.cardLast4) && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-700 dark:text-slate-200 tabular-nums">
+                      {item.cardLast4
+                        ? t('expenses.cardLast4Label', {
+                            bank: item.cardBank || t('paymentMethods.credito'),
+                            last4: item.cardLast4,
+                          })
+                        : item.cardBank}
+                    </span>
+                  )}
+                  {item.isAutoDebit && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+                      {t('expenses.autoDebitBadge')}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-400">
                   {item.accountType?.name || t('paymentMethods.creditoFull')} ·{' '}
                   {formatDateBr(item.dueDate)}
@@ -91,6 +133,52 @@ const CreditCardInvoicePanel: React.FC<Props> = ({
             </div>
           ))}
         </div>
+
+        {cardBuckets.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {cardBuckets.map((bucket) => {
+              const bucketLabel =
+                bucket.cardBank && bucket.cardLast4
+                  ? t('expenses.cardLast4Label', {
+                      bank: bucket.cardBank,
+                      last4: bucket.cardLast4,
+                    })
+                  : bucket.cardLast4
+                    ? t('expenses.cardHeadingNoBank', { last4: bucket.cardLast4 })
+                    : bucket.cardBank!;
+              return (
+                <div
+                  key={`${bucket.cardBank || ''}-${bucket.cardLast4 || ''}`}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                >
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {bucketLabel}
+                  </span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {formatCurrency(bucket.total)}
+                  </span>
+                  {cardBuckets.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onPayInvoice({
+                          ...activeInvoice,
+                          cardBank: bucket.cardBank,
+                          cardLast4: bucket.cardLast4,
+                          items: bucket.items,
+                          total: bucket.total,
+                        })
+                      }
+                      className="ml-1 px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors"
+                    >
+                      {t('expenses.payBtn')}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
           <p className="text-xs text-slate-500 dark:text-slate-400">

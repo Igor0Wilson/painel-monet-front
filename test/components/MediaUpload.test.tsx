@@ -64,11 +64,6 @@ const AvatarHarness: React.FC = () => {
         userName={user?.name}
         userInitials="IM"
         userAvatarUrl={user?.avatarUrl}
-        panelScope="individual"
-        familyStatus={null}
-        pendingInvitesCount={0}
-        onChangeScope={jest.fn()}
-        onOpenFamilyModal={jest.fn()}
         onOpenProfileModal={() => setOpen(true)}
         onRequestLogout={jest.fn()}
       />

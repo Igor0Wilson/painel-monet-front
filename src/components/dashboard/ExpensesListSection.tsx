@@ -7,14 +7,20 @@ import {
   FaCheckDouble,
   FaChevronDown,
   FaChevronUp,
+  FaCopy,
   FaCreditCard,
   FaEdit,
+  FaEye,
+  FaEyeSlash,
+  FaFileInvoiceDollar,
   FaImage,
+  FaSyncAlt,
   FaTimes,
   FaTrash,
   FaUndo,
   FaUser,
 } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 import EncryptedImage from '../EncryptedImage';
 import { ExpenseFilter, ExpenseItem } from '../../types/finance';
 import { getCategoryMeta, translateCategoryName } from '../../utils/categories';
@@ -23,6 +29,7 @@ import {
   formatDateBr,
   formatMonthLabel,
   getCurrentMonthKey,
+  maskPixKey,
 } from '../../utils/formatters';
 import StatusBadge from './StatusBadge';
 
@@ -36,6 +43,7 @@ interface Props {
   onPayExpense: (expense: ExpenseItem) => void;
   onPayBatchExpenses?: (expenses: ExpenseItem[]) => void;
   onUndoPayment?: (expense: ExpenseItem) => void;
+  onGenerateCardInvoice?: (expenses: ExpenseItem[]) => void;
   onEditExpense: (expense: ExpenseItem) => void;
   onDeleteExpense: (id: string) => void;
 }
@@ -52,6 +60,28 @@ const FILTER_TAB_KEYS: {
 
 type PeriodMode = 'all' | 'month' | 'custom';
 
+const getExpenseCardKey = (exp: ExpenseItem): string | null => {
+  const bank = (exp.cardBank || '').trim();
+  const last4 = (exp.cardLast4 || '').trim();
+  if (bank || last4) {
+    return `${bank.toLowerCase()}::${last4}`;
+  }
+  if (exp.isCreditCard || exp.paymentMethod === 'credito' || exp.isAutoDebit) {
+    return '__unlinked_card__';
+  }
+  return null;
+};
+
+interface CardGroupSummary {
+  key: string;
+  cardBank: string | null;
+  cardLast4: string | null;
+  autoDebitItems: ExpenseItem[];
+  pendingItems: ExpenseItem[];
+  paidWithCardItems: ExpenseItem[];
+  eligibleForInvoice: ExpenseItem[];
+}
+
 const ExpensesListSection: React.FC<Props> = ({
   expenses,
   expenseFilter,
@@ -62,6 +92,7 @@ const ExpensesListSection: React.FC<Props> = ({
   onPayExpense,
   onPayBatchExpenses,
   onUndoPayment,
+  onGenerateCardInvoice,
   onEditExpense,
   onDeleteExpense,
 }) => {
@@ -71,6 +102,8 @@ const ExpensesListSection: React.FC<Props> = ({
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedCardKey, setSelectedCardKey] = useState<string | null>(null);
+  const [revealedPixIds, setRevealedPixIds] = useState<Record<string, boolean>>({});
   const [previewReceipt, setPreviewReceipt] = useState<{
     url: string;
     name: string;
@@ -83,6 +116,55 @@ const ExpensesListSection: React.FC<Props> = ({
     setSelectedIds((prev) => prev.filter((id) => validUnpaidIds.has(id)));
   }, [expenses]);
 
+  const cardGroups = useMemo<CardGroupSummary[]>(() => {
+    const map = new Map<string, CardGroupSummary>();
+    expenses.forEach((exp) => {
+      const key = getExpenseCardKey(exp);
+      if (!key) return;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          cardBank: exp.cardBank?.trim() || null,
+          cardLast4: exp.cardLast4?.trim() || null,
+          autoDebitItems: [],
+          pendingItems: [],
+          paidWithCardItems: [],
+          eligibleForInvoice: [],
+        });
+      }
+      const group = map.get(key)!;
+      if (!group.cardBank && exp.cardBank) group.cardBank = exp.cardBank.trim();
+      if (!group.cardLast4 && exp.cardLast4) group.cardLast4 = exp.cardLast4.trim();
+
+      if (exp.isAutoDebit) {
+        group.autoDebitItems.push(exp);
+      }
+      if (!exp.isPaid) {
+        group.pendingItems.push(exp);
+        if (exp.isOwn !== false && !exp.isCreditCard) {
+          group.eligibleForInvoice.push(exp);
+        }
+      }
+      if (exp.paymentMethod === 'credito' || (exp.isCreditCard && exp.isPaid)) {
+        group.paidWithCardItems.push(exp);
+      }
+    });
+
+    return Array.from(map.values()).filter(
+      (g) =>
+        Boolean(g.cardBank || g.cardLast4) ||
+        g.autoDebitItems.length > 0 ||
+        g.pendingItems.length > 0 ||
+        g.paidWithCardItems.length > 0,
+    );
+  }, [expenses]);
+
+  useEffect(() => {
+    if (selectedCardKey && !cardGroups.some((g) => g.key === selectedCardKey)) {
+      setSelectedCardKey(null);
+    }
+  }, [cardGroups, selectedCardKey]);
+
   const availableMonths = useMemo(() => {
     const set = new Set<string>([getCurrentMonthKey()]);
     expenses.forEach((exp) => {
@@ -94,18 +176,23 @@ const ExpensesListSection: React.FC<Props> = ({
   }, [expenses]);
 
   const periodFilteredExpenses = useMemo(() => {
-    if (periodMode === 'all') return expenses;
-    return expenses.filter((exp) => {
-      const cleanDate = String(exp.dueDate || '').split('T')[0];
-      if (!cleanDate) return false;
-      if (periodMode === 'month') {
-        return cleanDate.startsWith(selectedPeriodMonth);
-      }
-      if (customStartDate && cleanDate < customStartDate) return false;
-      if (customEndDate && cleanDate > customEndDate) return false;
-      return true;
-    });
-  }, [expenses, periodMode, selectedPeriodMonth, customStartDate, customEndDate]);
+    const byPeriod =
+      periodMode === 'all'
+        ? expenses
+        : expenses.filter((exp) => {
+            const cleanDate = String(exp.dueDate || '').split('T')[0];
+            if (!cleanDate) return false;
+            if (periodMode === 'month') {
+              return cleanDate.startsWith(selectedPeriodMonth);
+            }
+            if (customStartDate && cleanDate < customStartDate) return false;
+            if (customEndDate && cleanDate > customEndDate) return false;
+            return true;
+          });
+
+    if (!selectedCardKey) return byPeriod;
+    return byPeriod.filter((exp) => getExpenseCardKey(exp) === selectedCardKey);
+  }, [expenses, periodMode, selectedPeriodMonth, customStartDate, customEndDate, selectedCardKey]);
 
   const periodTotalSum = useMemo(
     () => periodFilteredExpenses.reduce((sum, e) => sum + (Number(e.value) || 0), 0),
@@ -340,6 +427,121 @@ const ExpensesListSection: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Cartões & Débito Automático */}
+      {cardGroups.length > 0 && (
+        <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-emerald-600 dark:text-emerald-400' })}
+              <span>{t('expenses.cardSummaryTitle')}</span>
+            </h3>
+            {selectedCardKey && (
+              <button
+                type="button"
+                onClick={() => setSelectedCardKey(null)}
+                className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                {t('expenses.clearCardFilterBtn')}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {cardGroups.map((group) => {
+              const cardTitle =
+                group.cardBank && group.cardLast4
+                  ? t('expenses.cardHeadingWithBank', {
+                      bank: group.cardBank,
+                      last4: group.cardLast4,
+                    })
+                  : group.cardLast4
+                    ? t('expenses.cardHeadingNoBank', { last4: group.cardLast4 })
+                    : group.cardBank
+                      ? group.cardBank
+                      : t('expenses.cardHeadingUnlinked');
+              const isCardFiltered = selectedCardKey === group.key;
+
+              return (
+                <div
+                  key={group.key}
+                  data-testid={`card-summary-${group.cardLast4 || group.key}`}
+                  className={`rounded-xl border p-3.5 bg-white dark:bg-slate-800/80 space-y-2.5 transition-all ${
+                    isCardFiltered
+                      ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+                      : 'border-slate-200/80 dark:border-slate-700'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-slate-500 dark:text-slate-400' })}
+                      <span>{cardTitle}</span>
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedCardKey((curr) => (curr === group.key ? null : group.key))
+                        }
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                          isCardFiltered
+                            ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                            : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                        }`}
+                      >
+                        {isCardFiltered ? t('expenses.clearCardFilterBtn') : t('expenses.filterByCardBtn')}
+                      </button>
+                      {onGenerateCardInvoice && group.eligibleForInvoice.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => onGenerateCardInvoice(group.eligibleForInvoice)}
+                          data-testid={`generate-card-invoice-btn-${group.cardLast4 || group.key}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition-colors"
+                        >
+                          {React.createElement(FaFileInvoiceDollar as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[10px]' })}
+                          <span>{t('expenses.generateCardInvoiceBtn')}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-[11px]">
+                    {group.autoDebitItems.length > 0 && (
+                      <div className="text-sky-700 dark:text-sky-300">
+                        <span className="font-semibold">{t('expenses.cardGroupAutoDebit')}: </span>
+                        <span>
+                          {group.autoDebitItems
+                            .map((i) => `${i.name} (${formatCurrency(Number(i.value))})`)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    {group.pendingItems.length > 0 && (
+                      <div className="text-amber-700 dark:text-amber-300">
+                        <span className="font-semibold">{t('expenses.cardGroupPending')}: </span>
+                        <span>
+                          {group.pendingItems
+                            .map((i) => `${i.name} (${formatCurrency(getRemainingAmount(i) || Number(i.value))})`)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    {group.paidWithCardItems.length > 0 && (
+                      <div className="text-emerald-700 dark:text-emerald-300">
+                        <span className="font-semibold">{t('expenses.cardGroupPaidWithCard')}: </span>
+                        <span>
+                          {group.paidWithCardItems
+                            .map((i) => `${i.name} (${formatCurrency(Number(i.value))})`)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="divide-y divide-slate-100 dark:divide-slate-800">
         {periodFilteredExpenses.length === 0 ? (
           <div className="p-12 text-center">
@@ -488,6 +690,66 @@ const ExpensesListSection: React.FC<Props> = ({
                             {t('expenses.creditCardBadge')}
                           </span>
                         )}
+                        {expense.isAutoDebit && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 px-2 py-0.5 rounded-md">
+                            {React.createElement(FaSyncAlt as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
+                            {t('expenses.autoDebitBadge')}
+                          </span>
+                        )}
+                        {(expense.cardBank || expense.cardLast4) && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md tabular-nums">
+                            {React.createElement(FaCreditCard as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
+                            {expense.cardLast4
+                              ? t('expenses.cardLast4Label', {
+                                  bank: expense.cardBank || t('paymentMethods.credito'),
+                                  last4: expense.cardLast4,
+                                })
+                              : expense.cardBank}
+                          </span>
+                        )}
+                        {expense.pixKey && (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-teal-800 dark:text-teal-200 bg-teal-50 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 px-2 py-0.5 rounded-md">
+                            <span className="font-mono">
+                              {t('expenses.pixKeyBadge', {
+                                masked: revealedPixIds[expense.id]
+                                  ? expense.pixKey
+                                  : maskPixKey(expense.pixKey),
+                              })}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={t('expenses.revealPixAria')}
+                              onClick={() =>
+                                setRevealedPixIds((prev) => ({
+                                  ...prev,
+                                  [expense.id]: !prev[expense.id],
+                                }))
+                              }
+                              className="text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-200"
+                            >
+                              {React.createElement(
+                                (revealedPixIds[expense.id] ? FaEyeSlash : FaEye) as unknown as React.ComponentType<{ className?: string }>,
+                                { className: 'text-[10px]' },
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard?.writeText(expense.pixKey || '');
+                                  toast.success(t('expenses.pixCopiedToast'));
+                                } catch {
+                                  toast.info(maskPixKey(expense.pixKey));
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 font-semibold underline hover:no-underline"
+                              title={t('expenses.copyPixBtn')}
+                            >
+                              {React.createElement(FaCopy as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[9px]' })}
+                              <span>{t('expenses.copyPixBtn')}</span>
+                            </button>
+                          </span>
+                        )}
                       </div>
 
                       {!expense.isPaid && (expense.isPartiallyPaid || Number(expense.paidAmount || 0) > 0) && (
@@ -538,7 +800,7 @@ const ExpensesListSection: React.FC<Props> = ({
                     </span>
 
                     {canModify && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
                         {!expense.isPaid && (
                           <button
                             type="button"
@@ -552,6 +814,23 @@ const ExpensesListSection: React.FC<Props> = ({
                             <span>{t('expenses.payBtn')}</span>
                           </button>
                         )}
+                        {!expense.isPaid &&
+                          !expense.isCreditCard &&
+                          onGenerateCardInvoice &&
+                          (expense.isAutoDebit || expense.cardLast4 || expense.cardBank) && (
+                            <button
+                              type="button"
+                              onClick={() => onGenerateCardInvoice([expense])}
+                              data-testid={`expense-generate-invoice-btn-${expense.id}`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/50 dark:hover:bg-sky-900/60 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200 text-xs font-medium transition-colors"
+                              title={t('expenses.generateCardInvoiceBtn')}
+                            >
+                              {React.createElement(FaFileInvoiceDollar as unknown as React.ComponentType<{ className?: string }>, {
+                                className: 'text-[10px]',
+                              })}
+                              <span>{t('expenses.generateCardInvoiceSingleBtn')}</span>
+                            </button>
+                          )}
                         {onUndoPayment && (expense.isPaid || Number(expense.paidAmount || 0) > 0) && (
                           <button
                             type="button"

@@ -182,4 +182,85 @@ describe('ExpensesListSection batch calculation and period filtering', () => {
     expect(onUndoPayment).toHaveBeenCalledTimes(1);
     expect(onUndoPayment).toHaveBeenCalledWith(partialItem);
   });
+
+  it('shows card summary grouped by card last4/bank with auto-debit, pending, paid-with-card, masked pix copy, and generate card invoice', () => {
+    const onGenerateCardInvoice = jest.fn();
+    const autoDebitBill: ExpenseItem = {
+      id: 'exp-ad-1',
+      name: 'Netflix Mensal',
+      accountTypeId: 'cat-sub',
+      accountType: { id: 'cat-sub', name: 'Assinaturas' },
+      value: 55.9,
+      dueDate: '2026-12-08',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'pendente',
+      isOwn: true,
+      isAutoDebit: true,
+      cardBank: 'Nubank',
+      cardLast4: '4821',
+      pixKey: 'pagar@netflix.com',
+    };
+    const cardInvoiceItem: ExpenseItem = {
+      id: 'exp-cc-inv',
+      name: 'Compra Supermercado [Crédito 1/1]',
+      accountTypeId: 'cat-food',
+      accountType: { id: 'cat-food', name: 'Alimentação' },
+      value: 300,
+      dueDate: '2026-12-15',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      isCreditCard: true,
+      status: 'pendente',
+      isOwn: true,
+      cardBank: 'Nubank',
+      cardLast4: '4821',
+    };
+    const paidWithCard: ExpenseItem = {
+      id: 'exp-paid-card',
+      name: 'Farmácia Origem',
+      accountTypeId: 'cat-health',
+      accountType: { id: 'cat-health', name: 'Saúde' },
+      value: 120,
+      dueDate: '2026-12-01',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: true,
+      paymentMethod: 'credito',
+      status: 'pago',
+      isOwn: true,
+      cardBank: 'Nubank',
+      cardLast4: '4821',
+    };
+
+    render(
+      <ExpensesListSection
+        expenses={[autoDebitBill, cardInvoiceItem, paidWithCard]}
+        expenseFilter="todas"
+        isFamilyMode={false}
+        openInstallments={[]}
+        onChangeFilter={jest.fn()}
+        onToggleInstallment={jest.fn()}
+        onPayExpense={jest.fn()}
+        onGenerateCardInvoice={onGenerateCardInvoice}
+        onEditExpense={jest.fn()}
+        onDeleteExpense={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Cartão Nubank final 4821')).toBeInTheDocument();
+    expect(screen.getByText('Débito automático:')).toBeInTheDocument();
+    expect(screen.getByText('Pendentes para pagamento:')).toBeInTheDocument();
+    expect(screen.getByText('Pagas com o cartão:')).toBeInTheDocument();
+
+    expect(screen.getByText(/Pix cadastrado: pa\*\*\*@netflix\.com/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Mostrar ou ocultar chave Pix'));
+    expect(screen.getByText(/Pix cadastrado: pagar@netflix\.com/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('generate-card-invoice-btn-4821'));
+    expect(onGenerateCardInvoice).toHaveBeenCalledTimes(1);
+    expect(onGenerateCardInvoice).toHaveBeenCalledWith([autoDebitBill]);
+  });
 });

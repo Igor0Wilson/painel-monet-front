@@ -168,4 +168,62 @@ describe('PayExpenseModal batch flow', () => {
     expect(onSuccess).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('displays masked pixKey when pix is chosen and forwards cardBank + cardLast4 when paying with credit card', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    const expense: ExpenseItem = {
+      id: 'exp-card-pix-1',
+      name: 'Boleto Energia',
+      accountTypeId: 'cat-housing',
+      value: 200,
+      dueDate: '2026-12-10',
+      isRecurring: false,
+      isInstallment: false,
+      isPaid: false,
+      status: 'pendente',
+      pixKey: 'energia@concessionaria.com.br',
+      cardBank: 'Nubank',
+      cardLast4: '4821',
+    };
+
+    mockedApi.patch.mockResolvedValue({
+      data: { ...expense, isPaid: true, paymentMethod: 'credito' },
+    });
+
+    render(
+      <PayExpenseModal
+        expense={expense}
+        onClose={onClose}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    expect(screen.getByText('Chave Pix cadastrada:')).toBeInTheDocument();
+    expect(screen.getByText('en***@concessionaria.com.br')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar Pix' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Crédito'));
+
+    const bankInput = screen.getByPlaceholderText('Ex: Nubank, Itaú, Inter, Bradesco...') as HTMLInputElement;
+    const last4Input = screen.getByPlaceholderText('Ex: 4821') as HTMLInputElement;
+    expect(bankInput.value).toBe('Nubank');
+    expect(last4Input.value).toBe('4821');
+
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar Crédito/ }));
+
+    await waitFor(() => {
+      expect(mockedApi.patch).toHaveBeenCalledWith(
+        '/expenses/exp-card-pix-1/pay',
+        expect.objectContaining({
+          paymentMethod: 'credito',
+          cardBank: 'Nubank',
+          cardLast4: '4821',
+        }),
+      );
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

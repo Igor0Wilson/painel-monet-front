@@ -8,6 +8,8 @@ import {
   formatNumberToCurrencyInput,
   formatPhoneInput,
   maskCpf,
+  maskPixKey,
+  normalizeCardLast4Input,
   onlyDigits,
   parseCurrencyInput,
   shiftMonthKey,
@@ -59,5 +61,15 @@ describe('formatters', () => {
     expect(parseCurrencyInput('1.500,75')).toBe(1500.75);
     expect(parseCurrencyInput('1.234.567')).toBe(1234567);
     expect(parseCurrencyInput('2500.5')).toBe(2500.5);
+  });
+
+  it('masks pix keys safely and normalizes card last4 inputs', () => {
+    expect(maskPixKey('igor@empresa.com.br')).toBe('ig***@empresa.com.br');
+    expect(maskPixKey('11999998888')).toBe('119***888');
+    expect(maskPixKey('123456')).toBe('12***56');
+    expect(maskPixKey(null)).toBe('');
+
+    expect(normalizeCardLast4Input('48ab2199')).toBe('4821');
+    expect(normalizeCardLast4Input('12')).toBe('12');
   });
 });

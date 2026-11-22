@@ -18,12 +18,14 @@ import {
   FaCalendarAlt,
   FaUtensils,
   FaHamburger,
+  FaSyncAlt,
+  FaLock,
 } from 'react-icons/fa';
 import api from '../api';
 import { toast } from 'react-toastify';
 import CustomSelect from './CustomSelect';
 import EncryptedImage from './EncryptedImage';
-import type { PaymentMethod } from './PayExpenseModal';
+import type { PaymentMethod, SavedCardOption } from './PayExpenseModal';
 import type { ExpenseItem } from '../types/finance';
 import {
   filterOfficialAccountTypes,
@@ -36,6 +38,7 @@ import {
   formatCurrencyInput,
   formatDateBr,
   formatNumberToCurrencyInput,
+  normalizeCardLast4Input,
   parseCurrencyInput,
 } from '../utils/formatters';
 import { createPreviewDataUrl, prepareImageForUpload } from '../utils/imageUpload';
@@ -61,6 +64,7 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   initialData?: Partial<ExpenseItem> | null;
+  savedCards?: SavedCardOption[];
 }
 
 const VALID_PAYMENT_METHODS: PaymentMethod[] = [
@@ -71,6 +75,8 @@ const VALID_PAYMENT_METHODS: PaymentMethod[] = [
   'va',
   'vr',
 ];
+
+const COMMON_BANKS = ['Nubank', 'Itaú', 'Bradesco', 'Santander', 'Inter', 'C6 Bank', 'Caixa', 'BB'];
 
 function normalizeDateInput(raw?: string | null): string {
   if (!raw) return getTodayIso();
@@ -107,7 +113,13 @@ function getNextMonthIso(): string {
 
 const QUICK_INSTALLMENTS = [1, 2, 3, 6, 10, 12];
 
-const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData }) => {
+const ExpenseModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialData,
+  savedCards = [],
+}) => {
   const { t } = useTranslation();
   const [accountTypes, setAccountTypes] = useState<AccountType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,6 +134,12 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
   const [createPayMode, setCreatePayMode] = useState<'total' | 'partial'>('total');
   const [partialPaidInput, setPartialPaidInput] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState<string>(getTodayIso());
+  const [pixKey, setPixKey] = useState<string>('');
+  const [isAutoDebit, setIsAutoDebit] = useState<boolean>(false);
+  const [linkCardOnExpense, setLinkCardOnExpense] = useState<boolean>(false);
+  const [autoDebitChargeOnCard, setAutoDebitChargeOnCard] = useState<boolean>(false);
+  const [cardBank, setCardBank] = useState<string>('');
+  const [cardLast4, setCardLast4] = useState<string>('');
 
   // Foto de comprovante / produto no Cloudinary
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -262,6 +280,12 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         setCreatePayMode('total');
         setPartialPaidInput('');
         setPaymentDate(normalizeDateInput(initialData.paidAt));
+        setPixKey(initialData.pixKey || '');
+        setIsAutoDebit(Boolean(initialData.isAutoDebit));
+        setCardBank(initialData.cardBank || '');
+        setCardLast4(initialData.cardLast4 || '');
+        setLinkCardOnExpense(Boolean(initialData.cardBank || initialData.cardLast4));
+        setAutoDebitChargeOnCard(Boolean(initialData.isAutoDebit && initialData.isCreditCard));
         setReceiptFile(null);
         setReceiptPreview(initialData.receiptUrl || null);
         setRemoveExistingReceipt(false);
@@ -284,6 +308,12 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         setCreatePayMode('total');
         setPartialPaidInput('');
         setPaymentDate(getTodayIso());
+        setPixKey('');
+        setIsAutoDebit(false);
+        setCardBank('');
+        setCardLast4('');
+        setLinkCardOnExpense(false);
+        setAutoDebitChargeOnCard(false);
         setReceiptFile(null);
         setReceiptPreview(null);
         setRemoveExistingReceipt(false);
@@ -367,10 +397,18 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
     const alreadyPaidOnEdit = Number(initialData?.paidAmount || 0);
     const maxPayableOnEdit = Number(Math.max(0, parsedValue - alreadyPaidOnEdit).toFixed(2));
     const parsedPartial = Number(parseCurrencyInput(partialPaidInput).toFixed(2));
+    const cleanPixKey = pixKey.trim();
+    const cleanCardBank = cardBank.trim();
+    const cleanCardLast4 = normalizeCardLast4Input(cardLast4);
     const isPartialFlow =
       showPaymentFlow &&
       purchasePaymentMethod !== 'credito' &&
       createPayMode === 'partial';
+
+    if (cleanCardLast4.length > 0 && cleanCardLast4.length !== 4) {
+      setCreditError(t('modals.expense.cardLast4InvalidError'));
+      return;
+    }
 
     if (showPaymentFlow) {
       if (purchasePaymentMethod !== 'credito' && !paymentDate) {
@@ -428,6 +466,18 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             payload.isCreditCard = true;
           }
         }
+        if (cleanPixKey !== (initialData.pixKey || '')) {
+          payload.pixKey = cleanPixKey;
+        }
+        if (isAutoDebit !== Boolean(initialData.isAutoDebit)) {
+          payload.isAutoDebit = isAutoDebit;
+        }
+        if (cleanCardBank !== (initialData.cardBank || '')) {
+          payload.cardBank = cleanCardBank;
+        }
+        if (cleanCardLast4 !== (initialData.cardLast4 || '')) {
+          payload.cardLast4 = cleanCardLast4;
+        }
 
         if (isMarkingPaidOnEdit) {
           await api.patch(`/expenses/${initialData.id}`, {
@@ -440,10 +490,14 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             paidAt?: string;
             installments?: number;
             firstInstallmentDate?: string;
+            cardBank?: string;
+            cardLast4?: string;
           } = { paymentMethod: purchasePaymentMethod };
           if (purchasePaymentMethod === 'credito') {
             payPayload.installments = parseInt(creditInstallments, 10);
             payPayload.firstInstallmentDate = firstInstallmentDate;
+            if (cleanCardBank) payPayload.cardBank = cleanCardBank;
+            if (cleanCardLast4.length === 4) payPayload.cardLast4 = cleanCardLast4;
           } else {
             payPayload.paidAt = paymentDate;
             if (isPartialFlow) {
@@ -472,7 +526,7 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
       } else if (showPaymentFlow) {
         if (purchasePaymentMethod === 'credito') {
           const parsedCount = parseInt(creditInstallments, 10);
-          const createdRes = await api.post('/expenses', {
+          const createCardPayload: Record<string, unknown> = {
             name: data.name,
             accountTypeId: data.accountTypeId,
             value: parsedValue,
@@ -483,7 +537,13 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             isCreditCard: true,
             paymentMethod: 'credito',
             firstInstallmentDate,
-          });
+          };
+          if (cleanPixKey) createCardPayload.pixKey = cleanPixKey;
+          if (isAutoDebit) createCardPayload.isAutoDebit = true;
+          if (cleanCardBank) createCardPayload.cardBank = cleanCardBank;
+          if (cleanCardLast4.length === 4) createCardPayload.cardLast4 = cleanCardLast4;
+
+          const createdRes = await api.post('/expenses', createCardPayload);
           savedExpenseId = extractCreatedId(createdRes.data);
           await syncReceiptPhoto(savedExpenseId);
           toast.success(t('modals.expense.createdToast'));
@@ -502,6 +562,11 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
           if (isPartialFlow) {
             createPayload.paidAmount = parsedPartial;
           }
+          if (cleanPixKey) createPayload.pixKey = cleanPixKey;
+          if (isAutoDebit) createPayload.isAutoDebit = true;
+          if (cleanCardBank) createPayload.cardBank = cleanCardBank;
+          if (cleanCardLast4.length === 4) createPayload.cardLast4 = cleanCardLast4;
+
           const createdRes = await api.post('/expenses', createPayload);
           savedExpenseId = extractCreatedId(createdRes.data);
           await syncReceiptPhoto(savedExpenseId);
@@ -529,6 +594,15 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
         if (payload.isRecurring) {
           payload.isPaid = false;
         }
+        if (cleanPixKey) payload.pixKey = cleanPixKey;
+        if (isAutoDebit) {
+          payload.isAutoDebit = true;
+          if (autoDebitChargeOnCard && !payload.isRecurring) {
+            payload.isCreditCard = true;
+          }
+        }
+        if (cleanCardBank) payload.cardBank = cleanCardBank;
+        if (cleanCardLast4.length === 4) payload.cardLast4 = cleanCardLast4;
 
         const createdRes = await api.post('/expenses', payload);
         savedExpenseId = extractCreatedId(createdRes.data);
@@ -1199,6 +1273,184 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
             </div>
           )}
 
+          {/* Chave Pix habitual, Débito Automático & Cartão vinculado (Criptografados) */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-4">
+            <div>
+              <label className="exec-label flex items-center gap-1.5">
+                {React.createElement(FaQrcode as unknown as React.ComponentType<{ className?: string }>, {
+                  className: 'text-[10px] text-teal-600 dark:text-teal-400',
+                })}
+                <span>{t('modals.expense.pixKeyLabel')}</span>
+              </label>
+              <input
+                type="text"
+                maxLength={140}
+                data-testid="expense-pix-key-input"
+                value={pixKey}
+                onChange={(e) => setPixKey(e.target.value)}
+                placeholder={t('modals.expense.pixKeyPlaceholder')}
+                className="exec-input"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    data-testid="expense-auto-debit-toggle"
+                    checked={isAutoDebit}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIsAutoDebit(next);
+                      if (next) setLinkCardOnExpense(true);
+                    }}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-10 h-5 rounded-full transition-colors ${isAutoDebit ? 'bg-sky-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                  />
+                  <div
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isAutoDebit ? 'translate-x-5' : ''}`}
+                  />
+                </div>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  {React.createElement(FaSyncAlt as unknown as React.ComponentType<{ className?: string }>, {
+                    className: 'text-[10px] text-sky-600 dark:text-sky-400',
+                  })}
+                  {t('modals.expense.isAutoDebitLabel')}
+                </span>
+              </label>
+
+              {!isAutoDebit && !(showPaymentFlow && purchasePaymentMethod === 'credito') && !editIsCreditCard && (
+                <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      data-testid="expense-link-card-toggle"
+                      checked={linkCardOnExpense}
+                      onChange={(e) => setLinkCardOnExpense(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors ${linkCardOnExpense ? 'bg-slate-900 dark:bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                    />
+                    <div
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${linkCardOnExpense ? 'translate-x-5' : ''}`}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    {t('modals.expense.linkCardLabel')}
+                  </span>
+                </label>
+              )}
+            </div>
+
+            {(isAutoDebit ||
+              linkCardOnExpense ||
+              editIsCreditCard ||
+              (showPaymentFlow && purchasePaymentMethod === 'credito')) && (
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-4 space-y-3">
+                {savedCards.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1.5">
+                      {t('modals.expense.savedCardsLabel')}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {savedCards.map((c) => {
+                        const label = [c.cardBank, c.cardLast4 ? `•••• ${c.cardLast4}` : '']
+                          .filter(Boolean)
+                          .join(' ');
+                        return (
+                          <button
+                            key={`${c.cardBank || ''}-${c.cardLast4 || ''}`}
+                            type="button"
+                            onClick={() => {
+                              setCardBank(c.cardBank || '');
+                              setCardLast4(c.cardLast4 || '');
+                            }}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-colors"
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMON_BANKS.map((bank) => (
+                    <button
+                      key={bank}
+                      type="button"
+                      onClick={() => setCardBank(bank)}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors ${
+                        cardBank.trim().toLowerCase() === bank.toLowerCase()
+                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                      }`}
+                    >
+                      {bank}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="exec-label">{t('modals.expense.cardBankLabel')}</label>
+                    <input
+                      type="text"
+                      maxLength={60}
+                      data-testid="expense-card-bank-input"
+                      value={cardBank}
+                      onChange={(e) => setCardBank(e.target.value)}
+                      placeholder={t('modals.expense.cardBankPlaceholder')}
+                      className="exec-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="exec-label">{t('modals.expense.cardLast4Label')}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      data-testid="expense-card-last4-input"
+                      value={cardLast4}
+                      onChange={(e) => {
+                        setCardLast4(normalizeCardLast4Input(e.target.value));
+                        setCreditError('');
+                      }}
+                      placeholder="Ex: 4821"
+                      className="exec-input tabular-nums font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {isAutoDebit && !isOneTimePurchase && !isPaid && !initialData && !isRecurring && (
+                  <label className="inline-flex items-center gap-2.5 cursor-pointer select-none pt-1">
+                    <input
+                      type="checkbox"
+                      checked={autoDebitChargeOnCard}
+                      onChange={(e) => setAutoDebitChargeOnCard(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+                    />
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                      {t('modals.expense.autoDebitChargeOnCardLabel')}
+                    </span>
+                  </label>
+                )}
+
+                <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                  {React.createElement(FaLock as unknown as React.ComponentType<{ className?: string }>, {
+                    className: 'text-[10px] text-emerald-600 dark:text-emerald-400',
+                  })}
+                  <span>{t('modals.expense.sensitiveFieldsEncryptedNote')}</span>
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Foto / Comprovante no Cloudinary */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
             <label className="exec-label">{t('modals.expense.photoLabel')}</label>
@@ -1257,6 +1509,10 @@ const ExpenseModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData
               </div>
             </div>
           </div>
+
+          {creditError && (
+            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{creditError}</p>
+          )}
 
           <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="exec-btn-secondary">

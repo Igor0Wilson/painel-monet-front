@@ -21,6 +21,28 @@ export function maskCpf(raw?: string | null): string {
   return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
 }
 
+export function maskPixKey(raw?: string | null): string {
+  const clean = (raw || '').trim();
+  if (!clean) return '';
+  if (clean.includes('@')) {
+    const [local, domain] = clean.split('@');
+    const safeLocal =
+      local.length <= 2 ? `${local[0] || '*'}*` : `${local.slice(0, 2)}***`;
+    return `${safeLocal}@${domain || '***'}`;
+  }
+  if (clean.length <= 4) {
+    return `**${clean.slice(-2)}`;
+  }
+  if (clean.length <= 8) {
+    return `${clean.slice(0, 2)}***${clean.slice(-2)}`;
+  }
+  return `${clean.slice(0, 3)}***${clean.slice(-3)}`;
+}
+
+export function normalizeCardLast4Input(raw?: string | null): string {
+  return String(raw || '').replace(/\D/g, '').slice(0, 4);
+}
+
 export function formatPhoneInput(raw?: string | null): string {
   const digits = onlyDigits(raw).slice(0, 11);
   if (digits.length <= 2) return digits.length ? `(${digits}` : '';

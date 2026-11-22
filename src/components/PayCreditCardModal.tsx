@@ -21,6 +21,8 @@ export interface CreditCardInvoiceGroup {
   shortLabel: string;
   total: number;
   items: ExpenseItem[];
+  cardBank?: string | null;
+  cardLast4?: string | null;
 }
 
 interface Props {
@@ -48,10 +50,19 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
     e.preventDefault();
     try {
       setLoading(true);
-      await api.post('/expenses/credit-card/pay-invoice', {
+      const payload: {
+        month: string;
+        paymentMethod: CashMethod;
+        cardBank?: string;
+        cardLast4?: string;
+      } = {
         month: invoice.month,
         paymentMethod,
-      });
+      };
+      if (invoice.cardBank) payload.cardBank = invoice.cardBank;
+      if (invoice.cardLast4) payload.cardLast4 = invoice.cardLast4;
+
+      await api.post('/expenses/credit-card/pay-invoice', payload);
       toast.success(t('modals.payCard.paidToast'));
       onSuccess();
       onClose();
@@ -61,6 +72,15 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
       setLoading(false);
     }
   };
+
+  const cardSubtitle =
+    invoice.cardBank || invoice.cardLast4
+      ? invoice.cardBank && invoice.cardLast4
+        ? t('expenses.cardHeadingWithBank', { bank: invoice.cardBank, last4: invoice.cardLast4 })
+        : invoice.cardLast4
+          ? t('expenses.cardHeadingNoBank', { last4: invoice.cardLast4 })
+          : invoice.cardBank
+      : null;
 
   return (
     <div className="exec-modal-overlay z-50">
@@ -73,6 +93,7 @@ const PayCreditCardModal: React.FC<Props> = ({ invoice, onClose, onSuccess }) =>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                 {t('modals.payCard.title')} — {invoice.label}
+                {cardSubtitle ? ` · ${cardSubtitle}` : ''}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t('modals.payCard.openCount', { count: invoice.items.length })}
