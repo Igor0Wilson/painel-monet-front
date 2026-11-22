@@ -233,7 +233,16 @@ export const esES: TranslationResources = {
       invalidEmail: 'Correo electrónico inválido.',
       tooManyRequests: 'Demasiados intentos. Espera unos instantes y vuelve a intentarlo.',
       userDisabled: 'Esta cuenta está desactivada.',
-      operationNotAllowed: 'Proveedor de autenticación deshabilitado en Firebase Console.',
+      operationNotAllowed:
+        'El acceso con Google o el proveedor de autenticación está deshabilitado en Firebase Console.',
+      unauthorizedDomain:
+        'Este dominio aún no está autorizado en Firebase Auth. Agrega el dominio de Vercel en Authentication > Settings > Authorized domains.',
+      networkRequestFailed:
+        'Error de conexión con los servicios de Google/Firebase. Revisa tu conexión o bloqueadores e inténtalo de nuevo.',
+      popupBlocked:
+        'El navegador bloqueó la ventana de acceso de Google. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.',
+      internalError:
+        'No se pudo completar la autenticación con Google en este momento. Inténtalo de nuevo en unos instantes.',
       expiredActionCode:
         'Este enlace caducó. Solicita un nuevo correo de recuperación/reactivación.',
       invalidActionCode:

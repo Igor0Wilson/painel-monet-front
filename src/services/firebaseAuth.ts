@@ -275,13 +275,22 @@ export function translateFirebaseAuthError(
   fallback: string,
 ): string | null {
   const code = (error as { code?: string })?.code;
-  if (!code) return null;
+  if (!code || !code.startsWith('auth/')) return null;
 
   switch (code) {
     case 'auth/popup-closed-by-user':
     case 'auth/cancelled-popup-request':
+    case 'auth/redirect-cancelled-by-user':
     case 'auth/redirect-started':
       return '';
+    case 'auth/popup-blocked':
+      return i18n.t('auth.firebaseErrors.popupBlocked');
+    case 'auth/unauthorized-domain':
+      return i18n.t('auth.firebaseErrors.unauthorizedDomain');
+    case 'auth/network-request-failed':
+      return i18n.t('auth.firebaseErrors.networkRequestFailed');
+    case 'auth/internal-error':
+      return i18n.t('auth.firebaseErrors.internalError');
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':

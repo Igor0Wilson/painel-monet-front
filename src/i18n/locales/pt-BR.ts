@@ -231,7 +231,15 @@ export const ptBR = {
       invalidEmail: 'E-mail inválido.',
       tooManyRequests: 'Muitas tentativas. Aguarde alguns instantes e tente novamente.',
       userDisabled: 'Esta conta está desativada.',
-      operationNotAllowed: 'Provedor de autenticação não habilitado no Firebase Console.',
+      operationNotAllowed: 'Login com Google ou provedor de autenticação não habilitado no Firebase Console.',
+      unauthorizedDomain:
+        'Este domínio ainda não está autorizado no Firebase Auth. Adicione o domínio da Vercel em Authentication > Settings > Authorized domains.',
+      networkRequestFailed:
+        'Falha de conexão com os serviços do Google/Firebase. Verifique sua internet ou bloqueadores e tente novamente.',
+      popupBlocked:
+        'O navegador bloqueou a janela de login do Google. Permita pop-ups para este site e tente novamente.',
+      internalError:
+        'Não foi possível concluir a autenticação com o Google neste momento. Tente novamente em instantes.',
       expiredActionCode:
         'Este link expirou. Solicite um novo e-mail de recuperação/reativação.',
       invalidActionCode:

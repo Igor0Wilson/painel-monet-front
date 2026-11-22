@@ -233,7 +233,16 @@ export const enUS: TranslationResources = {
       invalidEmail: 'Invalid email address.',
       tooManyRequests: 'Too many attempts. Please wait a moment and try again.',
       userDisabled: 'This account has been disabled.',
-      operationNotAllowed: 'Authentication provider is disabled in Firebase Console.',
+      operationNotAllowed:
+        'Google Sign-In or authentication provider is disabled in Firebase Console.',
+      unauthorizedDomain:
+        'This domain is not authorized in Firebase Auth yet. Add the Vercel domain under Authentication > Settings > Authorized domains.',
+      networkRequestFailed:
+        'Connection to Google/Firebase services failed. Check your network or blockers and try again.',
+      popupBlocked:
+        'Your browser blocked the Google sign-in window. Please allow pop-ups for this site and try again.',
+      internalError:
+        'Could not complete Google authentication right now. Please try again in a moment.',
       expiredActionCode:
         'This link has expired. Request a new recovery/reactivation email.',
       invalidActionCode:
