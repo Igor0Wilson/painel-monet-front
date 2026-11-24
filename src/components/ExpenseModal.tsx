@@ -38,11 +38,19 @@ import {
   formatCurrency,
   formatCurrencyInput,
   formatDateBr,
+  formatMonthLabel,
   formatNumberToCurrencyInput,
+  formatShortDate,
   getCurrencyPlaceholder,
   normalizeCardLast4Input,
   parseCurrencyInput,
 } from '../utils/formatters';
+import {
+  addMonthsIso,
+  getMonthKeyFromIso,
+  getNextMonthLocalIso,
+  getTodayLocalIso,
+} from '../utils/recurrence';
 import { createPreviewDataUrl, prepareImageForUpload } from '../utils/imageUpload';
 
 interface AccountType {
@@ -97,21 +105,14 @@ function resolveInitialPaymentMethod(initialData?: Partial<ExpenseItem> | null):
 }
 
 function getTodayIso(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return getTodayLocalIso();
 }
 
 function getNextMonthIso(): string {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const yyyy = next.getFullYear();
-  const mm = String(next.getMonth() + 1).padStart(2, '0');
-  const dd = String(next.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return getNextMonthLocalIso();
 }
+
+type ModalEditScope = 'only_month' | 'from_month' | 'all' | 'all_installments' | 'single';
 
 const QUICK_INSTALLMENTS = [1, 2, 3, 6, 10, 12];
 
@@ -142,6 +143,7 @@ const ExpenseModal: React.FC<Props> = ({
   const [autoDebitChargeOnCard, setAutoDebitChargeOnCard] = useState<boolean>(false);
   const [cardBank, setCardBank] = useState<string>('');
   const [cardLast4, setCardLast4] = useState<string>('');
+  const [editScope, setEditScope] = useState<ModalEditScope>('single');
 
   // Foto de comprovante / produto no Cloudinary
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -211,6 +213,7 @@ const ExpenseModal: React.FC<Props> = ({
   const watchedInstallments = Number(watch('installmentCount')) || 0;
   const watchedAccountTypeId = watch('accountTypeId');
   const watchedName = watch('name');
+  const watchedDueDate = watch('dueDate');
 
   const selectedCategoryName =
     accountTypes.find((t) => t.id === watchedAccountTypeId)?.name ||
@@ -288,6 +291,7 @@ const ExpenseModal: React.FC<Props> = ({
         setCardLast4(initialData.cardLast4 || '');
         setLinkCardOnExpense(Boolean(initialData.cardBank || initialData.cardLast4));
         setAutoDebitChargeOnCard(Boolean(initialData.isAutoDebit && initialData.isCreditCard));
+        setEditScope(initialData.isRecurring ? 'only_month' : 'single');
         setReceiptFile(null);
         setReceiptPreview(initialData.receiptUrl || null);
         setRemoveExistingReceipt(false);
@@ -316,6 +320,7 @@ const ExpenseModal: React.FC<Props> = ({
         setCardLast4('');
         setLinkCardOnExpense(false);
         setAutoDebitChargeOnCard(false);
+        setEditScope('single');
         setReceiptFile(null);
         setReceiptPreview(null);
         setRemoveExistingReceipt(false);
@@ -481,6 +486,17 @@ const ExpenseModal: React.FC<Props> = ({
           payload.cardLast4 = cleanCardLast4;
         }
 
+        const resolvedTargetMonth =
+          initialData._occurrenceMonth || getMonthKeyFromIso(data.dueDate);
+        if (initialData.isRecurring) {
+          payload.editScope = editScope === 'single' ? 'all' : editScope;
+          if (payload.editScope !== 'all' && resolvedTargetMonth) {
+            payload.targetMonth = resolvedTargetMonth;
+          }
+        } else if (initialData.isInstallment && editScope === 'all_installments') {
+          payload.editScope = 'all_installments';
+        }
+
         if (isMarkingPaidOnEdit) {
           await api.patch(`/expenses/${initialData.id}`, {
             ...payload,
@@ -494,7 +510,11 @@ const ExpenseModal: React.FC<Props> = ({
             firstInstallmentDate?: string;
             cardBank?: string;
             cardLast4?: string;
+            occurrenceMonth?: string;
           } = { paymentMethod: purchasePaymentMethod };
+          if (initialData.isRecurring && resolvedTargetMonth) {
+            payPayload.occurrenceMonth = resolvedTargetMonth;
+          }
           if (purchasePaymentMethod === 'credito') {
             payPayload.installments = parseInt(creditInstallments, 10);
             payPayload.firstInstallmentDate = firstInstallmentDate;
@@ -691,6 +711,109 @@ const ExpenseModal: React.FC<Props> = ({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
+          {initialData && (initialData.isRecurring || initialData.isInstallment) && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-3.5 space-y-2">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                {t('dashboard.scopeEdit.title')}
+              </p>
+              {initialData.isRecurring ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(
+                    [
+                      {
+                        id: 'only_month' as const,
+                        label: t('dashboard.scopeEdit.onlyMonth', {
+                          month: formatMonthLabel(
+                            initialData._occurrenceMonth ||
+                              getMonthKeyFromIso(watchedDueDate) ||
+                              getMonthKeyFromIso(initialData.dueDate) ||
+                              getMonthKeyFromIso(getTodayIso()),
+                          ),
+                        }),
+                        desc: t('dashboard.scopeEdit.onlyMonthDesc'),
+                      },
+                      {
+                        id: 'from_month' as const,
+                        label: t('dashboard.scopeEdit.fromMonth', {
+                          month: formatMonthLabel(
+                            initialData._occurrenceMonth ||
+                              getMonthKeyFromIso(watchedDueDate) ||
+                              getMonthKeyFromIso(initialData.dueDate) ||
+                              getMonthKeyFromIso(getTodayIso()),
+                          ),
+                        }),
+                        desc: t('dashboard.scopeEdit.fromMonthDesc', {
+                          month: formatMonthLabel(
+                            initialData._occurrenceMonth ||
+                              getMonthKeyFromIso(watchedDueDate) ||
+                              getMonthKeyFromIso(initialData.dueDate) ||
+                              getMonthKeyFromIso(getTodayIso()),
+                          ),
+                        }),
+                      },
+                      {
+                        id: 'all' as const,
+                        label: t('dashboard.scopeEdit.all'),
+                        desc: t('dashboard.scopeEdit.allDesc'),
+                      },
+                    ]
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      data-testid={`expense-edit-scope-${opt.id}`}
+                      onClick={() => setEditScope(opt.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        editScope === opt.id
+                          ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold leading-snug">{opt.label}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        {opt.desc}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(
+                    [
+                      {
+                        id: 'single' as const,
+                        label: t('dashboard.scopeEdit.singleInstallment'),
+                        desc: t('dashboard.scopeEdit.singleInstallmentDesc'),
+                      },
+                      {
+                        id: 'all_installments' as const,
+                        label: t('dashboard.scopeEdit.allInstallments'),
+                        desc: t('dashboard.scopeEdit.allInstallmentsDesc'),
+                      },
+                    ]
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      data-testid={`expense-edit-scope-${opt.id}`}
+                      onClick={() => setEditScope(opt.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        editScope === opt.id
+                          ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold leading-snug">{opt.label}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        {opt.desc}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Seletor: Conta/Despesa vs Compra Pontual */}
           {!initialData && (
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -907,6 +1030,14 @@ const ExpenseModal: React.FC<Props> = ({
                         onClick={() => {
                           setPurchasePaymentMethod(m.id);
                           setCreditError('');
+                          if (
+                            m.id === 'credito' &&
+                            !initialData &&
+                            watchedDueDate &&
+                            watchedDueDate !== getTodayIso()
+                          ) {
+                            setFirstInstallmentDate(watchedDueDate);
+                          }
                         }}
                         className={`p-3 rounded-xl border text-left transition-all flex items-start gap-2.5 ${isSelected
                           ? 'border-slate-900 dark:border-emerald-500 bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
@@ -989,7 +1120,7 @@ const ExpenseModal: React.FC<Props> = ({
                   </div>
 
                   {watchedValue > 0 && (
-                    <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-1">
+                    <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-2">
                       <p className="text-xs font-semibold text-slate-900 dark:text-white">
                         {t('paymentMethods.creditoFull')}:{' '}
                         <span className="tabular-nums text-emerald-700 dark:text-emerald-400">
@@ -997,8 +1128,25 @@ const ExpenseModal: React.FC<Props> = ({
                         </span>
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {formatDateBr(firstInstallmentDate)}
+                        {t('dashboard.cardInvoices.installmentScheduleHint')}
                       </p>
+                      {firstInstallmentDate && validCreditCount >= 1 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {Array.from({ length: Math.min(validCreditCount, 6) }, (_, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-700 dark:text-slate-200 tabular-nums"
+                            >
+                              {idx + 1}/{validCreditCount}: {formatDateBr(addMonthsIso(firstInstallmentDate, idx))}
+                            </span>
+                          ))}
+                          {validCreditCount > 6 && (
+                            <span className="text-[10px] text-slate-400 self-center">
+                              +{validCreditCount - 6} ({formatShortDate(addMonthsIso(firstInstallmentDate, validCreditCount - 1))})
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1265,6 +1413,23 @@ const ExpenseModal: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
+                  {watchedInstallments >= 2 && watchedDueDate && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {Array.from({ length: Math.min(watchedInstallments, 6) }, (_, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-medium text-slate-600 dark:text-slate-300 tabular-nums"
+                        >
+                          {idx + 1}/{watchedInstallments}: {formatDateBr(addMonthsIso(watchedDueDate, idx))}
+                        </span>
+                      ))}
+                      {watchedInstallments > 6 && (
+                        <span className="text-[10px] text-slate-400 self-center">
+                          +{watchedInstallments - 6} ({formatShortDate(addMonthsIso(watchedDueDate, watchedInstallments - 1))})
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {errors.installmentCount && (
                     <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
                       {errors.installmentCount.message}

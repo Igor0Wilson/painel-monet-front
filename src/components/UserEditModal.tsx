@@ -15,6 +15,7 @@ import {
   FaEye,
   FaEyeSlash,
   FaFingerprint,
+  FaKey,
   FaShieldAlt,
   FaTimes,
   FaTrashAlt,
@@ -29,10 +30,19 @@ import {
   clearLocalBiometricPointer,
   detectBiometricCapabilities,
   getLocalBiometricPointer,
+  getLocalBiometricPointers,
   registerBiometricCredential,
   removeNativeBiometricSecretIfPresent,
   saveLocalBiometricPointer,
+  syncLocalBiometricPointersWithServer,
 } from '../utils/biometricAuth';
+import {
+  fetchSecurityPinStatus,
+  getAuthProviderHint,
+  removeSecurityPin,
+  setSecurityPin,
+  syncSecurityPinDeviceToken,
+} from '../utils/securityLockAuth';
 import AccountDangerModal from './AccountDangerModal';
 import EncryptedImage from './EncryptedImage';
 import { downloadUserFinancialData } from '../utils/downloadUserData';
@@ -85,6 +95,12 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
   const [bioCreds, setBioCreds] = useState<BiometricCredentialView[]>([]);
   const [bioSelectedKind, setBioSelectedKind] = useState<BiometricKind>('facial');
   const [bioBusy, setBioBusy] = useState(false);
+  const [hasPin, setHasPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinBusy, setPinBusy] = useState(false);
+  const [accountProvider, setAccountProvider] = useState<'password' | 'google'>(
+    () => getAuthProviderHint() || 'password',
+  );
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const latestAuthAvatarRef = useRef<string | null>(authUser?.avatarUrl || null);
   latestAuthAvatarRef.current = authUser?.avatarUrl || null;
@@ -207,14 +223,23 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
         if (cancelled) return;
         const list = Array.isArray(res.data) ? res.data : [];
         setBioCreds(list);
+        syncLocalBiometricPointersWithServer(list, authUser?.id);
         const pointer = getLocalBiometricPointer();
         if (pointer) {
-          const matched = list.find((c) => c.credentialId === pointer.credentialId);
-          if (!matched || !matched.isEnabled) {
-            clearLocalBiometricPointer();
-          } else {
-            setBioSelectedKind(matched.kind);
-          }
+          setBioSelectedKind(pointer.kind);
+        }
+      })
+      .catch(() => undefined);
+
+    fetchSecurityPinStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setHasPin(Boolean(status.hasPin));
+        if (status.authProvider === 'google' || status.authProvider === 'password') {
+          setAccountProvider(status.authProvider);
+        }
+        if (status.hasPin) {
+          void syncSecurityPinDeviceToken(userData.name).catch(() => undefined);
         }
       })
       .catch(() => undefined);
@@ -222,12 +247,17 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, userData.name, reset, t]);
+  }, [authUser?.id, isOpen, userData.name, reset, t]);
 
-  const localBioPointer = getLocalBiometricPointer();
+  const localBioPointers = getLocalBiometricPointers();
   const activeDeviceCred =
-    bioCreds.find((c) => c.credentialId === localBioPointer?.credentialId) ||
-    bioCreds[0] ||
+    bioCreds.find(
+      (c) =>
+        c.kind === bioSelectedKind &&
+        localBioPointers.some((p) => p.credentialId === c.credentialId),
+    ) ||
+    bioCreds.find((c) => c.kind === bioSelectedKind) ||
+    (!bioCaps?.isInstalledApp ? bioCreds[0] : null) ||
     null;
 
   const handleActivateOrReconfigureBiometric = async () => {
@@ -236,11 +266,19 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       const kindToUse: BiometricKind = bioCaps?.isInstalledApp
         ? bioSelectedKind
         : 'facial';
+      const promptTitle =
+        kindToUse === 'facial'
+          ? t('auth.facialLoginBtn')
+          : kindToUse === 'fingerprint'
+            ? t('auth.biometric.loginFingerprintApp')
+            : bioCaps?.isInstalledApp
+              ? t('auth.biometric.loginBiometricApp')
+              : t('auth.biometric.loginFacialWeb');
+
       const created = await registerBiometricCredential({
         kind: kindToUse,
-        promptTitle: bioCaps?.isInstalledApp
-          ? t('auth.biometric.loginBiometricApp')
-          : t('auth.biometric.loginFacialWeb'),
+        promptTitle,
+        userId: authUser?.id,
       });
       setBioCreds((prev) => [
         created,
@@ -256,6 +294,43 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
     }
   };
 
+  const handleSaveSecurityPin = async () => {
+    const digits = pinInput.replace(/\D/g, '').slice(0, 6);
+    if (!/^\d{4,6}$/.test(digits)) {
+      toast.error(t('modals.userEdit.biometricPinInvalidError'));
+      return;
+    }
+    try {
+      setPinBusy(true);
+      const res = await setSecurityPin(digits, userData.name);
+      setHasPin(res.hasPin);
+      setAccountProvider(res.authProvider);
+      setPinInput('');
+      toast.success(t('modals.userEdit.biometricPinSavedToast'));
+    } catch (error: unknown) {
+      toast.error(
+        extractApiErrorMessage(error, t('modals.userEdit.biometricErrorToast')),
+      );
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const handleRemoveSecurityPin = async () => {
+    try {
+      setPinBusy(true);
+      await removeSecurityPin();
+      setHasPin(false);
+      toast.info(t('modals.userEdit.biometricPinRemovedToast'));
+    } catch (error: unknown) {
+      toast.error(
+        extractApiErrorMessage(error, t('modals.userEdit.biometricErrorToast')),
+      );
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
   const handleToggleBiometricEnabled = async (cred: BiometricCredentialView) => {
     try {
       setBioBusy(true);
@@ -264,15 +339,13 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
         `/auth/biometric/credentials/${cred.id}`,
         {
           isEnabled: nextEnabled,
-          kind: bioCaps?.isInstalledApp ? bioSelectedKind : 'facial',
+          kind: cred.kind,
         },
       );
       const updated = res.data;
       setBioCreds((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       if (!updated.isEnabled) {
-        if (localBioPointer?.credentialId === updated.credentialId) {
-          clearLocalBiometricPointer();
-        }
+        clearLocalBiometricPointer(updated.credentialId);
         toast.info(t('modals.userEdit.biometricDisabledToast'));
       } else {
         saveLocalBiometricPointer({
@@ -282,42 +355,10 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
           kind: updated.kind,
           platform: updated.platform,
           deviceLabel: updated.deviceLabel,
+          userId: authUser?.id,
         });
         toast.success(t('modals.userEdit.biometricUpdatedToast'));
       }
-    } catch (error: unknown) {
-      toast.error(
-        extractApiErrorMessage(error, t('modals.userEdit.biometricErrorToast')),
-      );
-    } finally {
-      setBioBusy(false);
-    }
-  };
-
-  const handleUpdateBiometricKind = async (
-    cred: BiometricCredentialView,
-    nextKind: BiometricKind,
-  ) => {
-    setBioSelectedKind(nextKind);
-    try {
-      setBioBusy(true);
-      const res = await api.patch<BiometricCredentialView>(
-        `/auth/biometric/credentials/${cred.id}`,
-        { kind: nextKind },
-      );
-      const updated = res.data;
-      setBioCreds((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-      if (updated.isEnabled && localBioPointer?.credentialId === updated.credentialId) {
-        saveLocalBiometricPointer({
-          id: updated.id,
-          credentialId: updated.credentialId,
-          protocol: updated.protocol,
-          kind: updated.kind,
-          platform: updated.platform,
-          deviceLabel: updated.deviceLabel,
-        });
-      }
-      toast.success(t('modals.userEdit.biometricUpdatedToast'));
     } catch (error: unknown) {
       toast.error(
         extractApiErrorMessage(error, t('modals.userEdit.biometricErrorToast')),
@@ -332,9 +373,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       setBioBusy(true);
       await api.delete(`/auth/biometric/credentials/${cred.id}`);
       await removeNativeBiometricSecretIfPresent(cred.credentialId);
-      if (localBioPointer?.credentialId === cred.credentialId) {
-        clearLocalBiometricPointer();
-      }
+      clearLocalBiometricPointer(cred.credentialId);
       setBioCreds((prev) => prev.filter((c) => c.id !== cred.id));
       toast.success(t('modals.userEdit.biometricRemovedToast'));
     } catch (error: unknown) {
@@ -682,13 +721,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                       key={opt.id}
                       type="button"
                       disabled={bioBusy}
-                      onClick={() => {
-                        if (activeDeviceCred) {
-                          void handleUpdateBiometricKind(activeDeviceCred, opt.id);
-                        } else {
-                          setBioSelectedKind(opt.id);
-                        }
-                      }}
+                      onClick={() => setBioSelectedKind(opt.id)}
                       className={`px-2.5 py-2 rounded-lg border text-[11px] font-semibold transition-all text-left ${
                         bioSelectedKind === opt.id
                           ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200'
@@ -719,7 +752,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"
-                disabled={bioBusy || (bioCaps !== null && !bioCaps.available)}
+                disabled={bioBusy}
                 data-testid="biometric-activate-btn"
                 onClick={handleActivateOrReconfigureBiometric}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
@@ -807,6 +840,74 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
                 </div>
               </div>
             )}
+
+            {accountProvider === 'google' && (
+              <p className="text-[11px] text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 rounded-lg px-3 py-2">
+                {t('modals.userEdit.biometricGooglePersistHint')}
+              </p>
+            )}
+          </div>
+
+          <div
+            data-testid="pin-settings-section"
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-4 space-y-3"
+          >
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                {React.createElement(FaKey as unknown as React.ComponentType<{ className?: string }>, {
+                  className: 'text-sm',
+                })}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
+                    {t('modals.userEdit.biometricPinCardTitle')}
+                  </h4>
+                  {hasPin && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                      {t('modals.userEdit.biometricPinActiveBadge')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  {t('modals.userEdit.biometricPinCardDesc')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                data-testid="pin-settings-input"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder={t('modals.userEdit.biometricPinPlaceholder')}
+                className="exec-input text-xs flex-1 tabular-nums tracking-[0.25em]"
+              />
+              <button
+                type="button"
+                disabled={pinBusy || pinInput.length < 4}
+                data-testid="pin-save-btn"
+                onClick={handleSaveSecurityPin}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                {t('modals.userEdit.biometricPinSaveBtn')}
+              </button>
+              {hasPin && (
+                <button
+                  type="button"
+                  disabled={pinBusy}
+                  data-testid="pin-remove-btn"
+                  onClick={handleRemoveSecurityPin}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  {t('modals.userEdit.biometricPinRemoveBtn')}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">

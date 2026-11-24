@@ -229,6 +229,12 @@ const KpiGrid: React.FC<Props> = ({
                     })
                     : t('kpi.foodDefaultHint')}
               </p>
+              {!isFamilyMode && (balance.ownVaConfig?.enabled || balance.ownVrConfig?.enabled) && (
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-300 tabular-nums">
+                  VA: {formatProtectedCurrency(balance.ownVaRemaining ?? 0)} · VR:{' '}
+                  {formatProtectedCurrency(balance.ownVrRemaining ?? 0)}
+                </p>
+              )}
             </div>
           </div>
 

@@ -36,9 +36,11 @@ export interface BiometricCapabilityInfo {
   platform: BiometricPlatform;
   hasFacial: boolean;
   hasFingerprint: boolean;
+  platformAuthenticatorAvailable?: boolean;
 }
 
 const LOCAL_DEVICE_CRED_KEY = 'pm_bio_device_cred';
+const LOCAL_DEVICE_CREDS_MAP_KEY = 'pm_bio_device_creds';
 
 function getReactNativeBridge():
   | { postMessage: (msg: string) => void }
@@ -55,7 +57,10 @@ function getReactNativeBridge():
   return null;
 }
 
-function sendNativeBridgeRequest<T>(payload: Record<string, unknown>, timeoutMs = 45000): Promise<T> {
+function sendNativeBridgeRequest<T>(
+  payload: Record<string, unknown>,
+  timeoutMs = 45000,
+): Promise<T> {
   const bridge = getReactNativeBridge();
   if (!bridge) {
     return Promise.reject(new Error('NATIVE_BRIDGE_UNAVAILABLE'));
@@ -67,7 +72,10 @@ function sendNativeBridgeRequest<T>(payload: Record<string, unknown>, timeoutMs 
     const timer = window.setTimeout(() => {
       if (settled) return;
       settled = true;
-      window.removeEventListener('PM_NATIVE_BIOMETRIC_RESPONSE', onResponse as EventListener);
+      window.removeEventListener(
+        'PM_NATIVE_BIOMETRIC_RESPONSE',
+        onResponse as EventListener,
+      );
       reject(new Error('BIOMETRIC_TIMEOUT'));
     }, timeoutMs);
 
@@ -77,7 +85,10 @@ function sendNativeBridgeRequest<T>(payload: Record<string, unknown>, timeoutMs 
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
-      window.removeEventListener('PM_NATIVE_BIOMETRIC_RESPONSE', onResponse as EventListener);
+      window.removeEventListener(
+        'PM_NATIVE_BIOMETRIC_RESPONSE',
+        onResponse as EventListener,
+      );
       if (detail.success) {
         resolve(detail as unknown as T);
       } else {
@@ -85,7 +96,10 @@ function sendNativeBridgeRequest<T>(payload: Record<string, unknown>, timeoutMs 
       }
     };
 
-    window.addEventListener('PM_NATIVE_BIOMETRIC_RESPONSE', onResponse as EventListener);
+    window.addEventListener(
+      'PM_NATIVE_BIOMETRIC_RESPONSE',
+      onResponse as EventListener,
+    );
     bridge.postMessage(JSON.stringify({ ...payload, requestId }));
   });
 }
@@ -114,7 +128,7 @@ function bufferToBase64Url(buffer: ArrayBuffer): string {
     .replace(/=+$/g, '');
 }
 
-export function getLocalBiometricPointer(): LocalBiometricDevicePointer | null {
+function readLegacyPointer(): LocalBiometricDevicePointer | null {
   try {
     const raw = localStorage.getItem(LOCAL_DEVICE_CRED_KEY);
     if (!raw) return null;
@@ -126,22 +140,183 @@ export function getLocalBiometricPointer(): LocalBiometricDevicePointer | null {
   }
 }
 
-export function saveLocalBiometricPointer(
-  pointer: LocalBiometricDevicePointer,
-): void {
+function persistPointerSlots(slots: LocalBiometricDevicePointer[]): void {
   try {
-    localStorage.setItem(LOCAL_DEVICE_CRED_KEY, JSON.stringify(pointer));
+    const cleaned = slots.filter(
+      (item) => Boolean(item?.credentialId) && Boolean(item?.protocol),
+    );
+    if (cleaned.length === 0) {
+      localStorage.removeItem(LOCAL_DEVICE_CREDS_MAP_KEY);
+      localStorage.removeItem(LOCAL_DEVICE_CRED_KEY);
+      return;
+    }
+    localStorage.setItem(LOCAL_DEVICE_CREDS_MAP_KEY, JSON.stringify(cleaned));
+    const preferredPrimary =
+      cleaned.find((s) => s.kind === 'fingerprint') ||
+      cleaned.find((s) => s.kind === 'biometric') ||
+      cleaned.find((s) => s.kind === 'facial') ||
+      cleaned[0];
+    localStorage.setItem(LOCAL_DEVICE_CRED_KEY, JSON.stringify(preferredPrimary));
   } catch {
     // ignore storage errors
   }
 }
 
-export function clearLocalBiometricPointer(): void {
+export function getLocalBiometricPointers(): LocalBiometricDevicePointer[] {
+  const list: LocalBiometricDevicePointer[] = [];
+  const seenKinds = new Set<string>();
+  const seenCreds = new Set<string>();
+
   try {
-    localStorage.removeItem(LOCAL_DEVICE_CRED_KEY);
+    const rawMap = localStorage.getItem(LOCAL_DEVICE_CREDS_MAP_KEY);
+    if (rawMap) {
+      const parsed = JSON.parse(rawMap) as unknown;
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          const ptr = item as LocalBiometricDevicePointer;
+          if (!ptr?.credentialId || !ptr?.protocol) continue;
+          const kindKey = ptr.kind || 'biometric';
+          if (seenKinds.has(kindKey) || seenCreds.has(ptr.credentialId)) continue;
+          seenKinds.add(kindKey);
+          seenCreds.add(ptr.credentialId);
+          list.push(ptr);
+        }
+      }
+    }
   } catch {
-    // ignore storage errors
+    // ignore malformed cache
   }
+
+  const legacy = readLegacyPointer();
+  if (
+    legacy &&
+    !seenCreds.has(legacy.credentialId) &&
+    !seenKinds.has(legacy.kind || 'biometric')
+  ) {
+    list.push(legacy);
+  }
+
+  return list;
+}
+
+export function getLocalBiometricPointer(
+  preferredKind?: BiometricKind,
+): LocalBiometricDevicePointer | null {
+  const all = getLocalBiometricPointers();
+  if (all.length === 0) return null;
+
+  if (preferredKind === 'facial') {
+    return all.find((p) => p.kind === 'facial') || null;
+  }
+
+  if (preferredKind === 'fingerprint') {
+    return (
+      all.find((p) => p.kind === 'fingerprint') ||
+      all.find((p) => p.kind === 'biometric') ||
+      null
+    );
+  }
+
+  if (preferredKind === 'biometric') {
+    return (
+      all.find((p) => p.kind === 'biometric') ||
+      all.find((p) => p.kind === 'fingerprint') ||
+      all.find((p) => p.kind === 'facial') ||
+      null
+    );
+  }
+
+  // Priority order when no explicit kind requested: Fingerprint -> Generic Biometric -> Facial
+  return (
+    all.find((p) => p.kind === 'fingerprint') ||
+    all.find((p) => p.kind === 'biometric') ||
+    all.find((p) => p.kind === 'facial') ||
+    all[0] ||
+    null
+  );
+}
+
+export function saveLocalBiometricPointer(
+  pointer: LocalBiometricDevicePointer,
+): void {
+  const existing = getLocalBiometricPointers().filter(
+    (item) =>
+      item.kind !== pointer.kind && item.credentialId !== pointer.credentialId,
+  );
+  persistPointerSlots([pointer, ...existing]);
+}
+
+export function clearLocalBiometricPointer(credentialIdOrKind?: string): void {
+  if (!credentialIdOrKind) {
+    persistPointerSlots([]);
+    return;
+  }
+  const remaining = getLocalBiometricPointers().filter(
+    (item) =>
+      item.credentialId !== credentialIdOrKind &&
+      item.id !== credentialIdOrKind &&
+      item.kind !== credentialIdOrKind,
+  );
+  persistPointerSlots(remaining);
+}
+
+/**
+ * Reconciles server credentials with local device slots after Google or Password login
+ * without discarding local native_hmac secrets for this device or losing WebAuthn facial pointers.
+ */
+export function syncLocalBiometricPointersWithServer(
+  serverCreds: BiometricCredentialView[],
+  userId?: string,
+): LocalBiometricDevicePointer[] {
+  const byCredId = new Map<string, BiometricCredentialView>();
+  for (const cred of serverCreds) {
+    byCredId.set(cred.credentialId, cred);
+  }
+
+  const currentLocal = getLocalBiometricPointers();
+  const nextSlots: LocalBiometricDevicePointer[] = [];
+
+  for (const ptr of currentLocal) {
+    const match = byCredId.get(ptr.credentialId);
+    if (match) {
+      if (match.isEnabled) {
+        nextSlots.push({
+          ...ptr,
+          kind: match.kind,
+          deviceLabel: match.deviceLabel,
+          platform: match.platform,
+          userId: userId || ptr.userId,
+        });
+      }
+    } else if (!userId || (ptr.userId && ptr.userId !== userId)) {
+      nextSlots.push(ptr);
+    }
+  }
+
+  // Re-attach enabled WebAuthn credentials from server if their modality is not locally populated yet
+  if (typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined') {
+    for (const cred of serverCreds) {
+      if (!cred.isEnabled || cred.protocol !== 'webauthn') continue;
+      const alreadyHasCred = nextSlots.some(
+        (s) => s.credentialId === cred.credentialId,
+      );
+      const alreadyHasKind = nextSlots.some((s) => s.kind === cred.kind);
+      if (!alreadyHasCred && !alreadyHasKind) {
+        nextSlots.push({
+          id: cred.id,
+          credentialId: cred.credentialId,
+          protocol: cred.protocol,
+          kind: cred.kind,
+          platform: cred.platform,
+          deviceLabel: cred.deviceLabel,
+          userId,
+        });
+      }
+    }
+  }
+
+  persistPointerSlots(nextSlots);
+  return nextSlots;
 }
 
 export async function detectBiometricCapabilities(): Promise<BiometricCapabilityInfo> {
@@ -165,6 +340,7 @@ export async function detectBiometricCapabilities(): Promise<BiometricCapability
         platform: nativeInfo.platform || 'mobile_android',
         hasFacial: Boolean(nativeInfo.hasFacial),
         hasFingerprint: Boolean(nativeInfo.hasFingerprint),
+        platformAuthenticatorAvailable: Boolean(nativeInfo.available),
       };
     } catch {
       return {
@@ -175,43 +351,45 @@ export async function detectBiometricCapabilities(): Promise<BiometricCapability
         platform: 'mobile_android',
         hasFacial: false,
         hasFingerprint: false,
+        platformAuthenticatorAvailable: false,
       };
     }
   }
 
-  let webAuthnAvailable = false;
+  const hasWebAuthnApi =
+    typeof window !== 'undefined' &&
+    typeof window.PublicKeyCredential !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    Boolean(navigator.credentials);
+
+  let platformAuthAvailable = false;
   try {
     if (
-      typeof window !== 'undefined' &&
-      typeof window.PublicKeyCredential !== 'undefined' &&
-      typeof navigator !== 'undefined' &&
-      Boolean(navigator.credentials)
+      hasWebAuthnApi &&
+      typeof window.PublicKeyCredential
+        .isUserVerifyingPlatformAuthenticatorAvailable === 'function'
     ) {
-      if (
-        typeof window.PublicKeyCredential
-          .isUserVerifyingPlatformAuthenticatorAvailable === 'function'
-      ) {
-        webAuthnAvailable =
-          await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      } else {
-        webAuthnAvailable = true;
-      }
+      platformAuthAvailable =
+        await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    } else {
+      platformAuthAvailable = hasWebAuthnApi;
     }
   } catch {
-    webAuthnAvailable = false;
+    platformAuthAvailable = false;
   }
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   return {
-    available: webAuthnAvailable,
+    available: hasWebAuthnApi,
     isNativeApp: false,
     isInstalledApp: installed,
     protocol: 'webauthn',
     platform: installed ? (isIOS ? 'mobile_ios' : 'pwa') : 'web',
-    hasFacial: webAuthnAvailable,
-    hasFingerprint: installed && webAuthnAvailable,
+    hasFacial: hasWebAuthnApi,
+    hasFingerprint: platformAuthAvailable,
+    platformAuthenticatorAvailable: platformAuthAvailable,
   };
 }
 
@@ -219,9 +397,13 @@ export async function registerBiometricCredential(params: {
   kind: BiometricKind;
   deviceLabel?: string;
   promptTitle?: string;
+  userId?: string;
 }): Promise<BiometricCredentialView> {
   const caps = await detectBiometricCapabilities();
-  if (!caps.available) {
+  if (caps.isNativeApp && !caps.available) {
+    throw new Error('BIOMETRIC_UNSUPPORTED_DEVICE');
+  }
+  if (!caps.isNativeApp && !caps.available) {
     throw new Error('BIOMETRIC_UNSUPPORTED_DEVICE');
   }
 
@@ -246,6 +428,8 @@ export async function registerBiometricCredential(params: {
       credentialId: credentialIdSuggestion,
       challenge,
       enrollmentSecretHex,
+      mode: params.kind,
+      disableDeviceFallback: false,
       promptTitle: params.promptTitle,
     });
 
@@ -270,10 +454,12 @@ export async function registerBiometricCredential(params: {
       kind: saved.kind,
       platform: saved.platform,
       deviceLabel: saved.deviceLabel,
+      userId: params.userId,
     });
     return saved;
   }
 
+  const webPlatform: BiometricPlatform = caps.isInstalledApp ? 'pwa' : 'web';
   const optRes = await api.post<{
     challengeId: string;
     challenge: string;
@@ -283,12 +469,25 @@ export async function registerBiometricCredential(params: {
   }>('/auth/biometric/register/options', {
     protocol: 'webauthn',
     kind: params.kind,
-    platform: caps.platform === 'pwa' || caps.platform === 'mobile_ios' ? 'pwa' : 'web',
+    platform: webPlatform,
     deviceLabel: params.deviceLabel,
   });
 
-  const { challengeId, challenge, userId, userName, excludeCredentialIds = [] } =
-    optRes.data;
+  const { challengeId, challenge, userId, userName } = optRes.data;
+
+  // When a local platform authenticator is reported ready, prefer platform (Face ID / Touch ID / Windows Hello).
+  // Otherwise omit authenticatorAttachment so hybrid/phone passkeys also remain usable for Facial setup.
+  const authenticatorSelection: AuthenticatorSelectionCriteria =
+    caps.platformAuthenticatorAvailable !== false
+      ? {
+          authenticatorAttachment: 'platform',
+          residentKey: 'preferred',
+          userVerification: 'required',
+        }
+      : {
+          residentKey: 'preferred',
+          userVerification: 'required',
+        };
 
   const credential = (await navigator.credentials.create({
     publicKey: {
@@ -306,16 +505,8 @@ export async function registerBiometricCredential(params: {
         { type: 'public-key', alg: -7 },
         { type: 'public-key', alg: -257 },
       ],
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform',
-        residentKey: 'preferred',
-        userVerification: 'required',
-      },
+      authenticatorSelection,
       timeout: 60000,
-      excludeCredentials: excludeCredentialIds.map((id) => ({
-        id: base64UrlToUint8Array(id) as unknown as BufferSource,
-        type: 'public-key',
-      })),
     },
   })) as PublicKeyCredential | null;
 
@@ -330,7 +521,7 @@ export async function registerBiometricCredential(params: {
       challengeId,
       protocol: 'webauthn',
       kind: params.kind,
-      platform: caps.isInstalledApp ? 'pwa' : 'web',
+      platform: webPlatform,
       deviceLabel: params.deviceLabel,
       credentialId: credential.id,
       clientDataJSON: bufferToBase64Url(attResp.clientDataJSON),
@@ -346,15 +537,29 @@ export async function registerBiometricCredential(params: {
     kind: saved.kind,
     platform: saved.platform,
     deviceLabel: saved.deviceLabel,
+    userId: params.userId || userId,
   });
   return saved;
 }
 
-export async function loginWithBiometricCredential(promptTitle?: string): Promise<{
+export async function loginWithBiometricCredential(
+  promptOrOptions?:
+    | string
+    | {
+        promptTitle?: string;
+        preferredKind?: BiometricKind;
+        disableDeviceFallback?: boolean;
+      },
+): Promise<{
   access_token: string;
   user: Record<string, unknown>;
 }> {
-  const pointer = getLocalBiometricPointer();
+  const options =
+    typeof promptOrOptions === 'string'
+      ? { promptTitle: promptOrOptions }
+      : promptOrOptions || {};
+
+  const pointer = getLocalBiometricPointer(options.preferredKind);
   if (!pointer) {
     throw new Error('BIOMETRIC_NOT_CONFIGURED');
   }
@@ -376,7 +581,9 @@ export async function loginWithBiometricCredential(promptTitle?: string): Promis
       type: 'BIOMETRIC_AUTHENTICATE',
       credentialId,
       challenge,
-      promptTitle,
+      mode: pointer.kind,
+      disableDeviceFallback: options.disableDeviceFallback ?? true,
+      promptTitle: options.promptTitle,
     });
 
     const verifyRes = await api.post<{

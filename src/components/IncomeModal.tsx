@@ -15,16 +15,24 @@ import { extractApiErrorMessage } from '../utils/errorHandler';
 import {
   formatCurrency,
   formatCurrencyInput,
+  formatMonthLabel,
   formatNumberToCurrencyInput,
   getCurrencyPlaceholder,
   parseCurrencyInput,
 } from '../utils/formatters';
+import {
+  formatIsoDateParts,
+  getEffectiveIncomeForMonth,
+  getMonthKeyFromIso,
+  getTodayLocalIso,
+} from '../utils/recurrence';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialData?: Partial<IncomeItem> | null;
+  targetMonth?: string | null;
 }
 
 interface IncomeEntry {
@@ -43,21 +51,11 @@ interface EntryErrors {
 
 function getDateForDay(day: number): string {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const clampedDay = Math.min(day, lastDay);
-  const mm = String(month + 1).padStart(2, '0');
-  const dd = String(clampedDay).padStart(2, '0');
-  return `${year}-${mm}-${dd}`;
+  return formatIsoDateParts(now.getFullYear(), now.getMonth() + 1, day);
 }
 
 function getTodayIso(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return getTodayLocalIso();
 }
 
 const createBlankEntry = (label = '', defaultDate = getTodayIso(), recurring = true): IncomeEntry => ({
@@ -68,12 +66,19 @@ const createBlankEntry = (label = '', defaultDate = getTodayIso(), recurring = t
   isRecurring: recurring,
 });
 
-const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData }) => {
+const IncomeModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  initialData,
+  targetMonth,
+}) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [hasMultipleSalaries, setHasMultipleSalaries] = useState(false);
   const [entries, setEntries] = useState<IncomeEntry[]>([createBlankEntry('', getTodayIso(), false)]);
   const [errors, setErrors] = useState<Record<string, EntryErrors>>({});
+  const [editScope, setEditScope] = useState<'only_month' | 'from_month' | 'all'>('only_month');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -81,22 +86,34 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
     setErrors({});
     if (initialData) {
       setHasMultipleSalaries(false);
+      setEditScope(initialData.isRecurring ? 'only_month' : 'all');
+      const resolvedMonth = targetMonth || getMonthKeyFromIso(initialData.incomeDate);
+      const effective =
+        initialData.isRecurring && resolvedMonth && initialData.id
+          ? getEffectiveIncomeForMonth(initialData as IncomeItem, resolvedMonth)
+          : null;
+      const effectiveDate = effective?.applies
+        ? effective.date
+        : initialData.incomeDate
+          ? String(initialData.incomeDate).split('T')[0]
+          : getTodayIso();
       setEntries([
         {
           key: 'edit-entry',
-          name: initialData.name || '',
-          value: formatNumberToCurrencyInput(initialData.value),
-          incomeDate: initialData.incomeDate
-            ? String(initialData.incomeDate).split('T')[0]
-            : getTodayIso(),
+          name: effective?.applies ? effective.name : initialData.name || '',
+          value: formatNumberToCurrencyInput(
+            effective?.applies ? effective.value : initialData.value,
+          ),
+          incomeDate: effectiveDate,
           isRecurring: Boolean(initialData.isRecurring),
         },
       ]);
     } else {
       setHasMultipleSalaries(false);
+      setEditScope('all');
       setEntries([createBlankEntry('', getTodayIso(), true)]);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, targetMonth]);
 
   const applyBiweeklyPreset = () => {
     setErrors({});
@@ -215,12 +232,23 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
       setLoading(true);
       if (initialData) {
         const entry = entries[0];
-        await api.patch(`/income/${initialData.id}`, {
+        const updatePayload: Record<string, unknown> = {
           name: entry.name.trim(),
           value: Number(parseCurrencyInput(entry.value).toFixed(2)),
           incomeDate: entry.incomeDate,
           isRecurring: entry.isRecurring,
-        });
+        };
+        if (initialData.isRecurring) {
+          const scopeMonth =
+            targetMonth ||
+            getMonthKeyFromIso(entry.incomeDate) ||
+            getMonthKeyFromIso(initialData.incomeDate);
+          updatePayload.editScope = editScope;
+          if (editScope !== 'all' && scopeMonth) {
+            updatePayload.targetMonth = scopeMonth;
+          }
+        }
+        await api.patch(`/income/${initialData.id}`, updatePayload);
         toast.success(t('modals.income.updatedToast'));
       } else {
         for (const entry of entries) {
@@ -341,6 +369,73 @@ const IncomeModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialData 
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {initialData?.isRecurring && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-3.5 space-y-2">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                {t('dashboard.scopeEdit.title')}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(
+                  [
+                    {
+                      id: 'only_month' as const,
+                      label: t('dashboard.scopeEdit.onlyMonth', {
+                        month: formatMonthLabel(
+                          targetMonth ||
+                            getMonthKeyFromIso(entries[0]?.incomeDate) ||
+                            getMonthKeyFromIso(initialData.incomeDate) ||
+                            getMonthKeyFromIso(getTodayIso()),
+                        ),
+                      }),
+                      desc: t('dashboard.scopeEdit.onlyMonthDesc'),
+                    },
+                    {
+                      id: 'from_month' as const,
+                      label: t('dashboard.scopeEdit.fromMonth', {
+                        month: formatMonthLabel(
+                          targetMonth ||
+                            getMonthKeyFromIso(entries[0]?.incomeDate) ||
+                            getMonthKeyFromIso(initialData.incomeDate) ||
+                            getMonthKeyFromIso(getTodayIso()),
+                        ),
+                      }),
+                      desc: t('dashboard.scopeEdit.fromMonthDesc', {
+                        month: formatMonthLabel(
+                          targetMonth ||
+                            getMonthKeyFromIso(entries[0]?.incomeDate) ||
+                            getMonthKeyFromIso(initialData.incomeDate) ||
+                            getMonthKeyFromIso(getTodayIso()),
+                        ),
+                      }),
+                    },
+                    {
+                      id: 'all' as const,
+                      label: t('dashboard.scopeEdit.all'),
+                      desc: t('dashboard.scopeEdit.allDesc'),
+                    },
+                  ]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-testid={`income-edit-scope-${opt.id}`}
+                    onClick={() => setEditScope(opt.id)}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      editScope === opt.id
+                        ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-200 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold leading-snug">{opt.label}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      {opt.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

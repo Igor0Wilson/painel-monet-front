@@ -12,6 +12,7 @@ import {
   FaUtensils,
 } from 'react-icons/fa';
 import { ExpenseItem } from '../types/finance';
+import { projectExpensesForMonth } from './recurrence';
 
 export const OFFICIAL_CATEGORIES = [
   'Transporte',
@@ -197,12 +198,17 @@ export function normalizeCategoryName(rawName?: string | null): OfficialCategory
     norm.includes('movel') ||
     norm.includes('eletron') ||
     norm.includes('eletro') ||
+    norm.includes('electronics') ||
+    norm.includes('furniture') ||
+    norm.includes('muebles') ||
+    norm.includes('informatica') ||
     norm.includes('notebook') ||
     norm.includes('computador') ||
     norm.includes('celular') ||
     norm.includes('geladeira') ||
     norm.includes('sofa') ||
     norm.includes('televisao') ||
+    norm.includes('tv') ||
     norm.includes('monitor')
   ) {
     return 'Móveis e Eletrônicos';
@@ -329,31 +335,9 @@ export function getMonthExpensesForAnalytics(
   expenses: ExpenseItem[],
   monthKey: string,
 ): ExpenseItem[] {
-  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return [];
-  const [targetYear, targetMonth] = monthKey.split('-').map(Number);
-  const targetMonthIdx = targetYear * 12 + (targetMonth - 1);
-
-  return expenses
-    .filter((exp) => {
-      if (!exp.dueDate) return false;
-      if (exp.paymentMethod === 'credito' && !exp.isCreditCard) {
-        return false;
-      }
-
-      const cleanDate = String(exp.dueDate).split('T')[0];
-      if (cleanDate.startsWith(monthKey)) {
-        return true;
-      }
-
-      if (exp.isRecurring) {
-        const [ey, em] = cleanDate.split('-').map(Number);
-        const expMonthIdx = ey * 12 + (em - 1);
-        return targetMonthIdx >= expMonthIdx;
-      }
-
-      return false;
-    })
-    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+  return projectExpensesForMonth(expenses, monthKey).filter(
+    (exp) => !(exp.paymentMethod === 'credito' && !exp.isCreditCard),
+  );
 }
 
 export function computeRealtimeCategoriesForMonth(

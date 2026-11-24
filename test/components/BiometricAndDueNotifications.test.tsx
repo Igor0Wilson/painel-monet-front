@@ -6,6 +6,7 @@ import UserEditModal from '../../src/components/UserEditModal';
 import Login from '../../src/pages/Login';
 import * as appEnv from '../../src/utils/appEnvironment';
 import * as biometricAuth from '../../src/utils/biometricAuth';
+import * as securityLockAuth from '../../src/utils/securityLockAuth';
 import {
   DueExpenseReminderItem,
   notifyDueExpenseOnDevice,
@@ -243,5 +244,175 @@ describe('Biometric Settings, Platform Login & Due-Date Notifications', () => {
 
     delete (window as unknown as { ReactNativeWebView?: unknown })
       .ReactNativeWebView;
+  });
+
+  it('keeps separate Digital & Facial slots on Login, auto-reveals PIN on Digital failure, and allows Facial or PIN login for Gmail accounts', async () => {
+    jest.spyOn(appEnv, 'isRunningInInstalledApp').mockReturnValue(true);
+    jest
+      .spyOn(biometricAuth, 'detectBiometricCapabilities')
+      .mockResolvedValue({
+        available: true,
+        isNativeApp: true,
+        isInstalledApp: true,
+        protocol: 'native_hmac',
+        platform: 'mobile_android',
+        hasFacial: true,
+        hasFingerprint: true,
+      });
+
+    biometricAuth.saveLocalBiometricPointer({
+      id: 'cred-fp',
+      credentialId: 'native-fp-1',
+      protocol: 'native_hmac',
+      kind: 'fingerprint',
+      platform: 'mobile_android',
+      deviceLabel: 'Pixel Digital',
+    });
+    biometricAuth.saveLocalBiometricPointer({
+      id: 'cred-face',
+      credentialId: 'native-face-1',
+      protocol: 'native_hmac',
+      kind: 'facial',
+      platform: 'mobile_android',
+      deviceLabel: 'Pixel Facial',
+    });
+    securityLockAuth.saveLocalPinToken({
+      pinDeviceToken: 'signed.pin.token',
+      authProvider: 'google',
+      userName: 'Usuario Gmail',
+    });
+
+    expect(biometricAuth.getLocalBiometricPointers()).toHaveLength(2);
+    expect(biometricAuth.getLocalBiometricPointer('fingerprint')?.credentialId).toBe(
+      'native-fp-1',
+    );
+    expect(biometricAuth.getLocalBiometricPointer('facial')?.credentialId).toBe(
+      'native-face-1',
+    );
+
+    const loginBioSpy = jest
+      .spyOn(biometricAuth, 'loginWithBiometricCredential')
+      .mockRejectedValueOnce(new Error('fingerprint_cancelled'))
+      .mockResolvedValueOnce({
+        access_token: 'jwt-facial-google',
+        user: {
+          id: 'u-google-1',
+          name: 'Usuario Gmail',
+          maskedEmail: 'us***@gmail.com',
+          maskedCpf: '***.111.222-**',
+          hasCpf: true,
+        },
+      });
+
+    render(
+      <AuthProvider>
+        <Login />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('biometric-login-btn')).toHaveTextContent(
+        'Entrar com Digital',
+      );
+      expect(screen.getByTestId('facial-login-btn')).toHaveTextContent(
+        'Entrar com Reconhecimento Facial',
+      );
+      expect(screen.getByTestId('pin-login-toggle-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('google-persist-quick-hint')).toBeInTheDocument();
+    });
+
+    // Failing Digital reveals PIN fallback form automatically
+    fireEvent.click(screen.getByTestId('biometric-login-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('login-pin-form')).toBeInTheDocument();
+    });
+
+    // Explicit Facial button authenticates directly using the facial slot
+    fireEvent.click(screen.getByTestId('facial-login-btn'));
+    await waitFor(() => {
+      expect(loginBioSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ preferredKind: 'facial' }),
+      );
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
+    });
+  });
+
+  it('allows configuring and removing Access Code (PIN) inside UserEditModal alongside biometrics', async () => {
+    jest.spyOn(appEnv, 'isRunningInInstalledApp').mockReturnValue(true);
+    jest
+      .spyOn(biometricAuth, 'detectBiometricCapabilities')
+      .mockResolvedValue({
+        available: true,
+        isNativeApp: true,
+        isInstalledApp: true,
+        protocol: 'native_hmac',
+        platform: 'mobile_android',
+        hasFacial: true,
+        hasFingerprint: true,
+      });
+
+    mockedApi.get.mockImplementation((url: string) => {
+      if (url === '/users/me/profile') {
+        return Promise.resolve({
+          data: { name: 'Igor Gmail', email: 'igor@gmail.com', cpf: '', phone: '' },
+        });
+      }
+      if (url === '/auth/biometric/credentials') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/auth/security-pin/status') {
+        return Promise.resolve({
+          data: {
+            hasPin: false,
+            updatedAt: null,
+            lockedUntilMs: null,
+            authProvider: 'google',
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    mockedApi.post.mockImplementation((url: string) => {
+      if (url === '/auth/security-pin') {
+        return Promise.resolve({
+          data: {
+            hasPin: true,
+            updatedAt: '2026-11-22T12:00:00Z',
+            pinDeviceToken: 'signed.device.pin',
+            authProvider: 'google',
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    mockedApi.delete.mockResolvedValue({ data: { hasPin: false } });
+
+    render(
+      <AuthProvider>
+        <UserEditModal
+          isOpen={true}
+          onClose={jest.fn()}
+          userData={{ name: 'Igor Gmail', email: 'igor@gmail.com' }}
+          onSuccess={jest.fn()}
+        />
+      </AuthProvider>,
+    );
+
+    const pinInput = await screen.findByTestId('pin-settings-input');
+    fireEvent.change(pinInput, { target: { value: '4829' } });
+    fireEvent.click(screen.getByTestId('pin-save-btn'));
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith('/auth/security-pin', {
+        pin: '4829',
+      });
+      expect(screen.getByTestId('pin-remove-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('pin-remove-btn'));
+    await waitFor(() => {
+      expect(mockedApi.delete).toHaveBeenCalledWith('/auth/security-pin');
+    });
   });
 });

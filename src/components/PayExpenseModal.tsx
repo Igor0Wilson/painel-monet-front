@@ -25,11 +25,18 @@ import {
   formatDateBr,
   formatExpenseDisplayName,
   formatNumberToCurrencyInput,
+  formatShortDate,
   getCurrencyPlaceholder,
   maskPixKey,
   normalizeCardLast4Input,
   parseCurrencyInput,
 } from '../utils/formatters';
+import {
+  addMonthsIso,
+  getMonthKeyFromIso,
+  getNextMonthLocalIso,
+  getTodayLocalIso,
+} from '../utils/recurrence';
 
 export type PaymentMethod = 'dinheiro' | 'pix' | 'debito' | 'credito' | 'va' | 'vr';
 
@@ -47,20 +54,11 @@ interface Props {
 }
 
 function getTodayIso(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return getTodayLocalIso();
 }
 
 function getNextMonthIso(): string {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const yyyy = next.getFullYear();
-  const mm = String(next.getMonth() + 1).padStart(2, '0');
-  const dd = String(next.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return getNextMonthLocalIso();
 }
 
 const QUICK_INSTALLMENTS = [1, 2, 3, 6, 10, 12];
@@ -319,9 +317,18 @@ const PayExpenseModal: React.FC<Props> = ({
         firstInstallmentDate?: string;
         cardBank?: string;
         cardLast4?: string;
+        occurrenceMonth?: string;
       } = { paymentMethod };
       if (!isBatch) {
         payload.paidAt = paymentDate;
+        if (singleExpense?.isRecurring) {
+          const occMonth =
+            singleExpense._occurrenceMonth ||
+            getMonthKeyFromIso(singleExpense.dueDate);
+          if (occMonth) {
+            payload.occurrenceMonth = occMonth;
+          }
+        }
         if (settlementMode === 'partial') {
           payload.amount = parsedPartialValue;
         } else if (hasEarlyDiscount && parsedDiscountedPaidValue > 0) {
@@ -913,6 +920,23 @@ const PayExpenseModal: React.FC<Props> = ({
                     {validInstallments}x {formatProtectedCurrency(perInstallment)}
                   </span>
                 </p>
+                {firstInstallmentDate && validInstallments >= 1 && (
+                  <div className="pt-1.5 flex flex-wrap gap-1.5">
+                    {Array.from({ length: Math.min(validInstallments, 6) }, (_, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-600 dark:text-slate-300 tabular-nums"
+                      >
+                        {idx + 1}/{validInstallments}: {formatDateBr(addMonthsIso(firstInstallmentDate, idx))}
+                      </span>
+                    ))}
+                    {validInstallments > 6 && (
+                      <span className="text-[10px] text-slate-400 self-center">
+                        +{validInstallments - 6} ({formatShortDate(addMonthsIso(firstInstallmentDate, validInstallments - 1))})
+                      </span>
+                    )}
+                  </div>
+                )}
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   {formatDateBr(firstInstallmentDate)}
                 </p>

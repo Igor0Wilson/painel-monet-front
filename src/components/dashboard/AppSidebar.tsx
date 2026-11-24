@@ -3,13 +3,19 @@ import { useTranslation } from 'react-i18next';
 import {
   FaBars,
   FaChevronRight,
+  FaCreditCard,
   FaDownload,
   FaHistory,
+  FaLayerGroup,
+  FaReceipt,
+  FaSeedling,
   FaSignOutAlt,
   FaTimes,
   FaUser,
   FaUserPlus,
   FaUsers,
+  FaUtensils,
+  FaWallet,
 } from 'react-icons/fa';
 import { ActiveTab, PanelScope } from '../../types/finance';
 import { downloadUserFinancialData } from '../../utils/downloadUserData';
@@ -133,6 +139,7 @@ interface AppSidebarProps {
   onSelectIndividualPanel: () => void;
   onSelectFamilyPanel: () => void;
   onSelectHistory: () => void;
+  onSelectTab?: (tab: ActiveTab) => void;
   onOpenFamilyModal: () => void;
   onOpenProfileModal: () => void;
   onRequestLogout: () => void;
@@ -179,6 +186,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   onSelectIndividualPanel,
   onSelectFamilyPanel,
   onSelectHistory,
+  onSelectTab,
   onOpenFamilyModal,
   onOpenProfileModal,
   onRequestLogout,
@@ -702,6 +710,50 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 {familyMembersCount}
               </span>
             </button>
+          )}
+
+          {onSelectTab && (
+            <div className="pt-1 space-y-1">
+              {(
+                [
+                  { id: 'finances' as ActiveTab, label: t('dashboard.navTabs.finances'), icon: FaLayerGroup },
+                  { id: 'expenses' as ActiveTab, label: t('dashboard.navTabs.expenses'), icon: FaReceipt },
+                  { id: 'cards' as ActiveTab, label: t('dashboard.navTabs.cards'), icon: FaCreditCard },
+                  { id: 'incomes' as ActiveTab, label: t('dashboard.navTabs.incomes'), icon: FaWallet },
+                  { id: 'investments' as ActiveTab, label: t('dashboard.navTabs.investments'), icon: FaSeedling },
+                  { id: 'food' as ActiveTab, label: t('dashboard.navTabs.food'), icon: FaUtensils },
+                ]
+              ).map((item) => {
+                const isItemActive = activeTab === item.id && !isCategoryDetailOpen;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectTab(item.id);
+                      onClose();
+                    }}
+                    data-testid={`sidebar-nav-${item.id}`}
+                    aria-current={isItemActive ? 'page' : undefined}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      isItemActive
+                        ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {renderIcon(
+                      item.icon,
+                      `text-xs flex-shrink-0 ${
+                        isItemActive
+                          ? 'text-emerald-400 dark:text-slate-950'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`,
+                    )}
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
 
           <button

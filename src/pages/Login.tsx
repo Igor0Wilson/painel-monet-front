@@ -8,10 +8,12 @@ import {
   FaEye,
   FaEyeSlash,
   FaFingerprint,
+  FaKey,
   FaShieldAlt,
   FaChartLine,
   FaLayerGroup,
   FaExclamationTriangle,
+  FaSmile,
   FaUserShield,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -21,10 +23,18 @@ import {
   clearLocalBiometricPointer,
   detectBiometricCapabilities,
   getLocalBiometricPointer,
+  getLocalBiometricPointers,
   loginWithBiometricCredential,
   type BiometricCapabilityInfo,
+  type BiometricKind,
   type LocalBiometricDevicePointer,
 } from '../utils/biometricAuth';
+import {
+  getAuthProviderHint,
+  getLocalPinToken,
+  saveAuthProviderHint,
+  verifySecurityPinLogin,
+} from '../utils/securityLockAuth';
 import {
   consumeGoogleRedirectResult,
   signInWithEmailFirebase,
@@ -51,14 +61,40 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
-  const [biometricPointer, setBiometricPointer] =
-    useState<LocalBiometricDevicePointer | null>(() => getLocalBiometricPointer());
+  const [pinLoading, setPinLoading] = useState(false);
+  const [biometricPointers, setBiometricPointers] = useState<
+    LocalBiometricDevicePointer[]
+  >(() => getLocalBiometricPointers());
+  const [pinTokenPresent, setPinTokenPresent] = useState<boolean>(() =>
+    Boolean(getLocalPinToken()?.pinDeviceToken),
+  );
+  const [providerHint] = useState<'password' | 'google' | null>(() =>
+    getAuthProviderHint(),
+  );
+  const [showPinForm, setShowPinForm] = useState(false);
+  const [pinInput, setPinInput] = useState('');
   const [bioCaps, setBioCaps] = useState<BiometricCapabilityInfo | null>(null);
   const [googlePending, setGooglePending] = useState<GooglePendingProfile | null>(null);
   const [deactivatedEmail, setDeactivatedEmail] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  const fingerprintPointer = useMemo(
+    () =>
+      biometricPointers.find((p) => p.kind === 'fingerprint') ||
+      biometricPointers.find((p) => p.kind === 'biometric') ||
+      null,
+    [biometricPointers],
+  );
+  const facialPointer = useMemo(
+    () => biometricPointers.find((p) => p.kind === 'facial') || null,
+    [biometricPointers],
+  );
+  const primaryBiometricPointer = useMemo(
+    () => fingerprintPointer || facialPointer || getLocalBiometricPointer(),
+    [facialPointer, fingerprintPointer],
+  );
 
   const schema = useMemo(
     () =>
@@ -89,30 +125,75 @@ const Login: React.FC = () => {
     };
   }, []);
 
-  const handleBiometricLogin = async () => {
+  const handleBiometricLogin = async (preferredKind?: BiometricKind) => {
+    const targetKind =
+      preferredKind || primaryBiometricPointer?.kind || 'fingerprint';
+    if (targetKind === 'facial' && !facialPointer) {
+      toast.info(t('auth.facialNotConfiguredHint'));
+      return;
+    }
+
     try {
       setBiometricLoading(true);
       const isApp = Boolean(bioCaps?.isInstalledApp);
-      const promptTitle = isApp
-        ? t('auth.biometric.loginBiometricApp')
-        : t('auth.biometric.loginFacialWeb');
-      const result = await loginWithBiometricCredential(promptTitle);
+      const promptTitle =
+        targetKind === 'facial'
+          ? t('auth.facialLoginBtn')
+          : targetKind === 'fingerprint'
+            ? t('auth.biometric.loginFingerprintApp')
+            : isApp
+              ? t('auth.biometric.loginBiometricApp')
+              : t('auth.biometric.loginFacialWeb');
+
+      const result = await loginWithBiometricCredential({
+        promptTitle,
+        preferredKind: targetKind,
+        disableDeviceFallback: true,
+      });
       login(result.access_token, result.user as unknown as User);
       toast.success(t('auth.biometric.loginSuccess'));
       navigate('/dashboard', { replace: true });
     } catch (error: unknown) {
       const apiStatus = (error as { response?: { status?: number } })?.response?.status;
       if (apiStatus === 401 || apiStatus === 404) {
-        clearLocalBiometricPointer();
-        setBiometricPointer(null);
+        const usedPtr =
+          targetKind === 'facial' ? facialPointer : primaryBiometricPointer;
+        if (usedPtr) {
+          clearLocalBiometricPointer(usedPtr.credentialId);
+          setBiometricPointers(getLocalBiometricPointers());
+        }
         toast.info(t('auth.biometric.loginUnavailable'));
       } else {
         toast.error(
           extractApiErrorMessage(error, t('auth.biometric.loginUnavailable')),
         );
       }
+      if (pinTokenPresent && targetKind !== 'facial') {
+        setShowPinForm(true);
+      }
     } finally {
       setBiometricLoading(false);
+    }
+  };
+
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sanitized = pinInput.replace(/\D/g, '').slice(0, 6);
+    if (!/^\d{4,6}$/.test(sanitized)) {
+      toast.error(t('appLock.codeRequiredError'));
+      return;
+    }
+    try {
+      setPinLoading(true);
+      const data = await verifySecurityPinLogin(sanitized);
+      login(data.access_token, data.user);
+      toast.success(t('auth.loginSuccess'));
+      navigate('/dashboard', { replace: true });
+    } catch (error: unknown) {
+      toast.error(extractApiErrorMessage(error, t('appLock.genericError')));
+      setPinTokenPresent(Boolean(getLocalPinToken()?.pinDeviceToken));
+    } finally {
+      setPinLoading(false);
     }
   };
 
@@ -144,6 +225,7 @@ const Login: React.FC = () => {
           return;
         }
         const { access_token, user, reactivated } = response.data;
+        saveAuthProviderHint('google');
         login(access_token, user);
         toast.success(
           reactivated
@@ -187,6 +269,7 @@ const Login: React.FC = () => {
       });
 
       const { access_token, user, reactivated } = response.data;
+      saveAuthProviderHint('password');
       login(access_token, user);
       toast.success(
         reactivated
@@ -240,6 +323,7 @@ const Login: React.FC = () => {
       }
 
       const { access_token, user, reactivated } = response.data;
+      saveAuthProviderHint('google');
       login(access_token, user);
       toast.success(
         reactivated
@@ -389,11 +473,11 @@ const Login: React.FC = () => {
               label={t('auth.googleContinue')}
             />
 
-            {biometricPointer && bioCaps?.available && (
+            {primaryBiometricPointer && bioCaps?.available && (
               <button
                 type="button"
-                onClick={handleBiometricLogin}
-                disabled={biometricLoading || loading || googleLoading}
+                onClick={() => void handleBiometricLogin(primaryBiometricPointer.kind)}
+                disabled={biometricLoading || loading || googleLoading || pinLoading}
                 data-testid="biometric-login-btn"
                 className="w-full mt-3 inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50"
               >
@@ -408,13 +492,86 @@ const Login: React.FC = () => {
                     ? t('auth.biometric.verifying')
                     : !bioCaps.isInstalledApp
                       ? t('auth.biometric.loginFacialWeb')
-                      : biometricPointer.kind === 'fingerprint'
+                      : primaryBiometricPointer.kind === 'fingerprint'
                         ? t('auth.biometric.loginFingerprintApp')
-                        : biometricPointer.kind === 'facial'
+                        : primaryBiometricPointer.kind === 'facial'
                           ? t('auth.biometric.loginFacialWeb')
                           : t('auth.biometric.loginBiometricApp')}
                 </span>
               </button>
+            )}
+
+            {(!primaryBiometricPointer ||
+              primaryBiometricPointer.kind !== 'facial' ||
+              !bioCaps?.available) && (
+              <button
+                type="button"
+                onClick={() => void handleBiometricLogin('facial')}
+                disabled={biometricLoading || loading || googleLoading || pinLoading}
+                data-testid="facial-login-btn"
+                className="w-full mt-2.5 inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50"
+              >
+                {React.createElement(FaSmile as unknown as React.ComponentType<{ className?: string }>, {
+                  className: 'text-sm',
+                })}
+                <span>
+                  {biometricLoading ? t('auth.biometric.verifying') : t('auth.facialLoginBtn')}
+                </span>
+              </button>
+            )}
+
+            {pinTokenPresent && (
+              <div className="mt-2.5 space-y-2.5">
+                {!showPinForm ? (
+                  <button
+                    type="button"
+                    data-testid="pin-login-toggle-btn"
+                    onClick={() => setShowPinForm(true)}
+                    disabled={biometricLoading || loading || googleLoading || pinLoading}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-all"
+                  >
+                    {React.createElement(FaKey as unknown as React.ComponentType<{ className?: string }>, {
+                      className: 'text-xs text-emerald-600 dark:text-emerald-400',
+                    })}
+                    <span>{t('auth.pinLoginBtn')}</span>
+                  </button>
+                ) : (
+                  <form
+                    onSubmit={handlePinLogin}
+                    data-testid="login-pin-form"
+                    className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 space-y-2"
+                  >
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      data-testid="login-pin-input"
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder={t('auth.pinLoginPlaceholder')}
+                      className="exec-input text-center tracking-[0.3em] font-semibold text-sm"
+                    />
+                    <button
+                      type="submit"
+                      data-testid="login-pin-submit-btn"
+                      disabled={pinLoading || pinInput.length < 4}
+                      className="exec-btn-primary w-full text-xs"
+                    >
+                      {pinLoading ? t('appLock.verifying') : t('auth.pinLoginSubmitBtn')}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {providerHint === 'google' && (primaryBiometricPointer || facialPointer || pinTokenPresent) && (
+              <p
+                data-testid="google-persist-quick-hint"
+                className="mt-2.5 text-[11px] text-center text-slate-500 dark:text-slate-400 leading-relaxed"
+              >
+                {t('auth.googlePersistQuickHint')}
+              </p>
             )}
 
             <div className="relative my-5">

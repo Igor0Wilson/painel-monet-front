@@ -37,6 +37,7 @@ import {
   formatMonthLabel,
   shiftMonthKey,
 } from '../utils/formatters';
+import { getEffectiveIncomeForMonth } from '../utils/recurrence';
 import EncryptedImage from './EncryptedImage';
 import StatusBadge from './dashboard/StatusBadge';
 
@@ -79,20 +80,19 @@ const HistoryTab: React.FC<Props> = ({
   );
 
   const monthIncomes = useMemo(() => {
-    const [selYear, selMonth] = selectedMonth.split('-').map(Number);
-    const selMonthIndex = selYear * 12 + (selMonth - 1);
-
-    return incomes.filter((inc) => {
-      if (!inc.incomeDate) return false;
-      const clean = String(inc.incomeDate).split('T')[0];
-      const [iy, im] = clean.split('-').map(Number);
-      const startMonthIndex = iy * 12 + (im - 1);
-
-      if (!inc.isRecurring) {
-        return clean.startsWith(selectedMonth);
-      }
-      return selMonthIndex >= startMonthIndex;
-    });
+    return incomes
+      .map((inc) => {
+        const eff = getEffectiveIncomeForMonth(inc, selectedMonth);
+        return { inc, eff };
+      })
+      .filter((entry) => entry.eff.applies)
+      .map(({ inc, eff }) => ({
+        ...inc,
+        name: eff.name,
+        value: eff.value,
+        incomeDate: eff.date,
+        status: eff.status,
+      }));
   }, [incomes, selectedMonth]);
 
   const hasCategoryData = activeCategories.length > 0;

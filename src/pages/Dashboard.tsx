@@ -12,7 +12,20 @@ import {
   Title,
   Tooltip,
 } from 'chart.js';
-import { FaBell, FaHistory, FaPlus, FaThLarge, FaUser, FaUsers } from 'react-icons/fa';
+import {
+  FaBell,
+  FaChevronRight,
+  FaCreditCard,
+  FaHistory,
+  FaLayerGroup,
+  FaPlus,
+  FaSeedling,
+  FaTimes,
+  FaUser,
+  FaUsers,
+  FaUtensils,
+  FaWallet,
+} from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../api';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -29,6 +42,7 @@ import CategoryDetailsView from '../components/dashboard/CategoryDetailsView';
 import CreditCardInvoicePanel from '../components/dashboard/CreditCardInvoicePanel';
 import ExpensesListSection from '../components/dashboard/ExpensesListSection';
 import FamilyMembersStrip from '../components/dashboard/FamilyMembersStrip';
+import FoodVoucherSection from '../components/dashboard/FoodVoucherSection';
 import IncomesListSection from '../components/dashboard/IncomesListSection';
 import InvestmentsListSection from '../components/dashboard/InvestmentsListSection';
 import InvestmentsModal from '../components/dashboard/InvestmentsModal';
@@ -36,8 +50,17 @@ import KpiGrid from '../components/dashboard/KpiGrid';
 import MonthlyChartsSection from '../components/dashboard/MonthlyChartsSection';
 import Navbar from '../components/dashboard/Navbar';
 import AppSidebar, { MobileAppHeader } from '../components/dashboard/AppSidebar';
+import WebModuleSidebar from '../components/dashboard/WebModuleSidebar';
+import AppLockOverlay from '../components/auth/AppLockOverlay';
 import { useAuth } from '../context/AuthContext';
 import { isRunningInInstalledApp } from '../utils/appEnvironment';
+import {
+  type BiometricCredentialView,
+  syncLocalBiometricPointersWithServer,
+} from '../utils/biometricAuth';
+import {
+  syncSecurityPinDeviceToken,
+} from '../utils/securityLockAuth';
 import { useFamilyRealtimeSync } from '../hooks/useFamilyRealtimeSync';
 import {
   ActiveTab,
@@ -60,11 +83,12 @@ import { extractApiErrorMessage, getApiErrorStatus } from '../utils/errorHandler
 import {
   formatCurrency,
   formatMonthLabel,
+  formatMonthShortLabel,
   formatNumberToCurrencyInput,
   getCurrentMonthKey,
   parseCurrencyInput,
 } from '../utils/formatters';
-import { getActiveLocale } from '../i18n';
+import { getTodayLocalIso, projectExpensesForMonth } from '../utils/recurrence';
 
 ChartJS.register(
   ArcElement,
@@ -113,7 +137,13 @@ const Dashboard: React.FC = () => {
   const [panelScope, setPanelScope] = useState<PanelScope>('individual');
   const [isInstalledApp, setIsInstalledApp] = useState<boolean>(() => isRunningInInstalledApp());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAppLocked, setIsAppLocked] = useState(false);
+  const [hasSecurityPin, setHasSecurityPin] = useState(false);
+  const [accountAuthProvider, setAccountAuthProvider] = useState<'password' | 'google'>('password');
   const [selectedHistoryMonth, setSelectedHistoryMonth] = useState<string>(getCurrentMonthKey());
+  const [selectedIncomeMonth, setSelectedIncomeMonth] = useState<string>(getCurrentMonthKey());
+  const [selectedFoodMonth, setSelectedFoodMonth] = useState<string>(getCurrentMonthKey());
+  const [editingIncomeMonth, setEditingIncomeMonth] = useState<string | null>(null);
   const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>('all');
 
   const [balance, setBalance] = useState<BalanceData>(INITIAL_BALANCE);
@@ -142,6 +172,11 @@ const Dashboard: React.FC = () => {
   const [deleteConfig, setDeleteConfig] = useState<{
     id: string;
     type: 'expense' | 'income' | 'investment';
+    isRecurring?: boolean;
+    isInstallment?: boolean;
+    targetMonth?: string;
+    name?: string;
+    scope?: 'only_month' | 'from_month' | 'all' | 'all_installments';
   } | null>(null);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
   const [undoPayTarget, setUndoPayTarget] = useState<ExpenseItem | null>(null);
@@ -156,13 +191,7 @@ const Dashboard: React.FC = () => {
     null,
   );
   const [allocationInput, setAllocationInput] = useState('');
-  const [foodCreditDate, setFoodCreditDate] = useState<string>(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  });
+  const [foodCreditDate, setFoodCreditDate] = useState<string>(() => getTodayLocalIso());
   const [foodIsRecurring, setFoodIsRecurring] = useState<boolean>(true);
   const [savingsFromBalance, setSavingsFromBalance] = useState<boolean>(false);
   const [isAllocationLoading, setIsAllocationLoading] = useState(false);
@@ -315,10 +344,29 @@ const Dashboard: React.FC = () => {
     }
   }, [t]);
 
+  const syncDeviceSecurityState = useCallback(async () => {
+    try {
+      const [credsRes, pinSync] = await Promise.all([
+        api.get<BiometricCredentialView[]>('/auth/biometric/credentials').catch(() => null),
+        syncSecurityPinDeviceToken(user?.name).catch(() => null),
+      ]);
+      if (credsRes && Array.isArray(credsRes.data)) {
+        syncLocalBiometricPointersWithServer(credsRes.data, user?.id);
+      }
+      if (pinSync) {
+        setHasSecurityPin(Boolean(pinSync.hasPin));
+        setAccountAuthProvider(pinSync.authProvider);
+      }
+    } catch {
+      // Keep cached security pointers if offline
+    }
+  }, [user?.id, user?.name]);
+
   useEffect(() => {
     fetchFamilyStatus();
-    requestDeviceNotificationPermission().catch(() => undefined);
-  }, [fetchFamilyStatus]);
+    void Promise.resolve(syncDeviceSecurityState()).catch(() => undefined);
+    void Promise.resolve(requestDeviceNotificationPermission()).catch(() => undefined);
+  }, [fetchFamilyStatus, syncDeviceSecurityState]);
 
   useEffect(() => {
     const unpaidCount = expenses.filter((e) => !e.isPaid).length;
@@ -412,6 +460,46 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!isInstalledApp) return undefined;
+
+    const handleAppLifecycle = (event: Event) => {
+      const detail = (event as CustomEvent<{ state?: string }>).detail;
+      if (detail?.state === 'background' || detail?.state === 'resume_lock') {
+        setIsAppLocked(true);
+      }
+    };
+
+    let wasPwaHidden = false;
+    const handleVisibilityChange = () => {
+      const win = window as unknown as {
+        ReactNativeWebView?: unknown;
+        __PM_SUPPRESS_VISIBILITY_LOCK_UNTIL__?: number;
+      };
+      if (win.ReactNativeWebView) return;
+      if (
+        win.__PM_SUPPRESS_VISIBILITY_LOCK_UNTIL__ &&
+        Date.now() < win.__PM_SUPPRESS_VISIBILITY_LOCK_UNTIL__
+      ) {
+        return;
+      }
+      if (document.visibilityState === 'hidden') {
+        wasPwaHidden = true;
+        setIsAppLocked(true);
+      } else if (document.visibilityState === 'visible' && wasPwaHidden) {
+        wasPwaHidden = false;
+        setIsAppLocked(true);
+      }
+    };
+
+    window.addEventListener('PM_APP_LIFECYCLE', handleAppLifecycle);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('PM_APP_LIFECYCLE', handleAppLifecycle);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isInstalledApp]);
+
+  useEffect(() => {
     const currentState = window.history.state as { dashboardGuard?: boolean } | null;
     if (!currentState?.dashboardGuard) {
       window.history.pushState({ dashboardGuard: true }, '', window.location.href);
@@ -447,7 +535,18 @@ const Dashboard: React.FC = () => {
           : deleteConfig.type === 'investment'
             ? '/balance/investments/items'
             : '/income';
-      await api.delete(`${endpoint}/${deleteConfig.id}`);
+      const params: Record<string, string> = {};
+      if (deleteConfig.type !== 'investment') {
+        if (deleteConfig.scope) {
+          params.scope = deleteConfig.scope;
+        }
+        if (deleteConfig.targetMonth && deleteConfig.scope && deleteConfig.scope !== 'all' && deleteConfig.scope !== 'all_installments') {
+          params.month = deleteConfig.targetMonth;
+        }
+      }
+      await api.delete(`${endpoint}/${deleteConfig.id}`, {
+        params: Object.keys(params).length > 0 ? params : undefined,
+      });
       toast.success(
         deleteConfig.type === 'income'
           ? t('dashboard.deleteIncomeSuccess')
@@ -730,22 +829,15 @@ const Dashboard: React.FC = () => {
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, items]) => {
-        const [yearStr, monthStr] = month.split('-');
-        const dateObj = new Date(Number(yearStr), Number(monthStr) - 1, 1);
-        const locale = i18n.language || getActiveLocale();
-        const fullMonth = dateObj.toLocaleDateString(locale, {
-          month: 'long',
-          year: 'numeric',
-        });
-        const shortMonth = dateObj
-          .toLocaleDateString(locale, { month: 'short' })
-          .replace('.', '');
+        const [yearStr] = month.split('-');
+        const fullMonth = formatMonthLabel(month, i18n.language);
+        const shortMonth = formatMonthShortLabel(month);
         const total = items.reduce((sum, item) => sum + Number(item.value), 0);
 
         return {
           month,
-          label: fullMonth.charAt(0).toUpperCase() + fullMonth.slice(1),
-          shortLabel: `${shortMonth.charAt(0).toUpperCase() + shortMonth.slice(1)}/${yearStr}`,
+          label: fullMonth,
+          shortLabel: `${shortMonth}/${yearStr}`,
           total: Number(total.toFixed(2)),
           items,
         };
@@ -777,13 +869,46 @@ const Dashboard: React.FC = () => {
       ? Number(balance.ownBalance || 0) + allocatedSavingsForModal
       : 0;
 
+  const currentMonthExpensesProjected = useMemo(
+    () => projectExpensesForMonth(filteredExpenses, currentMonthKey),
+    [filteredExpenses, currentMonthKey],
+  );
+
+  const openBillsCount = useMemo(
+    () => currentMonthExpensesProjected.filter((e) => !e.isPaid).length,
+    [currentMonthExpensesProjected],
+  );
+
+  const openCreditCardsTotal = useMemo(
+    () =>
+      Number(
+        filteredExpenses
+          .filter((e) => !e.isPaid && (e.isCreditCard || e.paymentMethod === 'credito'))
+          .reduce((s, e) => s + Number(e.value || 0), 0)
+          .toFixed(2),
+      ),
+    [filteredExpenses],
+  );
+
   const activeAppHeaderTitle = categoryDetailState.isOpen
     ? t('charts.categoryTitle')
     : activeTab === 'history'
       ? t('dashboard.historyTab')
-      : isFamilyMode
-        ? t('sidebar.familyPanel')
-        : t('sidebar.individualPanel');
+      : activeTab === 'finances'
+        ? t('dashboard.navTabs.finances')
+        : activeTab === 'incomes'
+          ? t('dashboard.navTabs.incomes')
+          : activeTab === 'expenses'
+            ? t('dashboard.navTabs.expenses')
+            : activeTab === 'cards'
+              ? t('dashboard.navTabs.cards')
+              : activeTab === 'food'
+                ? t('dashboard.navTabs.food')
+                : activeTab === 'investments'
+                  ? t('dashboard.navTabs.investments')
+                  : isFamilyMode
+                    ? t('sidebar.familyPanel')
+                    : t('sidebar.individualPanel');
 
   const handleSelectIndividualPanel = () => {
     handleScopeChange('individual');
@@ -803,8 +928,79 @@ const Dashboard: React.FC = () => {
     setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const handleSelectTab = (nextTab: ActiveTab) => {
+    setActiveTab(nextTab);
+    setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const sharedExpensesProps = {
+    expenses: filteredExpenses,
+    expenseFilter,
+    isFamilyMode,
+    openInstallments,
+    onChangeFilter: setExpenseFilter,
+    onToggleInstallment: (id: string) =>
+      setOpenInstallments((prev) =>
+        prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+      ),
+    onPayExpense: setPayingExpense,
+    onPayBatchExpenses: setPayingBatchExpenses,
+    onUndoPayment: setUndoPayTarget,
+    onGenerateCardInvoice: handleGenerateCardInvoice,
+    onOpenCardsSection: () => handleSelectTab('cards'),
+    onEditExpense: (item: ExpenseItem) => {
+      setEditingItem({ ...item, type: 'expense' });
+      setIsExpenseModalOpen(true);
+    },
+    onDeleteExpense: (id: string) => setDeleteConfig({ id, type: 'expense' }),
+    onDeleteExpenseWithItem: (exp: ExpenseItem) =>
+      setDeleteConfig({
+        id: exp.id,
+        type: 'expense',
+        isRecurring: exp.isRecurring,
+        isInstallment: exp.isInstallment,
+        targetMonth:
+          exp._occurrenceMonth ||
+          String(exp.dueDate || '').slice(0, 7) ||
+          currentMonthKey,
+        name: exp.name,
+        scope: exp.isRecurring ? 'only_month' : undefined,
+      }),
+  };
+
+  const sharedIncomesProps = {
+    incomes: filteredIncomes,
+    isFamilyMode,
+    selectedMonth: selectedIncomeMonth,
+    onSelectMonth: setSelectedIncomeMonth,
+    onAddIncome: () => {
+      setEditingItem(null);
+      setEditingIncomeMonth(null);
+      setIsIncomeModalOpen(true);
+    },
+    onEditIncome: (item: IncomeItem, targetMonth?: string) => {
+      setEditingItem({ ...item, type: 'income' });
+      setEditingIncomeMonth(targetMonth || null);
+      setIsIncomeModalOpen(true);
+    },
+    onDeleteIncome: (id: string) => setDeleteConfig({ id, type: 'income' }),
+    onDeleteIncomeWithMonth: (item: IncomeItem, monthKey?: string) =>
+      setDeleteConfig({
+        id: item.id,
+        type: 'income',
+        isRecurring: item.isRecurring,
+        targetMonth: monthKey || selectedIncomeMonth,
+        name: item.name,
+        scope: item.isRecurring ? 'only_month' : 'all',
+      }),
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300">
+      <div
+        aria-hidden={isAppLocked}
+        className={isAppLocked ? 'invisible pointer-events-none select-none flex-1 flex flex-col' : 'flex-1 flex flex-col'}
+      >
       {!isInstalledApp && (
         <Navbar
           userId={user?.id}
@@ -816,8 +1012,8 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      <div className={isInstalledApp ? 'flex-1 flex flex-col lg:flex-row min-w-0' : 'flex-1 flex flex-col'}>
-        {isInstalledApp && (
+      <div className="flex-1 flex flex-col lg:flex-row min-w-0">
+        {isInstalledApp ? (
           <AppSidebar
             isOpen={isSidebarOpen}
             onOpen={() => setIsSidebarOpen(true)}
@@ -835,9 +1031,19 @@ const Dashboard: React.FC = () => {
             onSelectIndividualPanel={handleSelectIndividualPanel}
             onSelectFamilyPanel={handleSelectFamilyPanel}
             onSelectHistory={handleSelectHistoryTab}
+            onSelectTab={handleSelectTab}
             onOpenFamilyModal={() => setIsFamilyModalOpen(true)}
             onOpenProfileModal={() => setIsUserModalOpen(true)}
             onRequestLogout={() => setShowLogoutConfirm(true)}
+          />
+        ) : (
+          <WebModuleSidebar
+            activeTab={activeTab}
+            isCategoryDetailOpen={categoryDetailState.isOpen}
+            onSelectTab={handleSelectTab}
+            openBillsCount={openBillsCount}
+            cardsPendingCount={creditCardInvoices.length}
+            incomesCount={filteredIncomes.length}
           />
         )}
 
@@ -892,43 +1098,14 @@ const Dashboard: React.FC = () => {
                     {isFamilyMode ? `· ${t('dashboard.familyPanelActive')}` : ''}
                   </p>
                   <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mt-0.5">
-                    {isFamilyMode ? t('dashboard.familyPanelActive') : t('dashboard.overviewTab')}
+                    {isFamilyMode
+                      ? t('dashboard.familyPanelActive')
+                      : t(`dashboard.navTabs.${activeTab}`)}
                   </h1>
                 </div>
 
                 {!isInstalledApp && (
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <div className="inline-flex items-center rounded-xl bg-white dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 shadow-sm">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('overview');
-                          setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                        }}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'overview' && !categoryDetailState.isOpen
-                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                      >
-                        {React.createElement(FaThLarge as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                        {t('dashboard.overviewTab')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('history');
-                          setCategoryDetailState((prev) => ({ ...prev, isOpen: false }));
-                        }}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === 'history' && !categoryDetailState.isOpen
-                          ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 shadow-sm'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                      >
-                        {React.createElement(FaHistory as unknown as React.ComponentType<{ className?: string }>, { className: 'text-[11px]' })}
-                        {t('dashboard.historyTab')}
-                      </button>
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => setIsFamilyModalOpen(true)}
@@ -1074,6 +1251,62 @@ const Dashboard: React.FC = () => {
               })
             }
           />
+        ) : activeTab === 'finances' ? (
+          <div
+            data-testid="finances-combined-section"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+          >
+            <div className="lg:col-span-8">
+              <ExpensesListSection {...sharedExpensesProps} />
+            </div>
+            <IncomesListSection {...sharedIncomesProps} />
+          </div>
+        ) : activeTab === 'incomes' ? (
+          <IncomesListSection {...sharedIncomesProps} />
+        ) : activeTab === 'expenses' ? (
+          <ExpensesListSection {...sharedExpensesProps} />
+        ) : activeTab === 'cards' ? (
+          <CreditCardInvoicePanel
+            invoices={creditCardInvoices}
+            activeInvoice={activeInvoice}
+            onSelectMonth={setSelectedInvoiceMonth}
+            onPayInvoice={setPayingInvoice}
+            expenses={filteredExpenses}
+            selectedMonth={selectedInvoiceMonth}
+            onPayExpense={setPayingExpense}
+            onEditExpense={(item) => {
+              setEditingItem({ ...item, type: 'expense' });
+              setIsExpenseModalOpen(true);
+            }}
+            onGenerateCardInvoice={handleGenerateCardInvoice}
+            onRefresh={fetchData}
+          />
+        ) : activeTab === 'food' ? (
+          <FoodVoucherSection
+            balance={balance}
+            expenses={expenses}
+            onRefresh={fetchData}
+            selectedMonth={selectedFoodMonth}
+            onSelectMonth={setSelectedFoodMonth}
+          />
+        ) : activeTab === 'investments' ? (
+          <InvestmentsListSection
+            items={filteredInvestmentItems}
+            isFamilyMode={isFamilyMode}
+            selectedMember={selectedMemberObj}
+            balance={balance}
+            onRefresh={fetchData}
+            onOpenEmergencyModal={() => handleOpenAllocation('emergency')}
+            onAddInvestment={() => {
+              setEditingInvestmentItem(null);
+              setIsInvestmentsModalOpen(true);
+            }}
+            onEditInvestment={(item) => {
+              setEditingInvestmentItem(item);
+              setIsInvestmentsModalOpen(true);
+            }}
+            onDeleteInvestment={(id) => setDeleteConfig({ id, type: 'investment' })}
+          />
         ) : (
           <>
             <KpiGrid
@@ -1106,75 +1339,121 @@ const Dashboard: React.FC = () => {
               }
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              <div className="lg:col-span-8 space-y-6">
-                <CreditCardInvoicePanel
-                  invoices={creditCardInvoices}
-                  activeInvoice={activeInvoice}
-                  onSelectMonth={setSelectedInvoiceMonth}
-                  onPayInvoice={setPayingInvoice}
-                />
-
-                <ExpensesListSection
-                  expenses={filteredExpenses}
-                  expenseFilter={expenseFilter}
-                  isFamilyMode={isFamilyMode}
-                  openInstallments={openInstallments}
-                  onChangeFilter={setExpenseFilter}
-                  onToggleInstallment={(id) =>
-                    setOpenInstallments((prev) =>
-                      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-                    )
-                  }
-                  onPayExpense={setPayingExpense}
-                  onPayBatchExpenses={setPayingBatchExpenses}
-                  onUndoPayment={setUndoPayTarget}
-                  onGenerateCardInvoice={handleGenerateCardInvoice}
-                  onEditExpense={(item) => {
-                    setEditingItem({ ...item, type: 'expense' });
-                    setIsExpenseModalOpen(true);
-                  }}
-                  onDeleteExpense={(id) => setDeleteConfig({ id, type: 'expense' })}
-                />
+            {/* Session Quick-Access Hub */}
+            <section
+              data-testid="overview-session-hub"
+              className="exec-card p-6 space-y-4"
+            >
+              <div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  {t('dashboard.overviewHub.quickAccessTitle')}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t('dashboard.overviewHub.quickAccessSubtitle')}
+                </p>
               </div>
-
-              <IncomesListSection
-                incomes={filteredIncomes}
-                isFamilyMode={isFamilyMode}
-                onAddIncome={() => {
-                  setEditingItem(null);
-                  setIsIncomeModalOpen(true);
-                }}
-                onEditIncome={(item) => {
-                  setEditingItem({ ...item, type: 'income' });
-                  setIsIncomeModalOpen(true);
-                }}
-                onDeleteIncome={(id) => setDeleteConfig({ id, type: 'income' })}
-              />
-            </div>
-
-            <InvestmentsListSection
-              items={filteredInvestmentItems}
-              isFamilyMode={isFamilyMode}
-              selectedMember={selectedMemberObj}
-              onAddInvestment={() => {
-                setEditingInvestmentItem(null);
-                setIsInvestmentsModalOpen(true);
-              }}
-              onEditInvestment={(item) => {
-                setEditingInvestmentItem(item);
-                setIsInvestmentsModalOpen(true);
-              }}
-              onDeleteInvestment={(id) => setDeleteConfig({ id, type: 'investment' })}
-            />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(
+                  [
+                    {
+                      id: 'finances' as ActiveTab,
+                      title: t('dashboard.navTabs.finances'),
+                      metric: `${t('dashboard.cardInvoices.summaryPendingCount', {
+                        count: openBillsCount,
+                      })} · ${t('incomes.subtitleCount', { count: filteredIncomes.length })}`,
+                      icon: FaLayerGroup,
+                      tone: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40',
+                    },
+                    {
+                      id: 'cards' as ActiveTab,
+                      title: t('dashboard.navTabs.cards'),
+                      metric: formatCurrency(openCreditCardsTotal),
+                      icon: FaCreditCard,
+                      tone: 'text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800',
+                    },
+                    {
+                      id: 'incomes' as ActiveTab,
+                      title: t('dashboard.navTabs.incomes'),
+                      metric: t('incomes.subtitleCount', { count: filteredIncomes.length }),
+                      icon: FaWallet,
+                      tone: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40',
+                    },
+                    {
+                      id: 'food' as ActiveTab,
+                      title: t('dashboard.navTabs.food'),
+                      metric: formatCurrency(balance.foodAllowance || 0),
+                      icon: FaUtensils,
+                      tone: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40',
+                    },
+                    {
+                      id: 'investments' as ActiveTab,
+                      title: t('dashboard.navTabs.investments'),
+                      metric: formatCurrency(
+                        (balance.investments || 0) + (balance.emergencyFund || 0),
+                      ),
+                      icon: FaSeedling,
+                      tone: 'text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40',
+                    },
+                    {
+                      id: 'history' as ActiveTab,
+                      title: t('dashboard.navTabs.history'),
+                      metric: formatMonthLabel(selectedHistoryMonth),
+                      icon: FaHistory,
+                      tone: 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40',
+                    },
+                  ]
+                ).map((card) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    data-testid={`hub-card-${card.id}`}
+                    onClick={() => handleSelectTab(card.id)}
+                    className="group rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 hover:border-emerald-400 dark:hover:border-emerald-500 p-4 text-left transition-all flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${card.tone}`}
+                      >
+                        {React.createElement(
+                          card.icon as unknown as React.ComponentType<{ className?: string }>,
+                          { className: 'text-sm' },
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                          {card.title}
+                        </p>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums truncate">
+                          {card.metric}
+                        </p>
+                      </div>
+                    </div>
+                    {React.createElement(
+                      FaChevronRight as unknown as React.ComponentType<{ className?: string }>,
+                      { className: 'text-xs text-slate-400 group-hover:text-emerald-600 transition-colors flex-shrink-0' },
+                    )}
+                  </button>
+                ))}
+              </div>
+            </section>
           </>
         )}
       </main>
 
-      <footer className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 py-5 px-4 text-center mt-auto transition-colors duration-300">
-        <p className="text-xs text-slate-400">
-          {t('dashboard.footerText')} &copy; {new Date().getFullYear()}
-        </p>
+      <footer
+        data-testid="dashboard-footer"
+        className="border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 py-5 px-4 mt-auto transition-colors duration-300"
+      >
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
+          <img
+            src="/wss-prime-logo.png"
+            alt="WSS Prime"
+            className="h-9 w-auto rounded-lg shadow-sm border border-slate-200/80 dark:border-slate-700 object-contain"
+          />
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t('dashboard.footerText')} &copy; {new Date().getFullYear()}
+          </p>
+        </div>
       </footer>
         </div>
       </div>
@@ -1195,9 +1474,11 @@ const Dashboard: React.FC = () => {
         onClose={() => {
           setIsIncomeModalOpen(false);
           setEditingItem(null);
+          setEditingIncomeMonth(null);
         }}
         onSuccess={fetchData}
         initialData={editingItem?.type === 'income' ? editingItem : null}
+        targetMonth={editingIncomeMonth}
       />
 
       <PayExpenseModal
@@ -1248,8 +1529,142 @@ const Dashboard: React.FC = () => {
         }}
       />
 
+      {deleteConfig &&
+        (deleteConfig.isRecurring ||
+          (deleteConfig.type === 'expense' && deleteConfig.isInstallment)) && (
+          <div className="exec-modal-overlay z-50">
+            <div className="exec-modal-container max-w-md p-6 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                    {t('dashboard.scopeEdit.deleteTitle')}
+                  </h3>
+                  {deleteConfig.name && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {deleteConfig.name}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfig(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  {React.createElement(
+                    FaTimes as unknown as React.ComponentType<{ className?: string }>,
+                    { className: 'text-sm' },
+                  )}
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {deleteConfig.isRecurring ? (
+                  (
+                    [
+                      {
+                        id: 'only_month' as const,
+                        label: t('dashboard.scopeEdit.onlyMonth', {
+                          month: formatMonthLabel(deleteConfig.targetMonth || currentMonthKey),
+                        }),
+                        desc: t('dashboard.scopeEdit.onlyMonthDesc'),
+                      },
+                      {
+                        id: 'from_month' as const,
+                        label: t('dashboard.scopeEdit.fromMonth', {
+                          month: formatMonthLabel(deleteConfig.targetMonth || currentMonthKey),
+                        }),
+                        desc: t('dashboard.scopeEdit.fromMonthDesc', {
+                          month: formatMonthLabel(deleteConfig.targetMonth || currentMonthKey),
+                        }),
+                      },
+                      {
+                        id: 'all' as const,
+                        label: t('dashboard.scopeEdit.all'),
+                        desc: t('dashboard.scopeEdit.allDesc'),
+                      },
+                    ]
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        setDeleteConfig((prev) => (prev ? { ...prev, scope: opt.id } : null))
+                      }
+                      className={`w-full p-3 rounded-xl border text-left transition-all ${
+                        (deleteConfig.scope || 'only_month') === opt.id
+                          ? 'border-rose-600 bg-rose-50/70 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">{opt.label}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {opt.desc}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  (
+                    [
+                      {
+                        id: undefined,
+                        label: t('dashboard.scopeEdit.singleInstallment'),
+                        desc: t('dashboard.scopeEdit.singleInstallmentDesc'),
+                      },
+                      {
+                        id: 'all_installments' as const,
+                        label: t('dashboard.scopeEdit.allInstallments'),
+                        desc: t('dashboard.scopeEdit.allInstallmentsDesc'),
+                      },
+                    ]
+                  ).map((opt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() =>
+                        setDeleteConfig((prev) => (prev ? { ...prev, scope: opt.id } : null))
+                      }
+                      className={`w-full p-3 rounded-xl border text-left transition-all ${
+                        deleteConfig.scope === opt.id
+                          ? 'border-rose-600 bg-rose-50/70 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">{opt.label}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {opt.desc}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfig(null)}
+                  className="exec-btn-secondary px-4 py-2 text-xs"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleteLoading}
+                  onClick={handleDelete}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold disabled:opacity-50"
+                >
+                  {t('dashboard.scopeEdit.confirmDelete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       <ConfirmationModal
-        isOpen={!!deleteConfig}
+        isOpen={
+          !!deleteConfig &&
+          !deleteConfig.isRecurring &&
+          !(deleteConfig.type === 'expense' && deleteConfig.isInstallment)
+        }
         onClose={() => setDeleteConfig(null)}
         onConfirm={handleDelete}
         title={
@@ -1301,6 +1716,7 @@ const Dashboard: React.FC = () => {
               const res = await api.get('/users/me');
               updateUser(res.data);
               fetchFamilyStatus();
+              syncDeviceSecurityState().catch(() => undefined);
             } catch (error: unknown) {
               toast.error(extractApiErrorMessage(error, t('dashboard.sessionExpired')));
               logout();
@@ -1343,6 +1759,23 @@ const Dashboard: React.FC = () => {
           setEditingInvestmentItem(null);
         }}
         onRefresh={fetchData}
+      />
+      </div>
+
+      <AppLockOverlay
+        isLocked={isAppLocked}
+        hasPinConfigured={hasSecurityPin}
+        authProvider={accountAuthProvider}
+        userName={user?.name}
+        onUnlocked={() => {
+          setIsAppLocked(false);
+          syncDeviceSecurityState().catch(() => undefined);
+          fetchData();
+        }}
+        onLogout={() => {
+          setIsAppLocked(false);
+          logout();
+        }}
       />
     </div>
   );

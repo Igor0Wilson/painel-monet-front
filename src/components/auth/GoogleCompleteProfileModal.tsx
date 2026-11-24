@@ -15,6 +15,7 @@ import { useAuth, type User } from '../../context/AuthContext';
 import { extractApiErrorMessage, getApiErrorCode } from '../../utils/errorHandler';
 import { formatCpfInput, formatPhoneInput, onlyDigits } from '../../utils/formatters';
 import { createPreviewDataUrl, prepareImageForUpload } from '../../utils/imageUpload';
+import { saveAuthProviderHint } from '../../utils/securityLockAuth';
 
 export interface GooglePendingProfile {
   completionToken: string;
@@ -131,6 +132,7 @@ const GoogleCompleteProfileModal: React.FC<GoogleCompleteProfileModalProps> = ({
         }
       }
 
+      saveAuthProviderHint('google');
       login(access_token, finalUser);
       toast.success(t('auth.googleComplete.successToast'));
       onClose();

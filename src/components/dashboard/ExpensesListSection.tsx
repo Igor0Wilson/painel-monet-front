@@ -14,6 +14,7 @@ import {
   FaEyeSlash,
   FaFileInvoiceDollar,
   FaImage,
+  FaLayerGroup,
   FaSyncAlt,
   FaTimes,
   FaTrash,
@@ -27,15 +28,21 @@ import { ExpenseFilter, ExpenseItem } from '../../types/finance';
 import {
   getCategoryMeta,
   getEffectiveExpenseAmount,
+  normalizeCategoryName,
+  OFFICIAL_CATEGORIES,
+  type OfficialCategoryName,
   translateCategoryName,
 } from '../../utils/categories';
 import {
   formatDateBr,
   formatExpenseDisplayName,
   formatMonthLabel,
+  formatShortDate,
   getCurrentMonthKey,
   maskPixKey,
+  shiftMonthKey,
 } from '../../utils/formatters';
+import { projectExpensesForMonth } from '../../utils/recurrence';
 import StatusBadge from './StatusBadge';
 
 interface Props {
@@ -51,6 +58,8 @@ interface Props {
   onGenerateCardInvoice?: (expenses: ExpenseItem[]) => void;
   onEditExpense: (expense: ExpenseItem) => void;
   onDeleteExpense: (id: string) => void;
+  onDeleteExpenseWithItem?: (expense: ExpenseItem) => void;
+  onOpenCardsSection?: () => void;
 }
 
 const FILTER_TAB_KEYS: {
@@ -100,6 +109,8 @@ const ExpensesListSection: React.FC<Props> = ({
   onGenerateCardInvoice,
   onEditExpense,
   onDeleteExpense,
+  onDeleteExpenseWithItem,
+  onOpenCardsSection,
 }) => {
   const { t } = useTranslation();
   const { formatProtectedCurrency } = usePrivacyMode();
@@ -109,6 +120,8 @@ const ExpensesListSection: React.FC<Props> = ({
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedCardKey, setSelectedCardKey] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<OfficialCategoryName | 'all'>('all');
+  const [groupByCategory, setGroupByCategory] = useState<boolean>(false);
   const [revealedPixIds, setRevealedPixIds] = useState<Record<string, boolean>>({});
   const [previewReceipt, setPreviewReceipt] = useState<{
     url: string;
@@ -172,7 +185,8 @@ const ExpensesListSection: React.FC<Props> = ({
   }, [cardGroups, selectedCardKey]);
 
   const availableMonths = useMemo(() => {
-    const set = new Set<string>([getCurrentMonthKey()]);
+    const cur = getCurrentMonthKey();
+    const set = new Set<string>([cur, shiftMonthKey(cur, 1)]);
     expenses.forEach((exp) => {
       if (exp.dueDate) {
         set.add(String(exp.dueDate).slice(0, 7));
@@ -181,24 +195,66 @@ const ExpensesListSection: React.FC<Props> = ({
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [expenses]);
 
-  const periodFilteredExpenses = useMemo(() => {
-    const byPeriod =
-      periodMode === 'all'
-        ? expenses
-        : expenses.filter((exp) => {
-          const cleanDate = String(exp.dueDate || '').split('T')[0];
-          if (!cleanDate) return false;
-          if (periodMode === 'month') {
-            return cleanDate.startsWith(selectedPeriodMonth);
-          }
-          if (customStartDate && cleanDate < customStartDate) return false;
-          if (customEndDate && cleanDate > customEndDate) return false;
-          return true;
-        });
+  const baseFilteredExpenses = useMemo(() => {
+    let byPeriod: ExpenseItem[];
+    if (periodMode === 'all') {
+      byPeriod = expenses;
+    } else if (periodMode === 'month') {
+      byPeriod = projectExpensesForMonth(expenses, selectedPeriodMonth);
+    } else {
+      byPeriod = expenses.filter((exp) => {
+        const cleanDate = String(exp.dueDate || '').split('T')[0];
+        if (!cleanDate) return false;
+        if (customStartDate && cleanDate < customStartDate) return false;
+        if (customEndDate && cleanDate > customEndDate) return false;
+        return true;
+      });
+    }
 
     if (!selectedCardKey) return byPeriod;
     return byPeriod.filter((exp) => getExpenseCardKey(exp) === selectedCardKey);
   }, [expenses, periodMode, selectedPeriodMonth, customStartDate, customEndDate, selectedCardKey]);
+
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<OfficialCategoryName, number>();
+    baseFilteredExpenses.forEach((exp) => {
+      const cat = normalizeCategoryName(exp.accountType?.name);
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return OFFICIAL_CATEGORIES.map((name) => ({
+      name,
+      count: counts.get(name) || 0,
+    })).filter((c) => c.count > 0 || c.name === selectedCategory);
+  }, [baseFilteredExpenses, selectedCategory]);
+
+  const periodFilteredExpenses = useMemo(() => {
+    if (selectedCategory === 'all') return baseFilteredExpenses;
+    return baseFilteredExpenses.filter(
+      (exp) => normalizeCategoryName(exp.accountType?.name) === selectedCategory,
+    );
+  }, [baseFilteredExpenses, selectedCategory]);
+
+  const categorySections = useMemo(() => {
+    if (!groupByCategory) return [];
+    const grouped = new Map<OfficialCategoryName, ExpenseItem[]>();
+    periodFilteredExpenses.forEach((exp) => {
+      const cat = normalizeCategoryName(exp.accountType?.name);
+      if (!grouped.has(cat)) grouped.set(cat, []);
+      grouped.get(cat)!.push(exp);
+    });
+    return OFFICIAL_CATEGORIES.filter((cat) => grouped.has(cat)).map((cat) => {
+      const items = grouped.get(cat)!;
+      const subtotal = Number(
+        items.reduce((s, e) => s + getEffectiveExpenseAmount(e), 0).toFixed(2),
+      );
+      return {
+        category: cat,
+        meta: getCategoryMeta(cat),
+        items,
+        subtotal,
+      };
+    });
+  }, [groupByCategory, periodFilteredExpenses]);
 
   const periodTotalSum = useMemo(
     () =>
@@ -388,6 +444,93 @@ const ExpensesListSection: React.FC<Props> = ({
             )}
           </div>
         </div>
+
+        {/* Filtro por Categoria & Separação por Sessão */}
+        <div
+          data-testid="expense-category-filter-bar"
+          className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-200/70 dark:border-slate-700/70"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              {t('dashboard.expensesSection.categoryFilterLabel')}
+            </span>
+            <select
+              aria-label={t('dashboard.expensesSection.categoryFilterLabel')}
+              data-testid="expense-category-filter-select"
+              value={selectedCategory}
+              onChange={(e) =>
+                setSelectedCategory(
+                  (e.target.value as OfficialCategoryName | 'all') || 'all',
+                )
+              }
+              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-100"
+            >
+              <option value="all">
+                {t('dashboard.expensesSection.categoryFilterAll')}
+              </option>
+              {categoryCounts.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {translateCategoryName(c.name)} ({c.count})
+                </option>
+              ))}
+            </select>
+
+            <div className="hidden md:flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                  selectedCategory === 'all'
+                    ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                }`}
+              >
+                {t('dashboard.expensesSection.categoryFilterAll')}
+              </button>
+              {categoryCounts.map((c) => {
+                const isSelected = selectedCategory === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    data-testid={`category-chip-${c.name}`}
+                    onClick={() =>
+                      setSelectedCategory((curr) => (curr === c.name ? 'all' : c.name))
+                    }
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                      isSelected
+                        ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                    }`}
+                  >
+                    {translateCategoryName(c.name)} ({c.count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            data-testid="expense-group-by-category-toggle"
+            onClick={() => setGroupByCategory((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+              groupByCategory
+                ? 'bg-slate-900 dark:bg-emerald-500 text-white dark:text-slate-950 border-slate-900 dark:border-emerald-500'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+            }`}
+          >
+            {React.createElement(
+              FaLayerGroup as unknown as React.ComponentType<{ className?: string }>,
+              { className: 'text-[10px]' },
+            )}
+            <span>
+              {groupByCategory
+                ? t('dashboard.expensesSection.chronologicalBtn')
+                : t('dashboard.expensesSection.groupByCategoryBtn')}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Calculadora & Pagamento em Lote */}
@@ -511,36 +654,85 @@ const ExpensesListSection: React.FC<Props> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 text-[11px]">
+                  <div className="space-y-2 text-[11px]">
                     {group.autoDebitItems.length > 0 && (
-                      <div className="text-sky-700 dark:text-sky-300">
-                        <span className="font-semibold">{t('expenses.cardGroupAutoDebit')}: </span>
-                        <span>
-                          {group.autoDebitItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(Number(i.value))})`)
-                            .join(', ')}
-                        </span>
+                      <div className="rounded-lg bg-sky-50/70 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/50 px-2.5 py-2 space-y-1">
+                        <div className="flex items-center justify-between gap-2 text-sky-800 dark:text-sky-200">
+                          <span className="font-semibold">{t('expenses.cardGroupAutoDebit')}:</span>
+                          <span className="font-bold tabular-nums">
+                            {formatProtectedCurrency(
+                              group.autoDebitItems.reduce((s, i) => s + Number(i.value || 0), 0),
+                            )}{' '}
+                            ({group.autoDebitItems.length})
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {group.autoDebitItems.slice(0, 2).map((i) => (
+                            <span
+                              key={i.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-sky-200/70 dark:border-sky-800/50"
+                            >
+                              {formatExpenseDisplayName(i.name, t)} · {formatProtectedCurrency(Number(i.value))}
+                            </span>
+                          ))}
+                          {group.autoDebitItems.length > 2 && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+                              +{group.autoDebitItems.length - 2}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                     {group.pendingItems.length > 0 && (
-                      <div className="text-amber-700 dark:text-amber-300">
-                        <span className="font-semibold">{t('expenses.cardGroupPending')}: </span>
-                        <span>
-                          {group.pendingItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(getRemainingAmount(i) || Number(i.value))})`)
-                            .join(', ')}
-                        </span>
+                      <div className="rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 px-2.5 py-2 space-y-1">
+                        <div className="flex items-center justify-between gap-2 text-amber-800 dark:text-amber-200">
+                          <span className="font-semibold">{t('expenses.cardGroupPending')}:</span>
+                          <span className="font-bold tabular-nums">
+                            {formatProtectedCurrency(
+                              group.pendingItems.reduce(
+                                (s, i) => s + (getRemainingAmount(i) || Number(i.value || 0)),
+                                0,
+                              ),
+                            )}{' '}
+                            ({group.pendingItems.length})
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {group.pendingItems.slice(0, 2).map((i) => (
+                            <span
+                              key={i.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-amber-200/70 dark:border-amber-800/50"
+                            >
+                              {formatExpenseDisplayName(i.name, t)} · {formatShortDate(i.dueDate)}
+                            </span>
+                          ))}
+                          {group.pendingItems.length > 2 && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                              +{group.pendingItems.length - 2}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                     {group.paidWithCardItems.length > 0 && (
-                      <div className="text-emerald-700 dark:text-emerald-300">
-                        <span className="font-semibold">{t('expenses.cardGroupPaidWithCard')}: </span>
-                        <span>
-                          {group.paidWithCardItems
-                            .map((i) => `${formatExpenseDisplayName(i.name, t)} (${formatProtectedCurrency(Number(i.value))})`)
-                            .join(', ')}
+                      <div className="rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-2.5 py-1.5 flex items-center justify-between gap-2 text-emerald-800 dark:text-emerald-200">
+                        <span className="font-semibold">{t('expenses.cardGroupPaidWithCard')}:</span>
+                        <span className="font-bold tabular-nums">
+                          {formatProtectedCurrency(
+                            group.paidWithCardItems.reduce((s, i) => s + Number(i.value || 0), 0),
+                          )}{' '}
+                          ({group.paidWithCardItems.length})
                         </span>
                       </div>
+                    )}
+                    {onOpenCardsSection && (
+                      <button
+                        type="button"
+                        onClick={onOpenCardsSection}
+                        className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline pt-0.5"
+                      >
+                        {t('dashboard.cardInvoices.viewInCardsBtn')}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -550,47 +742,35 @@ const ExpensesListSection: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="divide-y divide-slate-100 dark:divide-slate-800">
-        {periodFilteredExpenses.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              {t('expenses.emptyTitle')}
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {expenseFilter === 'todas' && periodMode === 'all'
-                ? t('expenses.emptyAllHint')
-                : t('expenses.emptyFilterHint')}
-            </p>
-          </div>
-        ) : (
-          periodFilteredExpenses.map((expense) => {
-            if (
-              expenseFilter === 'todas' &&
-              expense.isInstallment &&
-              expense.parentExpenseId &&
-              periodFilteredExpenses.some((e) => e.id === expense.parentExpenseId)
-            ) {
-              return null;
-            }
+      {(() => {
+        const renderExpenseRow = (expense: ExpenseItem) => {
+          if (
+            expenseFilter === 'todas' &&
+            expense.isInstallment &&
+            expense.parentExpenseId &&
+            periodFilteredExpenses.some((e) => e.id === expense.parentExpenseId)
+          ) {
+            return null;
+          }
 
-            const isGroupHeader =
-              expenseFilter === 'todas' && expense.isInstallment && !expense.parentExpenseId;
-            const childInstallments = isGroupHeader
-              ? periodFilteredExpenses.filter((e) => e.parentExpenseId === expense.id)
-              : [];
-            const isAccordionOpen = openInstallments.includes(expense.id);
-            const canModify = expense.isOwn !== false;
-            const canSelect = !expense.isPaid && canModify;
-            const isChecked = selectedIdSet.has(expense.id);
+          const isGroupHeader =
+            expenseFilter === 'todas' && expense.isInstallment && !expense.parentExpenseId;
+          const childInstallments = isGroupHeader
+            ? periodFilteredExpenses.filter((e) => e.parentExpenseId === expense.id)
+            : [];
+          const isAccordionOpen = openInstallments.includes(expense.id);
+          const canModify = expense.isOwn !== false;
+          const canSelect = !expense.isPaid && canModify;
+          const isChecked = selectedIdSet.has(expense.id);
 
-            return (
-              <div
-                key={expense.id}
-                className={`transition-colors ${isChecked
-                  ? 'bg-emerald-50/50 dark:bg-emerald-950/25'
-                  : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/50'
-                  }`}
-              >
+          return (
+            <div
+              key={expense.id}
+              className={`transition-colors ${isChecked
+                ? 'bg-emerald-50/50 dark:bg-emerald-950/25'
+                : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/50'
+                }`}
+            >
                 <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     {canSelect && (
@@ -909,7 +1089,11 @@ const ExpensesListSection: React.FC<Props> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onDeleteExpense(expense.id)}
+                          onClick={() =>
+                            onDeleteExpenseWithItem
+                              ? onDeleteExpenseWithItem(expense)
+                              : onDeleteExpense(expense.id)
+                          }
                           className="p-2 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                           title={t('common.delete')}
                         >
@@ -1039,7 +1223,11 @@ const ExpensesListSection: React.FC<Props> = ({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteExpense(child.id)}
+                                  onClick={() =>
+                                    onDeleteExpenseWithItem
+                                      ? onDeleteExpenseWithItem(child)
+                                      : onDeleteExpense(child.id)
+                                  }
                                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                                   title={t('common.delete')}
                                 >
@@ -1055,9 +1243,65 @@ const ExpensesListSection: React.FC<Props> = ({
                 )}
               </div>
             );
-          })
-        )}
-      </div>
+          };
+
+        if (periodFilteredExpenses.length === 0) {
+          return (
+            <div className="p-12 text-center">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {t('expenses.emptyTitle')}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                {expenseFilter === 'todas' && periodMode === 'all' && selectedCategory === 'all'
+                  ? t('expenses.emptyAllHint')
+                  : t('expenses.emptyFilterHint')}
+              </p>
+            </div>
+          );
+        }
+
+        if (groupByCategory) {
+          return (
+            <div className="divide-y-4 divide-slate-100 dark:divide-slate-800/80">
+              {categorySections.map((section) => (
+                <div
+                  key={section.category}
+                  data-testid={`expense-category-section-${section.category}`}
+                >
+                  <div className="px-6 py-3 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${section.meta.bgClass} ${section.meta.textClass} ${section.meta.borderClass}`}
+                      >
+                        {React.createElement(
+                          section.meta.icon as unknown as React.ComponentType<{ className?: string }>,
+                          { className: 'text-[10px]' },
+                        )}
+                        {translateCategoryName(section.category)}
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
+                      {t('dashboard.expensesSection.categorySessionTotal', {
+                        count: section.items.length,
+                        total: formatProtectedCurrency(section.subtotal),
+                      })}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {section.items.map(renderExpenseRow)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {periodFilteredExpenses.map(renderExpenseRow)}
+          </div>
+        );
+      })()}
 
       {previewReceipt && (
         <div
